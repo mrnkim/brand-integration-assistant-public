@@ -1,14 +1,20 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { Tag } from '@/types';
+import Video from './Video';
 
 type ContentItemProps = {
-  thumbnailUrl: string;
-  title: string;
   videoUrl: string;
   tags: Tag[];
+  videoId: string;
+  indexId: string;
+  // 호환성을 위해 남겨두지만 내부에서는 사용하지 않음
+  thumbnailUrl?: string;
+  title?: string;
 };
 
-const ContentItem: FC<ContentItemProps> = ({ thumbnailUrl, title, videoUrl, tags }) => {
+const ContentItem: FC<ContentItemProps> = ({ videoUrl, tags, videoId, indexId }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+
   // Group tags by category
   const tagsByCategory = tags.reduce((acc, tag) => {
     if (!acc[tag.category]) {
@@ -30,60 +36,65 @@ const ContentItem: FC<ContentItemProps> = ({ thumbnailUrl, title, videoUrl, tags
     )) || null;
   };
 
+  // 카테고리가 없을 경우 표시할 placeholder
+  const renderPlaceholder = () => (
+    <span className="text-xs text-gray-400">-</span>
+  );
+
+  const handlePlay = () => {
+    setIsPlaying(true);
+  };
+
   return (
     <div className="flex items-center border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors">
       {/* Video */}
       <div style={{ width: '250px' }} className="flex-shrink-0 pr-4">
-        <div className="flex flex-col">
-          <div className="relative w-full h-24 rounded-md overflow-hidden mb-2">
-            <img
-              src={thumbnailUrl}
-              alt={title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="text-sm font-medium truncate">{title}</div>
-        </div>
+        <Video
+          videoId={videoId}
+          indexId={indexId}
+          playing={isPlaying}
+          onPlay={handlePlay}
+        />
       </div>
 
       {/* Source */}
       <div style={{ width: '180px' }} className="flex-shrink-0 pr-4">
-        <div className="text-xs text-gray-500 truncate">{videoUrl}</div>
+        <div className="text-xs text-gray-500 truncate">{videoUrl || '-'}</div>
       </div>
 
       {/* Topics */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {renderTags('Topics')}
+        {renderTags('Topics') || renderPlaceholder()}
       </div>
 
       {/* Emotions */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {renderTags('Emotions')}
+        {renderTags('Emotions') || renderPlaceholder()}
       </div>
 
       {/* Brands */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {renderTags('Brands')}
+        {renderTags('Brands') || renderPlaceholder()}
       </div>
 
       {/* Demographics */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {renderTags('Demographics')}
+        {renderTags('Demographics') || renderPlaceholder()}
       </div>
 
       {/* Location */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {renderTags('Location')}
+        {renderTags('Location') || renderPlaceholder()}
       </div>
 
       {/* Architecture */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {renderTags('Architecture')}
+        {renderTags('Architecture') || renderPlaceholder()}
       </div>
 
       {/* History */}
       <div style={{ width: '140px' }} className="flex-shrink-0 flex flex-wrap gap-1">
-        {renderTags('History')}
+        {renderTags('History') || renderPlaceholder()}
       </div>
     </div>
   );

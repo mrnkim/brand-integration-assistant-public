@@ -1,62 +1,20 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import SearchBar from '@/components/SearchBar';
 import ActionButtons from '@/components/ActionButtons';
 import FilterTabs from '@/components/FilterTabs';
 import ContentItem from '@/components/ContentItem';
-import { ContentItem as ContentItemType } from '@/types';
+import { ContentItem as ContentItemType, VideoData, Tag } from '@/types';
+import { fetchVideos } from '@/hooks/apiHooks';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
-// Mock data for content items
-const MOCK_CONTENT_ITEMS: ContentItemType[] = [
-  {
-    id: '1',
-    thumbnailUrl: 'https://placehold.co/600x400',
-    title: 'Video title',
-    videoUrl: 'https://www.youtube.com/watch?v=example1',
-    tags: [
-      { category: 'Architecture', value: 'Architecture' },
-      { category: 'Emotions', value: 'Serious' },
-      { category: 'Brands', value: 'Skanska' },
-      { category: 'Location', value: 'New York' },
-      { category: 'History', value: 'History' },
-      { category: 'Topics', value: 'Construction' },
-      { category: 'Demographics', value: 'Professionals' },
-    ]
-  },
-  {
-    id: '2',
-    thumbnailUrl: 'https://placehold.co/600x400',
-    title: 'Video title',
-    videoUrl: 'https://www.youtube.com/watch?v=example2',
-    tags: [
-      { category: 'Architecture', value: 'Architecture' },
-      { category: 'Emotions', value: 'Serious' },
-      { category: 'Brands', value: 'Skanska' },
-      { category: 'Location', value: 'New York' },
-      { category: 'History', value: 'History' },
-      { category: 'Topics', value: 'Urban Planning' },
-      { category: 'Demographics', value: 'Architects' },
-    ]
-  },
-  {
-    id: '3',
-    thumbnailUrl: 'https://placehold.co/600x400',
-    title: 'Video title',
-    videoUrl: 'https://www.youtube.com/watch?v=example3',
-    tags: [
-      { category: 'Architecture', value: 'Architecture' },
-      { category: 'Emotions', value: 'Serious' },
-      { category: 'Brands', value: 'Skanska' },
-      { category: 'Location', value: 'New York' },
-      { category: 'History', value: 'History' },
-      { category: 'Topics', value: 'Real Estate' },
-      { category: 'Demographics', value: 'Investors' },
-    ]
-  }
-];
+// Content Index ID from .env
+const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || 'default-content-index';
 
+// 컬럼 정의
 const COLUMNS = [
   { id: 'video', label: 'Video', width: '250px' },
   { id: 'source', label: 'Source', width: '180px' },
@@ -72,6 +30,79 @@ const COLUMNS = [
 export default function ContentLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('Video');
+//   const [processingVideos, setProcessingVideos] = useState(false);
+  const [contentItems, setContentItems] = useState<ContentItemType[]>([]);
+
+  // API로부터 비디오 목록 가져오기
+  const {
+    data: videosData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error
+  } = useInfiniteQuery({
+    queryKey: ['videos', contentIndexId],
+    queryFn: ({ pageParam }) => fetchVideos(pageParam, contentIndexId),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page_info.page < lastPage.page_info.total_page) {
+        return lastPage.page_info.page + 1;
+      }
+      return undefined;
+    },
+    enabled: !!contentIndexId,
+  });
+
+  // API 응답 데이터를 ContentItemType으로 변환하는 함수
+  const convertToContentItem = (video: VideoData): ContentItemType => {
+    // 기본 빈 태그 배열 사용 (실제 태그가 있을 때까지)
+    const tags: Tag[] = [];
+
+    return {
+      id: video._id,
+      thumbnailUrl: video.hls?.thumbnail_urls?.[0] || 'https://placehold.co/600x400',
+      title: video.system_metadata?.video_title || video.system_metadata?.filename || 'Untitled Video',
+      videoUrl: video.hls?.video_url || '',
+      tags: tags,
+    };
+  };
+
+  // 비디오 임베딩 처리 함수
+//   const processVideos = async (videos: VideoData[]) => {
+//     if (!contentIndexId || videos.length === 0) return;
+
+//     setProcessingVideos(true);
+//     try {
+//       for (const video of videos) {
+//         const videoId = video._id;
+//         const vectorExists = await checkVectorExists(videoId);
+//         if (!vectorExists) {
+//           await getAndStoreEmbeddings(contentIndexId, videoId);
+//         }
+//       }
+//     } catch (error) {
+//       console.error("Error processing videos:", error);
+//     } finally {
+//       setProcessingVideos(false);
+//     }
+//   };
+
+  // 비디오 데이터가 변경될 때마다 ContentItems 배열 업데이트
+  useEffect(() => {
+    if (videosData) {
+      const items = videosData.pages.flatMap(page =>
+        page.data.map(video => convertToContentItem(video))
+      );
+      setContentItems(items);
+
+      // 임베딩 처리
+    //   if (videosData.pages[0].data.length > 0) {
+    //     processVideos(videosData.pages[0].data);
+    //   }
+    }
+  }, [videosData]);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -79,10 +110,19 @@ export default function ContentLibrary() {
 
   const handleUpload = () => {
     console.log('Upload clicked');
+    // 업로드 기능 구현
   };
 
   const handleFilter = () => {
     console.log('Filter clicked');
+    // 필터 기능 구현
+  };
+
+  // 더 많은 데이터 불러오기
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
   };
 
   return (
@@ -108,7 +148,10 @@ export default function ContentLibrary() {
               onFilter={handleFilter}
             />
             <div className="text-sm text-gray-500">
-              {MOCK_CONTENT_ITEMS.length} results
+              {contentItems.length} results
+              {/* {processingVideos && (
+                <span className="ml-2 text-blue-500">Processing videos...</span>
+              )} */}
             </div>
           </div>
 
@@ -136,17 +179,46 @@ export default function ContentLibrary() {
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-auto">
-            <div className="min-w-max">
-              {MOCK_CONTENT_ITEMS.map(item => (
-                <ContentItem
-                  key={item.id}
-                  thumbnailUrl={item.thumbnailUrl}
-                  title={item.title}
-                  videoUrl={item.videoUrl}
-                  tags={item.tags}
-                />
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-40">
+                <LoadingSpinner />
+              </div>
+            ) : isError ? (
+              <div className="flex justify-center items-center h-40 text-red-500">
+                Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
+              </div>
+            ) : contentItems.length === 0 ? (
+              <div className="flex justify-center items-center h-40 text-gray-500">
+                No videos available
+              </div>
+            ) : (
+              <div className="min-w-max">
+                {contentItems.map(item => (
+                  <ContentItem
+                    key={item.id}
+                    videoId={item.id}
+                    indexId={contentIndexId}
+                    thumbnailUrl={item.thumbnailUrl}
+                    title={item.title}
+                    videoUrl={item.videoUrl}
+                    tags={item.tags}
+                  />
+                ))}
+
+                {/* Load more button */}
+                {hasNextPage && (
+                  <div className="flex justify-center py-4">
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={isFetchingNextPage}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
