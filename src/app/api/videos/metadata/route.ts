@@ -13,6 +13,7 @@ interface MetadataUpdateRequest {
     emotions?: string;
     brands?: string;
     locations?: string;
+    demographics?: string;
   }
 }
 
@@ -51,7 +52,8 @@ export async function PUT(request: NextRequest) {
         sector: metadata.sector || '',
         emotions: metadata.emotions || '',
         brands: metadata.brands || '',
-        locations: metadata.locations || ''
+        locations: metadata.locations || '',
+        demographics: metadata.demographics || ''
       }
     };
 

@@ -127,7 +127,8 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     sector: '',
     emotions: '',
     brands: '',
-    locations: ''
+    locations: '',
+    demographics: ''
   };
 
   // 각 해시태그에서 카테고리 추출 시도
@@ -158,9 +159,9 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
   for (const tag of hashtags) {
     const cleanTag = tag.slice(1).toLowerCase(); // # 제거 및 소문자 변환
 
-    // 인구통계 확인 - 인구통계는 source에 넣지 않음 (사용자가 수동으로 입력)
+    // 인구통계 확인 - 인구통계는 demographics 필드에 저장
     if (demographicsKeywords.includes(cleanTag)) {
-      // source는 비워둠 - 사용자가 수동으로 입력할 예정
+      metadata.demographics = cleanTag;
       continue;
     }
 
@@ -273,9 +274,14 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
 
   const tags: { category: string; value: string }[] = [];
 
-  // Source/Demographics
+  // Source
   if (metadata.source && typeof metadata.source === 'string') {
-    tags.push({ category: 'Demographics', value: metadata.source });
+    tags.push({ category: 'Source', value: metadata.source });
+  }
+
+  // Demographics - 새로운 필드로 처리
+  if (metadata.demographics && typeof metadata.demographics === 'string') {
+    tags.push({ category: 'Demographics', value: metadata.demographics });
   }
 
   // Sector
