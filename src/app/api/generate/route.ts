@@ -66,7 +66,11 @@ Mentioned Brands: any mentioned brands in the input`
     // 개발/테스트 환경에서는 API 호출 없이 샘플 응답을 반환
     if (!API_KEY || !TWELVELABS_API_BASE_URL) {
       console.error('Missing API key or base URL in environment variables');
-      return NextResponse.json({ text: "Sample generated text for development" });
+      return NextResponse.json({
+        id: 'sample-id',
+        data: "#male #fashion #exciting #newyork #adidas",
+        usage: { output_tokens: 20 }
+      });
     }
 
     const url = `${TWELVELABS_API_BASE_URL}/generate`;
@@ -85,6 +89,7 @@ Mentioned Brands: any mentioned brands in the input`
 
     try {
       const response = await fetch(url, options);
+      console.log("🚀 > GET > response=", response)
 
       if (!response.ok) {
         throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
@@ -97,8 +102,10 @@ Mentioned Brands: any mentioned brands in the input`
       }
 
       const data = JSON.parse(responseText);
+      console.log("🚀 > GET > data=", data)
 
-      return NextResponse.json(data.data, { status: 200 });
+      // Return the complete data object instead of just data.data
+      return NextResponse.json(data, { status: 200 });
     } catch (error) {
       console.error("Error in GET function:", error);
       return NextResponse.json(

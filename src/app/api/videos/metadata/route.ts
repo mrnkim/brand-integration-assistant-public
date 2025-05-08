@@ -3,16 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 const API_KEY = process.env.TWELVELABS_API_KEY;
 const TWELVELABS_API_BASE_URL = process.env.TWELVELABS_API_BASE_URL;
 
-// Define allowed option values
-const ALLOWED_DEMOGRAPHICS = ['Male', 'Female', '18-25', '25-34', '35-44', '45-54', '55+'];
-const ALLOWED_SECTORS = ['Beauty', 'Fashion', 'Tech', 'Travel', 'CPG', 'Food & Bev', 'Retail'];
-const ALLOWED_EMOTIONS = ['happy/positive', 'exciting', 'relaxing', 'inspiring', 'serious', 'festive', 'calm'];
-
-// Validate if a value is in the allowed list
-function isValidOption(value: string, allowedOptions: string[]): boolean {
-  return allowedOptions.includes(value);
-}
-
 // Type definition for metadata request
 interface MetadataUpdateRequest {
   videoId: string;
@@ -32,26 +22,14 @@ export async function PUT(request: NextRequest) {
     const body: MetadataUpdateRequest = await request.json();
     const { videoId, indexId, metadata } = body;
 
+    console.log('🚀 > PUT > Request body:', JSON.stringify(body));
+
     // Validate required parameters
     if (!videoId || !indexId) {
       return NextResponse.json(
         { error: 'Video ID and Index ID are required' },
         { status: 400 }
       );
-    }
-
-    // Validate sector if provided
-    if (metadata.sector && !isValidOption(metadata.sector, ALLOWED_SECTORS)) {
-      return NextResponse.json({
-        error: `Invalid sector. Allowed values: ${ALLOWED_SECTORS.join(', ')}`
-      }, { status: 400 });
-    }
-
-    // Validate emotions if provided
-    if (metadata.emotions && !isValidOption(metadata.emotions, ALLOWED_EMOTIONS)) {
-      return NextResponse.json({
-        error: `Invalid emotion. Allowed values: ${ALLOWED_EMOTIONS.join(', ')}`
-      }, { status: 400 });
     }
 
     // Development/test environment response
@@ -65,6 +43,19 @@ export async function PUT(request: NextRequest) {
 
     // Prepare API request
     const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
+    console.log('🚀 > PUT > URL:', url);
+
+    const requestBody = {
+      user_metadata: {
+        source: metadata.source || '',
+        sector: metadata.sector || '',
+        emotions: metadata.emotions || '',
+        brands: metadata.brands || '',
+        locations: metadata.locations || ''
+      }
+    };
+
+    console.log('🚀 > PUT > Request payload:', JSON.stringify(requestBody));
 
     const options = {
       method: 'PUT',
@@ -72,19 +63,12 @@ export async function PUT(request: NextRequest) {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY,
       },
-      body: JSON.stringify({
-        user_metadata: {
-          source: metadata.source,
-          sector: metadata.sector,
-          emotions: metadata.emotions,
-          brands: metadata.brands,
-          locations: metadata.locations
-        }
-      })
+      body: JSON.stringify(requestBody)
     };
 
     // Call Twelve Labs API
     const response = await fetch(url, options);
+    console.log("🚀 > PUT > response status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text();

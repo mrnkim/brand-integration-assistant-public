@@ -33,7 +33,7 @@ const FilterTabs: FC<FilterTabsProps> = ({
   const tabs = [
     'Video',
     'Source',
-    'Topics',
+    'Sector',
     'Emotions',
     'Brands',
     'Demographics',

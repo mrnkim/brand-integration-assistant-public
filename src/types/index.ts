@@ -11,6 +11,13 @@ export type ContentItem = {
   title: string;
   videoUrl: string;
   tags: Tag[];
+  metadata?: {
+    source?: string;
+    sector?: string;
+    emotions?: string;
+    brands?: string;
+    locations?: string;
+  };
 };
 
 // API 관련 타입

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import SearchBar from '@/components/SearchBar';
@@ -8,7 +8,13 @@ import ActionButtons from '@/components/ActionButtons';
 import FilterTabs from '@/components/FilterTabs';
 import ContentItem from '@/components/ContentItem';
 import { ContentItem as ContentItemType, VideoData, Tag } from '@/types';
-import { fetchVideos } from '@/hooks/apiHooks';
+import {
+  fetchVideos,
+  generateMetadata,
+  parseHashtags,
+  updateVideoMetadata,
+  convertMetadataToTags
+} from '@/hooks/apiHooks';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 // Content Index ID from .env
@@ -18,19 +24,21 @@ const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || 'default-cont
 const COLUMNS = [
   { id: 'video', label: 'Video', width: '250px' },
   { id: 'source', label: 'Source', width: '180px' },
-  { id: 'topics', label: 'Topics', width: '140px' },
+  { id: 'sector', label: 'Sector', width: '140px' },
   { id: 'emotions', label: 'Emotions', width: '140px' },
   { id: 'brands', label: 'Brands', width: '140px' },
   { id: 'demographics', label: 'Demographics', width: '140px' },
   { id: 'location', label: 'Location', width: '140px' },
-  { id: 'architecture', label: 'Architecture', width: '140px' },
-  { id: 'history', label: 'History', width: '140px' }
 ];
+
+// 동시 처리할 메타데이터 작업 수 제한
+const CONCURRENCY_LIMIT = 3;
 
 export default function ContentLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('Video');
-//   const [processingVideos, setProcessingVideos] = useState(false);
+  const [processingMetadata, setProcessingMetadata] = useState(false);
+  const [videosInProcessing, setVideosInProcessing] = useState<string[]>([]);
   const [contentItems, setContentItems] = useState<ContentItemType[]>([]);
 
   // API로부터 비디오 목록 가져오기
@@ -41,7 +49,8 @@ export default function ContentLibrary() {
     isFetchingNextPage,
     isLoading,
     isError,
-    error
+    error,
+    refetch
   } = useInfiniteQuery({
     queryKey: ['videos', contentIndexId],
     queryFn: ({ pageParam }) => fetchVideos(pageParam, contentIndexId),
@@ -57,8 +66,16 @@ export default function ContentLibrary() {
 
   // API 응답 데이터를 ContentItemType으로 변환하는 함수
   const convertToContentItem = (video: VideoData): ContentItemType => {
-    // 기본 빈 태그 배열 사용 (실제 태그가 있을 때까지)
-    const tags: Tag[] = [];
+    let tags: Tag[] = [];
+
+    // 기존 태그가 있으면 사용
+    if (video.metadata?.tags) {
+      tags = video.metadata.tags;
+    }
+    // 사용자 메타데이터가 있으면 태그로 변환
+    else if (video.user_metadata) {
+      tags = convertMetadataToTags(video.user_metadata);
+    }
 
     return {
       id: video._id,
@@ -66,28 +83,104 @@ export default function ContentLibrary() {
       title: video.system_metadata?.video_title || video.system_metadata?.filename || 'Untitled Video',
       videoUrl: video.hls?.video_url || '',
       tags: tags,
+      metadata: video.user_metadata as {
+        source?: string;
+        sector?: string;
+        emotions?: string;
+        brands?: string;
+        locations?: string;
+      }
     };
   };
 
-  // 비디오 임베딩 처리 함수
-//   const processVideos = async (videos: VideoData[]) => {
-//     if (!contentIndexId || videos.length === 0) return;
+  // 단일 비디오 메타데이터 처리 함수
+  const processVideoMetadataSingle = useCallback(async (video: VideoData): Promise<boolean> => {
+    if (!contentIndexId) return false;
 
-//     setProcessingVideos(true);
-//     try {
-//       for (const video of videos) {
-//         const videoId = video._id;
-//         const vectorExists = await checkVectorExists(videoId);
-//         if (!vectorExists) {
-//           await getAndStoreEmbeddings(contentIndexId, videoId);
-//         }
-//       }
-//     } catch (error) {
-//       console.error("Error processing videos:", error);
-//     } finally {
-//       setProcessingVideos(false);
-//     }
-//   };
+    const videoId = video._id;
+
+    try {
+      // 1. 메타데이터가 없는 경우만 처리
+      if (!video.user_metadata ||
+          Object.keys(video.user_metadata).length === 0 ||
+          !video.user_metadata.source) {
+
+        // 2. 메타데이터 생성
+        console.log(`Generating metadata for video ${videoId}`);
+        setVideosInProcessing(prev => [...prev, videoId]);
+
+        const hashtagText = await generateMetadata(videoId);
+
+        if (hashtagText) {
+          // 3. 해시태그 파싱하여 메타데이터 객체 생성
+          const metadata = parseHashtags(hashtagText);
+
+          // 4. 메타데이터 저장
+          console.log(`Updating metadata for video ${videoId}`, metadata);
+          await updateVideoMetadata(videoId, contentIndexId, metadata);
+          setVideosInProcessing(prev => prev.filter(id => id !== videoId));
+          return true;
+        }
+
+        setVideosInProcessing(prev => prev.filter(id => id !== videoId));
+      }
+      return false;
+    } catch (error) {
+      console.error(`Error processing metadata for video ${videoId}:`, error);
+      setVideosInProcessing(prev => prev.filter(id => id !== videoId));
+      return false;
+    }
+  }, [contentIndexId]);
+
+  // 비디오 메타데이터 일괄 처리 함수 (동시성 제어)
+  const processVideoMetadata = useCallback(async (videos: VideoData[]) => {
+    if (!contentIndexId || videos.length === 0) return;
+
+    // 메타데이터가 필요한 비디오 필터링
+    const videosNeedingMetadata = videos.filter(video =>
+      !video.user_metadata ||
+      Object.keys(video.user_metadata).length === 0 ||
+      !video.user_metadata.source
+    );
+
+    if (videosNeedingMetadata.length === 0) return;
+
+    setProcessingMetadata(true);
+
+    try {
+      let metadataUpdated = false;
+
+      // 동시성 제어를 위한 함수
+      const processBatch = async (batch: VideoData[]) => {
+        const results = await Promise.all(
+          batch.map(async (video) => {
+            const result = await processVideoMetadataSingle(video);
+            return result;
+          })
+        );
+
+        return results.some(result => result);
+      };
+
+      // 비디오 배치 처리
+      for (let i = 0; i < videosNeedingMetadata.length; i += CONCURRENCY_LIMIT) {
+        const batch = videosNeedingMetadata.slice(i, i + CONCURRENCY_LIMIT);
+        const batchResult = await processBatch(batch);
+        metadataUpdated = metadataUpdated || batchResult;
+      }
+
+      // 메타데이터가 추가됐으면 비디오 목록 다시 불러오기
+      if (metadataUpdated) {
+        console.log('Metadata updated, refreshing video list');
+        await refetch();
+      }
+    } catch (error) {
+      console.error("Error processing video metadata:", error);
+    } finally {
+      setProcessingMetadata(false);
+      setVideosInProcessing([]);
+    }
+  }, [contentIndexId, processVideoMetadataSingle, refetch]);
 
   // 비디오 데이터가 변경될 때마다 ContentItems 배열 업데이트
   useEffect(() => {
@@ -97,12 +190,12 @@ export default function ContentLibrary() {
       );
       setContentItems(items);
 
-      // 임베딩 처리
-    //   if (videosData.pages[0].data.length > 0) {
-    //     processVideos(videosData.pages[0].data);
-    //   }
+      // 메타데이터 처리
+      if (videosData.pages[0].data.length > 0 && !processingMetadata) {
+        processVideoMetadata(videosData.pages[0].data);
+      }
     }
-  }, [videosData]);
+  }, [videosData, processingMetadata, processVideoMetadata]);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -149,9 +242,14 @@ export default function ContentLibrary() {
             />
             <div className="text-sm text-gray-500">
               {contentItems.length} results
-              {/* {processingVideos && (
-                <span className="ml-2 text-blue-500">Processing videos...</span>
-              )} */}
+              {processingMetadata && videosInProcessing.length > 0 && (
+                <span className="ml-2 text-blue-500 flex items-center">
+                  <span className="mr-2">Processing metadata... ({videosInProcessing.length} videos)</span>
+                  <div className="w-4 h-4">
+                    <LoadingSpinner />
+                  </div>
+                </span>
+              )}
             </div>
           </div>
 
@@ -180,8 +278,9 @@ export default function ContentLibrary() {
           {/* Scrollable content */}
           <div className="flex-1 overflow-auto">
             {isLoading ? (
-              <div className="flex justify-center items-center h-40">
+              <div className="flex flex-col justify-center items-center h-40">
                 <LoadingSpinner />
+                <p className="mt-4 text-gray-500">Loading videos...</p>
               </div>
             ) : isError ? (
               <div className="flex justify-center items-center h-40 text-red-500">
@@ -202,6 +301,8 @@ export default function ContentLibrary() {
                     title={item.title}
                     videoUrl={item.videoUrl}
                     tags={item.tags}
+                    metadata={item.metadata}
+                    isLoadingMetadata={videosInProcessing.includes(item.id)}
                   />
                 ))}
 

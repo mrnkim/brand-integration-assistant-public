@@ -5,9 +5,11 @@ const TWELVELABS_API_BASE_URL = process.env.TWELVELABS_API_BASE_URL;
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { videoId: string } }
+  context: { params: Promise<{ videoId: string }> | { videoId: string } }
 ) {
   try {
+    // Await params to resolve the promise (for NextJS 14+)
+    const params = await context.params;
     const videoId = params.videoId;
     const searchParams = request.nextUrl.searchParams;
     const indexId = searchParams.get('index_id');
@@ -40,7 +42,7 @@ export async function GET(
     }
 
     const data = await response.json();
-    console.log("🚀 > GET Video Detail > data=", data);
+    console.log("🚀 > data=", data)
 
     // API 응답을 그대로 반환 (이미 VideoData 타입에 맞게 수정함)
     return NextResponse.json(data);
@@ -48,13 +50,16 @@ export async function GET(
     console.error('Error in video details API:', error);
 
     // 에러가 발생한 경우 더미 데이터로 대체
-    if (params.videoId && request.nextUrl.searchParams.get('index_id')) {
-      return NextResponse.json(
-        getDummyVideoData(
-          params.videoId,
-          request.nextUrl.searchParams.get('index_id') || ''
-        )
-      );
+    try {
+      const params = await context.params;
+      const videoId = params.videoId;
+      const indexId = request.nextUrl.searchParams.get('index_id') || '';
+
+      if (videoId && indexId) {
+        return NextResponse.json(getDummyVideoData(videoId, indexId));
+      }
+    } catch (e) {
+      console.error('Error accessing params in error handler:', e);
     }
 
     return NextResponse.json(
