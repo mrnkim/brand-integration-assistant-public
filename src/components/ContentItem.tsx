@@ -81,7 +81,7 @@ const ContentItem: FC<ContentItemProps> = ({
       // 로컬 메타데이터 먼저 업데이트하여 UI에 즉시 반영
       const updatedMetadata = {
         ...localMetadata,
-        [field]: value // 빈 문자열도 그대로 저장
+        [field]: value.trim() // 입력값 앞뒤 공백 제거
       };
 
       // 로컬 상태 업데이트
