@@ -45,7 +45,7 @@ const ContentItem: FC<ContentItemProps> = ({
   // metadata prop이 변경되면 로컬 상태 업데이트
   useEffect(() => {
     setLocalMetadata(metadata || {});
-  }, [metadata]);
+  }, [metadata, videoId]);
 
   // Helper function to save metadata when a tag is edited
   const handleSaveMetadata = async (category: string, value: string) => {

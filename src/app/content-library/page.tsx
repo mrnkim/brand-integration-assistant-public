@@ -14,12 +14,22 @@ import {
   generateMetadata,
   parseHashtags,
   updateVideoMetadata,
-  convertMetadataToTags
+  convertMetadataToTags,
+  fetchVideoDetails
 } from '@/hooks/apiHooks';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 // Create a client
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Don't cache queries to ensure we always get fresh data
+      staleTime: 0,
+      // Disable retry on failure
+      retry: false,
+    },
+  },
+});
 
 // Content Index ID from .env
 const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || 'default-content-index';
@@ -36,7 +46,7 @@ const COLUMNS = [
 ];
 
 // Limit for concurrent metadata processing
-const CONCURRENCY_LIMIT = 3;
+const CONCURRENCY_LIMIT = 10;
 
 export default function ContentLibrary() {
   const [searchSubmitted, setSearchSubmitted] = useState(false);
@@ -45,8 +55,9 @@ export default function ContentLibrary() {
   const [processingMetadata, setProcessingMetadata] = useState(false);
   const [videosInProcessing, setVideosInProcessing] = useState<string[]>([]);
   const [contentItems, setContentItems] = useState<ContentItemType[]>([]);
-  const [initialLoadCompleted, setInitialLoadCompleted] = useState(false);
   const [skipMetadataProcessing, setSkipMetadataProcessing] = useState(false);
+  // Keep track of videos we've already processed to avoid duplicates
+  const [processedVideoIds, setProcessedVideoIds] = useState<Set<string>>(new Set());
 
   // Fetch videos from API
   const {
@@ -79,8 +90,9 @@ export default function ContentLibrary() {
     if (video.metadata?.tags) {
       tags = video.metadata.tags;
     }
-    // Convert user metadata to tags
+    // Convert user metadata to tags if available
     else if (video.user_metadata) {
+      console.log(`Converting metadata for video ${video._id}:`, video.user_metadata);
       tags = convertMetadataToTags(video.user_metadata);
     }
 
@@ -100,11 +112,61 @@ export default function ContentLibrary() {
     };
   };
 
+  // Function to refresh metadata for a specific video
+  const refreshVideoMetadata = useCallback(async (videoId: string) => {
+    if (!contentIndexId) return;
+
+    console.log(`Refreshing metadata for video ${videoId}`);
+    try {
+      // Fetch fresh video details from API
+      const updatedVideo = await fetchVideoDetails(videoId, contentIndexId);
+
+      if (updatedVideo) {
+        // Update content items with fresh data
+        setContentItems(prevItems => {
+          return prevItems.map(item => {
+            if (item.id === videoId) {
+              // Create a new content item with the fresh metadata
+              const updatedItem = {
+                ...item,
+                tags: updatedVideo.user_metadata ? convertMetadataToTags(updatedVideo.user_metadata) : [],
+                metadata: updatedVideo.user_metadata as {
+                  source?: string;
+                  sector?: string;
+                  emotions?: string;
+                  brands?: string;
+                  locations?: string;
+                  demographics?: string;
+                }
+              };
+              console.log(`Updated content item for ${videoId}:`, updatedItem);
+              return updatedItem;
+            }
+            return item;
+          });
+        });
+      }
+    } catch (error) {
+      console.error(`Error refreshing metadata for video ${videoId}:`, error);
+      // If direct update fails, use refetch as a fallback
+      if (refetch) {
+        console.log("Direct metadata refresh failed, falling back to full refetch");
+        refetch();
+      }
+    }
+  }, [contentIndexId, refetch]);
+
   // Process metadata for a single video
   const processVideoMetadataSingle = useCallback(async (video: VideoData): Promise<boolean> => {
     if (!contentIndexId) return false;
 
     const videoId = video._id;
+
+    // Skip if already processed or currently processing
+    if (processedVideoIds.has(videoId) || videosInProcessing.includes(videoId)) {
+      console.log(`Video ${videoId} already processed or processing, skipping...`);
+      return false;
+    }
 
     try {
       // 1. Only process if metadata is missing - stricter check
@@ -127,6 +189,12 @@ export default function ContentLibrary() {
           // 4. Save metadata
           console.log(`Updating metadata for video ${videoId}`, metadata);
           await updateVideoMetadata(videoId, contentIndexId, metadata);
+
+          // 5. Refresh the video metadata directly
+          await refreshVideoMetadata(videoId);
+
+          // Add to processed videos set
+          setProcessedVideoIds(prev => new Set(prev).add(videoId));
           setVideosInProcessing(prev => prev.filter(id => id !== videoId));
           return true;
         }
@@ -134,6 +202,8 @@ export default function ContentLibrary() {
         setVideosInProcessing(prev => prev.filter(id => id !== videoId));
       } else {
         console.log(`Video ${videoId} already has metadata, skipping...`);
+        // Still mark as processed to avoid checking again
+        setProcessedVideoIds(prev => new Set(prev).add(videoId));
       }
       return false;
     } catch (error) {
@@ -141,7 +211,7 @@ export default function ContentLibrary() {
       setVideosInProcessing(prev => prev.filter(id => id !== videoId));
       return false;
     }
-  }, [contentIndexId]);
+  }, [contentIndexId, processedVideoIds, videosInProcessing, refreshVideoMetadata]);
 
   // Batch process video metadata with concurrency control
   const processVideoMetadata = useCallback(async (videos: VideoData[]) => {
@@ -159,10 +229,10 @@ export default function ContentLibrary() {
     if (videosNeedingMetadata.length === 0) return;
 
     setProcessingMetadata(true);
+    // Temporarily disable metadata processing to prevent recursive processing
+    setSkipMetadataProcessing(true);
 
     try {
-      let metadataUpdated = false;
-
       // Function for concurrency control
       const processBatch = async (batch: VideoData[]) => {
         const results = await Promise.all(
@@ -178,42 +248,64 @@ export default function ContentLibrary() {
       // Process videos in batches
       for (let i = 0; i < videosNeedingMetadata.length; i += CONCURRENCY_LIMIT) {
         const batch = videosNeedingMetadata.slice(i, i + CONCURRENCY_LIMIT);
-        const batchResult = await processBatch(batch);
-        metadataUpdated = metadataUpdated || batchResult;
+        await processBatch(batch);
       }
 
-      // Reload video list if metadata was updated
-      if (metadataUpdated) {
-        console.log('Metadata updated, refreshing video list');
-        // Skip metadata processing on next refetch
-        setSkipMetadataProcessing(true);
-        await refetch();
-        // Re-enable metadata processing after a delay
-        setTimeout(() => setSkipMetadataProcessing(false), 2000);
-      }
+      // No need to refetch here since we update the UI immediately in processVideoMetadataSingle
+      console.log('All metadata processing completed');
     } catch (error) {
       console.error("Error processing video metadata:", error);
     } finally {
       setProcessingMetadata(false);
       setVideosInProcessing([]);
+      // Re-enable metadata processing after completion
+      setTimeout(() => setSkipMetadataProcessing(false), 2000);
     }
-  }, [contentIndexId, processVideoMetadataSingle, refetch, skipMetadataProcessing]);
+  }, [contentIndexId, processVideoMetadataSingle, skipMetadataProcessing]);
 
   // Update ContentItems array whenever video data changes
   useEffect(() => {
     if (videosData) {
+      console.log('Processing video data update:', videosData.pages.length, 'pages');
+
+      // Convert videos to content items with proper logging
       const items = videosData.pages.flatMap(page =>
-        page.data.map(video => convertToContentItem(video))
+        page.data.map(video => {
+          const item = convertToContentItem(video);
+          console.log(`Video ${video._id} converted:`, {
+            hasMetadata: !!video.user_metadata,
+            metadataKeys: video.user_metadata ? Object.keys(video.user_metadata) : [],
+            tagsCount: item.tags.length
+          });
+          return item;
+        })
       );
+
       setContentItems(items);
 
-      // Only run metadata processing on initial load
-      if (!initialLoadCompleted && videosData.pages[0].data.length > 0 && !processingMetadata && !skipMetadataProcessing) {
-        setInitialLoadCompleted(true);
-        processVideoMetadata(videosData.pages[0].data);
+      // Process all videos that were just loaded (not just initial load)
+      if (videosData.pages.length > 0 && !processingMetadata && !skipMetadataProcessing) {
+        // Get all videos from all pages
+        const allVideos = videosData.pages.flatMap(page => page.data);
+
+        // Find newly loaded videos that don't have metadata yet and aren't already processed
+        const newlyLoadedVideos = allVideos.filter(video =>
+          !processedVideoIds.has(video._id) && // Skip already processed videos
+          !videosInProcessing.includes(video._id) && // Skip videos currently being processed
+          (!video.user_metadata ||
+          Object.keys(video.user_metadata).length === 0 ||
+          (!video.user_metadata.source && !video.user_metadata.sector &&
+          !video.user_metadata.emotions && !video.user_metadata.brands &&
+          !video.user_metadata.locations))
+        );
+
+        if (newlyLoadedVideos.length > 0) {
+          console.log(`Processing metadata for ${newlyLoadedVideos.length} newly loaded videos`);
+          processVideoMetadata(newlyLoadedVideos);
+        }
       }
     }
-  }, [videosData, processingMetadata, processVideoMetadata, initialLoadCompleted, skipMetadataProcessing]);
+  }, [videosData, processingMetadata, processVideoMetadata, skipMetadataProcessing, processedVideoIds, videosInProcessing]);
 
   // Search handler
   const handleSearch = (query: string) => {
@@ -238,6 +330,8 @@ export default function ContentLibrary() {
   // Load more data
   const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {
+      // Make sure metadata processing is enabled when loading more videos
+      setSkipMetadataProcessing(false);
       fetchNextPage();
     }
   };
@@ -339,6 +433,11 @@ export default function ContentLibrary() {
                           tags={item.tags}
                           metadata={item.metadata}
                           isLoadingMetadata={videosInProcessing.includes(item.id)}
+                          onMetadataUpdated={() => {
+                            // Refresh the content after user updates metadata
+                            console.log('Metadata updated by user, refreshing metadata for video', item.id);
+                            refreshVideoMetadata(item.id);
+                          }}
                         />
                       ))}
 

@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useInView } from "react-intersection-observer";
 import LoadingSpinner from "./LoadingSpinner";
 import { fetchVideoDetails, VideoDetailResponse } from "@/hooks/apiHooks";
 import { convertMetadataToTags } from "@/hooks/apiHooks";
+import ReactPlayer from "react-player";
 
 // Default content index ID from environment variables
 const defaultIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
@@ -66,8 +67,12 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedResult, setSelectedResult] = useState<EnhancedSearchResult | null>(null);
   const [showModal, setShowModal] = useState(false);
-
-  const modalVideoRef = useRef<HTMLVideoElement>(null);
+  const [playerProgress, setPlayerProgress] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerInitialized, setPlayerInitialized] = useState(false);
+  const [segmentEndReached, setSegmentEndReached] = useState(false);
+  const [lastSeekTime, setLastSeekTime] = useState<number | null>(null);
+  const [modalOpened, setModalOpened] = useState(false);
 
   // Using intersection observer to detect elements in view
   const { ref: observerRef } = useInView({
@@ -75,9 +80,12 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
     triggerOnce: false,
   });
 
+  // Add a ref to keep the player instance with proper type annotation
+  const playerRef = useRef<ReactPlayer>(null);
+
   // Format the score as a percentage
   const formatScore = (score: number): string => {
-    return `${score.toFixed(1)}%`;
+    return `${score.toFixed(1)}`;
   };
 
   // Handle video thumbnail click
@@ -88,32 +96,144 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
 
   // Close the modal
   const closeModal = () => {
-    if (modalVideoRef.current) {
-      modalVideoRef.current.pause();
-    }
     setShowModal(false);
     setSelectedResult(null);
+    setModalOpened(false);
   };
 
-  // Handle play in modal
+  // Get start and end times for the selected segment
+  const getSegmentTimes = () => {
+    if (!selectedResult) return { startTime: 0, endTime: 0 };
+
+    const startTime = selectedResult.start ||
+                     (selectedResult.segments && selectedResult.segments.length > 0 ?
+                      selectedResult.segments[0].start : 0);
+
+    const endTime = selectedResult.end ||
+                   (selectedResult.segments && selectedResult.segments.length > 0 ?
+                    selectedResult.segments[0].end :
+                    (selectedResult.videoDetail?.system_metadata?.duration || 0));
+
+    return { startTime, endTime };
+  };
+
+  // Handle player progress updates to enforce segment end time
+  const handleProgress = (state: { playedSeconds: number }) => {
+    const { startTime, endTime } = getSegmentTimes();
+    setPlayerProgress(state.playedSeconds);
+
+    // Simple debug info
+    console.log(`Player Progress: ${state.playedSeconds.toFixed(2)}s, End: ${endTime.toFixed(2)}s`);
+
+    // Strict end detection: directly compare if we've reached or passed the end time
+    if (state.playedSeconds >= endTime && !segmentEndReached) {
+      console.log(`Segment end reached: ${state.playedSeconds.toFixed(2)}s > ${endTime.toFixed(2)}s`);
+      setSegmentEndReached(true);
+
+      // Force immediate pause
+      setIsPlaying(false);
+
+      // Implement looping behavior
+      const now = Date.now();
+      const minSeekInterval = 500; // milliseconds
+      const canSeek = !lastSeekTime || now - lastSeekTime > minSeekInterval;
+
+      if (canSeek && playerRef.current) {
+        // Set last seek time
+        setLastSeekTime(now);
+
+        // Seek back to start
+        setTimeout(() => {
+          if (playerRef.current) {
+            console.log(`Seeking to segment start: ${startTime.toFixed(2)}s`);
+            playerRef.current.seekTo(startTime, 'seconds');
+
+            // Resume playback after a short delay
+            setTimeout(() => {
+              console.log('Resuming playback after segment loop');
+              setIsPlaying(true);
+              setSegmentEndReached(false);
+            }, 250);
+          }
+        }, 150);
+      }
+    } else if (state.playedSeconds < endTime - 1.0 && segmentEndReached) {
+      // Reset end reached flag when we're well before the end
+      setSegmentEndReached(false);
+    }
+  };
+
+  // Simple replay segment handler
+  const handleReplaySegment = () => {
+    const { startTime } = getSegmentTimes();
+    console.log("Replaying segment from:", startTime);
+
+    // Ensure smooth replay sequence with proper timing
+    if (playerRef.current) {
+      // First pause to ensure clean state
+      setIsPlaying(false);
+
+      // Set last seek time to prevent conflicting seeks
+      setLastSeekTime(Date.now());
+
+      // Small delay before seeking
+      setTimeout(() => {
+        if (playerRef.current) {
+          console.log(`Seeking to segment start: ${startTime}`);
+          playerRef.current.seekTo(startTime, 'seconds');
+          setSegmentEndReached(false);
+
+          // Resume playback after seeking completes
+          setTimeout(() => {
+            console.log("Starting playback");
+            setIsPlaying(true);
+          }, 250);
+        }
+      }, 100);
+    }
+  };
+
+  // Reset player state when modal opens
   useEffect(() => {
-    if (showModal && selectedResult && modalVideoRef.current && selectedResult.videoDetail?.hls?.video_url) {
-      const startTime = selectedResult.start || selectedResult.segments?.[0]?.start || 0;
-      modalVideoRef.current.currentTime = startTime;
-      modalVideoRef.current.play().catch(err => console.error("Error playing video:", err));
+    if (showModal && selectedResult) {
+      const { startTime } = getSegmentTimes();
+      console.log("Modal opened with video segment at:", startTime);
+
+      // Reset all player state
+      setSegmentEndReached(false);
+      setLastSeekTime(null);
+      setModalOpened(true);
+      setPlayerProgress(startTime);
+      setPlayerInitialized(false);
+      setIsPlaying(true);
+    } else {
+      // Clean up state when modal closes
+      setIsPlaying(false);
+      setModalOpened(false);
+      setSegmentEndReached(false);
+      setLastSeekTime(null);
     }
   }, [showModal, selectedResult]);
 
-  // Handle video time update event for modal video
-  const handleModalTimeUpdate = () => {
-    if (!modalVideoRef.current || !selectedResult) return;
+  // Initialize player when it's ready
+  useEffect(() => {
+    if (modalOpened && playerInitialized) {
+      console.log("Player initialized - starting playback");
 
-    const endTime = selectedResult.end || selectedResult.segments?.[0]?.end;
+      const { startTime } = getSegmentTimes();
+      if (playerRef.current) {
+        // Set initial position
+        setLastSeekTime(Date.now());
+        playerRef.current.seekTo(startTime, 'seconds');
 
-    if (endTime && modalVideoRef.current.currentTime >= endTime) {
-      modalVideoRef.current.pause();
+        // Ensure playback starts after seeking is complete
+        setTimeout(() => {
+          console.log("Starting initial playback");
+          setIsPlaying(true);
+        }, 250);
+      }
     }
-  };
+  }, [modalOpened, playerInitialized]);
 
   // Close modal when ESC key is pressed
   useEffect(() => {
@@ -268,8 +388,10 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
       {showModal && selectedResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Dark overlay */}
-          <div className={`${showModal ? 'filter blur-sm brightness-75 transition-all duration-200' : ''}`}>
-</div>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={closeModal}
+          />
 
           {/* Modal content */}
           <div className="relative z-50 w-[90%] max-w-[800px] bg-white rounded-lg shadow-xl overflow-hidden">
@@ -294,19 +416,82 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
               <div className="w-full md:w-3/5 p-4">
                 <div className="relative aspect-video">
                   {selectedResult.videoDetail?.hls?.video_url ? (
-                    <video
-                      ref={modalVideoRef}
-                      src={selectedResult.videoDetail.hls.video_url}
-                      poster={selectedResult.thumbnail_url || selectedResult.videoDetail.hls.thumbnail_urls?.[0] || ''}
-                      className="w-full h-full object-contain"
-                      onTimeUpdate={handleModalTimeUpdate}
+                    <ReactPlayer
+                      ref={playerRef}
+                      url={selectedResult.videoDetail.hls.video_url}
                       controls
+                      width="100%"
+                      height="100%"
+                      style={{ position: 'absolute', top: 0, left: 0 }}
+                      light={false}
+                      playIcon={<></>}
+                      playing={isPlaying}
+                      onProgress={handleProgress}
+                      progressInterval={50} // More frequent updates for better end detection
+                      config={{
+                        file: {
+                          attributes: {
+                            preload: "auto",
+                          },
+                          forceVideo: true,
+                          forceHLS: true, // Force HLS to ensure proper streaming
+                        },
+                      }}
+                      onReady={() => {
+                        console.log("ReactPlayer ready");
+
+                        if (!playerInitialized) {
+                          const { startTime } = getSegmentTimes();
+
+                          // Set initial position directly
+                          if (playerRef.current) {
+                            console.log(`Setting initial position: ${startTime}s`);
+                            setLastSeekTime(Date.now());
+                            playerRef.current.seekTo(startTime, 'seconds');
+                          }
+
+                          // Mark as initialized
+                          setPlayerInitialized(true);
+
+                          // Start playback after a delay
+                          setTimeout(() => {
+                            console.log("Starting initial playback");
+                            setIsPlaying(true);
+                          }, 250);
+                        }
+                      }}
+                      onError={(e) => {
+                        console.error("ReactPlayer error:", e);
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-500">Loading video...</span>
+                      <span className="text-gray-500">
+                        {selectedResult.videoDetail ?
+                          "Video URL is missing" :
+                          "Loading video details..."}
+                      </span>
                     </div>
                   )}
+                </div>
+
+                {/* Segment indicator - simplified */}
+                <div className="mt-2 bg-gray-100 p-2 rounded text-sm flex items-center justify-between">
+                  <div>
+                    Search segment: {Math.floor(getSegmentTimes().startTime)}s ~ {Math.floor(getSegmentTimes().endTime)}s
+                    <button
+                      className="ml-3 bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                      onClick={handleReplaySegment}
+                    >
+                      Replay Segment
+                    </button>
+                    <span className="ml-2 text-xs text-gray-500">
+                      Current: {Math.floor(playerProgress)}s
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Auto-repeating segment
+                  </div>
                 </div>
               </div>
 
