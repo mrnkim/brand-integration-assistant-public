@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
 import LoadingSpinner from "./LoadingSpinner";
 import { fetchVideoDetails, VideoDetailResponse } from "@/hooks/apiHooks";
 import { convertMetadataToTags } from "@/hooks/apiHooks";
 import ReactPlayer from "react-player";
 
-// Default content index ID from environment variables
+// Default content index ID from environment variables - rename to generic name
 const defaultIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
 interface SearchResultListProps {
@@ -14,6 +14,7 @@ interface SearchResultListProps {
       page: number;
       total_page: number;
       total_videos: number;
+      total_results?: number;
       next_page_token?: string;
     };
     textSearchResults: Array<{
@@ -36,6 +37,8 @@ interface SearchResultListProps {
       }>;
     }>;
   };
+  onUpdateTotalResults?: (count: number) => void;
+  textSearchQuery: string;
 }
 
 interface EnhancedSearchResult {
@@ -62,7 +65,7 @@ interface EnhancedSearchResult {
 /**
  * Component to display a list of search results
  */
-const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
+const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQuery }: SearchResultListProps) => {
   const [enhancedResults, setEnhancedResults] = useState<EnhancedSearchResult[]>([]);
   const [nextPageLoading, setNextPageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -260,6 +263,13 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
   // Enhance search results (fetch video details) for the initial page
   useEffect(() => {
     const enhanceSearchResults = async () => {
+      // Check for search query right at the start
+      if (!textSearchQuery) {
+        console.error("[DEBUG] Pagination: Search query is required but was null");
+        setError("Cannot load results: Search query is missing");
+        return;
+      }
+
       if (searchResultData?.textSearchResults?.length > 0) {
         setNextPageLoading(true);
 
@@ -289,39 +299,19 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
 
         try {
           // Get index_id from the first result, or fall back to the default
-          const indexId = searchResultData.textSearchResults[0]?.index_id || defaultIndexId;
+          // IMPORTANT: Extract the index_id from ALL results to avoid mixing content
+          // This ensures we consistently use the same index throughout
+          const allIndexIds = searchResultData.textSearchResults.map(result => result.index_id);
+          // Use the most common index_id from the results
+          const indexId = mostCommonValue(allIndexIds) || defaultIndexId;
 
-          // Try to get query from multiple sources
-          let searchQuery = null;
+          console.log('[DEBUG] Pagination: Index IDs in results:', allIndexIds);
+          console.log('[DEBUG] Pagination: Using most common index_id:', indexId,
+                      'Is ads index?', indexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID,
+                      'Is content index?', indexId === process.env.NEXT_PUBLIC_CONTENT_INDEX_ID);
 
-          // Method 1: Get from session storage
-          searchQuery = window.sessionStorage.getItem('lastSearchQuery');
-
-          // Method 2: Try to extract from URL if not in session storage
-          if (!searchQuery) {
-            const queryParam = new URLSearchParams(window.location.search).get('q');
-            if (queryParam) {
-              searchQuery = queryParam;
-              // Store for future use
-              window.sessionStorage.setItem('lastSearchQuery', queryParam);
-            }
-          }
-
-          // Method 3: Fallback to any matched_words from the first result's segments
-          if (!searchQuery) {
-            const firstResultSegment = searchResultData.textSearchResults[0]?.segments?.[0];
-            if (firstResultSegment && firstResultSegment.matched_words && firstResultSegment.matched_words.length > 0) {
-              searchQuery = firstResultSegment.matched_words.join(' ');
-              window.sessionStorage.setItem('lastSearchQuery', searchQuery);
-            }
-          }
-
-          // Final fallback: use a default value
-          if (!searchQuery) {
-            searchQuery = 'boat'; // Default fallback
-          }
-
-          console.log('[DEBUG] Pagination: Using query:', searchQuery, 'index_id:', indexId);
+          // Use search query from props instead of URL
+          console.log('[DEBUG] Pagination: Using query:', textSearchQuery, 'index_id:', indexId);
 
           if (!indexId) {
             console.error("[DEBUG] Pagination: Missing index_id in search results and no default configured");
@@ -369,21 +359,21 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
     if (searchResultData?.textSearchResults?.length > 0) {
       console.log('[DEBUG] Pagination: Setting initial', searchResultData.textSearchResults.length, 'results');
 
-      // Store search query in session storage for pagination
-      const query = new URLSearchParams(window.location.search).get('q');
-      if (query) {
-        console.log('[DEBUG] Pagination: Storing search query:', query);
-        window.sessionStorage.setItem('lastSearchQuery', query);
+      // No longer need to get query from URL
+      if (textSearchQuery) {
+        console.log('[DEBUG] Pagination: Using search query:', textSearchQuery);
+        enhanceSearchResults().then(() => {
+          console.log('[DEBUG] Pagination: Finished initial load');
+        });
+      } else {
+        console.error("[DEBUG] Pagination: No search query provided");
+        setError("Cannot load results: Search query is missing");
       }
-
-      enhanceSearchResults().then(() => {
-        console.log('[DEBUG] Pagination: Finished initial load');
-      });
     }
-  }, [searchResultData]);
+  }, [searchResultData, textSearchQuery]);
 
   // Fetch and enhance the next page of search results
-  const fetchNextPage = async () => {
+  const fetchNextPage = useCallback(async () => {
     if (isLoadingNextPage || !hasMorePages) {
       console.log('[DEBUG] Pagination: Skip fetchNextPage - isLoadingNextPage:', isLoadingNextPage, 'hasMorePages:', hasMorePages);
       return;
@@ -393,44 +383,30 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
     console.log(`[DEBUG] Pagination: Fetching page ${currentPage + 1}, current results count: ${enhancedResults.length}`);
 
     try {
-      // Get index_id from the first result, or fall back to the default
-      const indexId = searchResultData.textSearchResults[0]?.index_id || defaultIndexId;
+      // Get index_id from all results to ensure consistency
+      const allIndexIds = searchResultData.textSearchResults.map(result => result.index_id);
+      // Use the most common index_id from the results
+      const indexId = mostCommonValue(allIndexIds) || defaultIndexId;
 
-      // Try to get query from multiple sources
-      let searchQuery = null;
+      console.log('[DEBUG] Pagination: Index IDs in results for pagination:', allIndexIds);
+      console.log('[DEBUG] Pagination: Using most common index_id for pagination:', indexId,
+                  'Is ads index?', indexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID,
+                  'Is content index?', indexId === process.env.NEXT_PUBLIC_CONTENT_INDEX_ID);
 
-      // Method 1: Get from session storage
-      searchQuery = window.sessionStorage.getItem('lastSearchQuery');
-
-      // Method 2: Try to extract from URL if not in session storage
-      if (!searchQuery) {
-        const queryParam = new URLSearchParams(window.location.search).get('q');
-        if (queryParam) {
-          searchQuery = queryParam;
-          // Store for future use
-          window.sessionStorage.setItem('lastSearchQuery', queryParam);
-        }
-      }
-
-      // Method 3: Fallback to any matched_words from the first result's segments
-      if (!searchQuery) {
-        const firstResultSegment = searchResultData.textSearchResults[0]?.segments?.[0];
-        if (firstResultSegment && firstResultSegment.matched_words && firstResultSegment.matched_words.length > 0) {
-          searchQuery = firstResultSegment.matched_words.join(' ');
-          window.sessionStorage.setItem('lastSearchQuery', searchQuery);
-        }
-      }
-
-      // Final fallback: use a default value
-      if (!searchQuery) {
-        searchQuery = 'boat'; // Default fallback
-      }
-
-      console.log('[DEBUG] Pagination: Using query:', searchQuery, 'index_id:', indexId);
+      // Use search query from props
+      console.log('[DEBUG] Pagination: Using query:', textSearchQuery, 'index_id:', indexId);
 
       if (!indexId) {
         console.error("[DEBUG] Pagination: Missing index_id for pagination");
         setError("Cannot load more results: Missing index ID");
+        setIsLoadingNextPage(false);
+        return;
+      }
+
+      // Don't make the request if search query is null
+      if (!textSearchQuery) {
+        console.error("[DEBUG] Pagination: Search query is required but was null");
+        setError("Cannot load more results: Search query is required");
         setIsLoadingNextPage(false);
         return;
       }
@@ -442,8 +418,9 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
       if (currentPage === 1 || !nextPageToken) {
         // Call API with pagination parameters
         console.log(`[DEBUG] Pagination: Making initial search request for page ${currentPage + 1}`);
+
         const requestBody = {
-          textSearchQuery: searchQuery,
+          textSearchQuery: textSearchQuery,
           indexId: indexId,
           page_size: 10
         };
@@ -461,7 +438,9 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
         // Use the retrieve endpoint with the page token for subsequent pages
         console.log(`[DEBUG] Pagination: Retrieving next page using token: ${nextPageToken}`);
 
-        endpoint = `/api/search/retrieve/${nextPageToken}`;
+        endpoint = `/api/search/retrieve/${nextPageToken}?indexId=${encodeURIComponent(indexId)}`;
+        console.log('[DEBUG] Pagination: Retrieve URL with indexId:', endpoint);
+
         response = await fetch(endpoint, {
           method: 'GET',
           headers: {
@@ -479,6 +458,12 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
       const nextPageData = await response.json();
       console.log('[DEBUG] Pagination: Received data:', nextPageData);
       console.log('[DEBUG] Pagination: Results count in response:', nextPageData?.textSearchResults?.length || 0);
+
+      // Update total results if available
+      if (nextPageData.pageInfo?.total_results && onUpdateTotalResults) {
+        console.log('[DEBUG] Pagination: Updating total results to:', nextPageData.pageInfo.total_results);
+        onUpdateTotalResults(nextPageData.pageInfo.total_results);
+      }
 
       // Extract the next page token if available
       if (nextPageData.pageInfo && nextPageData.pageInfo.next_page_token) {
@@ -550,7 +535,7 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
       setIsLoadingNextPage(false);
       console.log('[DEBUG] Pagination: Finished fetch attempt');
     }
-  };
+  }, [isLoadingNextPage, hasMorePages, currentPage, searchResultData, textSearchQuery, enhancedResults.length]);
 
   // Trigger pagination when scroll reaches the observer element
   useEffect(() => {
@@ -562,7 +547,15 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
       console.log('[DEBUG] Pagination: Triggering next page fetch from intersection observer');
       fetchNextPage();
     }
-  }, [inView, isLoadingNextPage, hasMorePages]);
+  }, [inView, isLoadingNextPage, hasMorePages, fetchNextPage]);
+
+  // Report initial total results if available
+  useEffect(() => {
+    if (searchResultData?.pageInfo?.total_results && onUpdateTotalResults) {
+      console.log('[DEBUG] Initial total results:', searchResultData.pageInfo.total_results);
+      onUpdateTotalResults(searchResultData.pageInfo.total_results);
+    }
+  }, [searchResultData, onUpdateTotalResults]);
 
   if (nextPageLoading && enhancedResults.length === 0) {
     return (
@@ -580,17 +573,15 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
     );
   }
 
-  const totalMatches = searchResultData?.pageInfo?.total_videos || 0;
-
   return (
     <div className="relative">
       {/* Background content with blur when modal is shown */}
       <div className={`${showModal ? 'filter blur-sm brightness-75 transition-all duration-200' : ''}`}>
         {/* Search Results Header */}
-        <div className="mb-6 flex items-center">
+        {/* <div className="mb-6 flex items-center">
           <h2 className="text-xl font-semibold">Search Results</h2>
           <span className="ml-2 text-gray-500 text-sm">{totalMatches} matches</span>
-        </div>
+        </div> */}
 
         {/* Grid of search results */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -618,7 +609,7 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
 
                 {/* Confidence badge */}
                 <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                  {formatScore(result.score)}
+                  {result.confidence}
                 </div>
               </div>
 
@@ -702,9 +693,17 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
                         file: {
                           attributes: {
                             preload: "auto",
+                            controlsList: "nodownload",
+                            crossOrigin: "anonymous"
                           },
                           forceVideo: true,
-                          forceHLS: true, // Force HLS to ensure proper streaming
+                          forceHLS: false, // Don't force HLS to allow fallback to other formats
+                          hlsOptions: {
+                            enableWorker: true,
+                            debug: false,
+                            lowLatencyMode: false,
+                            backBufferLength: 90
+                          }
                         },
                       }}
                       onReady={() => {
@@ -732,6 +731,8 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
                       }}
                       onError={(e) => {
                         console.error("ReactPlayer error:", e);
+                        // Show a user-friendly error message instead of crashing
+                        setError("Video playback error. Please try again later.");
                       }}
                     />
                   ) : (
@@ -818,6 +819,32 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
       )}
     </div>
   );
+};
+
+// Add this utility function at the bottom of the component before the closing brace
+/**
+ * Helper function to find the most common value in an array
+ */
+const mostCommonValue = <T,>(arr: T[]): T | undefined => {
+  if (!arr || arr.length === 0) return undefined;
+
+  const counts = arr.reduce((acc, value) => {
+    acc[String(value)] = (acc[String(value)] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  let maxCount = 0;
+  let maxValue: string | undefined;
+
+  for (const [value, count] of Object.entries(counts)) {
+    if (count > maxCount) {
+      maxCount = count;
+      maxValue = value;
+    }
+  }
+
+  // Return the actual value (not the string representation)
+  return arr.find(item => String(item) === maxValue);
 };
 
 export default SearchResultList;

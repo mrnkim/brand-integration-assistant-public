@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import SearchResultList from "./SearchResultList";
@@ -7,11 +7,11 @@ import LoadingSpinner from "./LoadingSpinner";
 import { ErrorBoundary } from "react-error-boundary";
 import { searchVideos } from "@/hooks/apiHooks";
 
-// Get content index ID from environment
-const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
+// Get content index ID from environment - renamed to avoid confusion
+const defaultIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
 const ErrorFallback = ({ error }: { error: Error }) => (
-  <div className="min-h-[50vh] flex justify-center items-center h-full">
+  <div className="min-h-[20vh] flex justify-center items-center h-full">
     <div className="text-center">
       <h2 className="text-xl font-bold text-red-600">Something went wrong:</h2>
       <p className="text-gray-700">{error.message}</p>
@@ -22,6 +22,7 @@ const ErrorFallback = ({ error }: { error: Error }) => (
 interface SearchResultsProps {
   textSearchQuery: string;
   textSearchSubmitted: boolean;
+  indexId?: string; // Optional parameter to specify which index to search in
 }
 
 /**
@@ -30,8 +31,19 @@ interface SearchResultsProps {
 const SearchResults = ({
   textSearchQuery,
   textSearchSubmitted,
+  indexId,
 }: SearchResultsProps) => {
   const queryClient = useQueryClient();
+  // Use the provided indexId or fall back to the default content index
+  const searchIndexId = indexId || defaultIndexId;
+
+  // Add debug log to track which index is being used
+  console.log("🔍 > SearchResults component > Using index ID:", searchIndexId,
+              "Is provided:", !!indexId,
+              "Default:", defaultIndexId);
+
+  // State to track the total results count
+  const [totalResultsCount, setTotalResultsCount] = useState<number>(0);
 
   /** Query to fetch text search results */
   const {
@@ -39,20 +51,47 @@ const SearchResults = ({
     isLoading: textSearchResultLoading,
     error: textSearchError,
   } = useQuery({
-    queryKey: ["textSearch", textSearchQuery],
-    queryFn: () => searchVideos(textSearchQuery, contentIndexId),
+    queryKey: ["textSearch", textSearchQuery, searchIndexId],
+    queryFn: () => searchVideos(textSearchQuery, searchIndexId),
     enabled: textSearchSubmitted && textSearchQuery.trim() !== '',
     staleTime: 300000, // 5 minutes
   });
 
+  // Update total results count when data is loaded - first priority is API total_results
+  useEffect(() => {
+    if (textSearchResultData?.pageInfo?.total_results) {
+      // Always use the most accurate count from the API
+      setTotalResultsCount(textSearchResultData.pageInfo.total_results);
+
+      // Log for debugging
+      console.log("🚀 > Setting total count to:", textSearchResultData.pageInfo.total_results);
+    }
+  }, [textSearchResultData?.pageInfo?.total_results]);
+
   /** Invalidate cached query only when text search query changes */
   useEffect(() => {
     if (textSearchSubmitted && textSearchQuery.trim() !== '') {
+      // Reset total count when query changes
+      setTotalResultsCount(0);
+
       queryClient.invalidateQueries({
-        queryKey: ["textSearch", textSearchQuery]
+        queryKey: ["textSearch", textSearchQuery, searchIndexId]
       });
     }
-  }, [textSearchQuery, queryClient, textSearchSubmitted]);
+  }, [textSearchQuery, searchIndexId, queryClient, textSearchSubmitted]);
+
+  // Function to update the total results count from SearchResultList pagination
+  const updateTotalResults = (count: number) => {
+    if (count > totalResultsCount) {
+      setTotalResultsCount(count);
+      console.log("🚀 > Updating total count via callback to:", count);
+    }
+  };
+
+  // Get the final count to display
+  const displayCount = totalResultsCount ||
+                       textSearchResultData?.pageInfo?.total_results ||
+                       textSearchResultData?.textSearchResults?.length || 0;
 
   if (textSearchError) {
     return <ErrorFallback error={textSearchError as Error} />;
@@ -61,6 +100,17 @@ const SearchResults = ({
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <div>
+        {/* Hidden debug element */}
+        <div className="hidden">
+          <pre>
+            {JSON.stringify({
+              total_results: textSearchResultData?.pageInfo?.total_results,
+              pageInfo: textSearchResultData?.pageInfo,
+              resultCount: textSearchResultData?.textSearchResults?.length
+            }, null, 2)}
+          </pre>
+        </div>
+
         {textSearchResultLoading ? (
           <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
             <LoadingSpinner />
@@ -74,15 +124,17 @@ const SearchResults = ({
               <p className="text-gray-600 my-0 text-sm whitespace-nowrap ml-1.5">
                 <span> • </span>
                 {"  "}
-                {textSearchResultData.textSearchResults.length || 0} matches
+                {displayCount} matches
               </p>
             </div>
             <SearchResultList
               searchResultData={textSearchResultData}
+              onUpdateTotalResults={updateTotalResults}
+              textSearchQuery={textSearchQuery}
             />
           </>
         ) : textSearchSubmitted ? (
-          <div className="min-h-[50vh] flex justify-center items-center h-full">
+          <div className="min-h-[20vh] flex justify-center items-center h-full">
             <div className="h-full w-full flex flex-col items-center justify-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"

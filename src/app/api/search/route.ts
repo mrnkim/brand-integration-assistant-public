@@ -55,11 +55,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('🔍 > Search API > Using index ID:', indexId,
+                'Is ads index?', indexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID,
+                'Is content index?', indexId === process.env.NEXT_PUBLIC_CONTENT_INDEX_ID,
+                'NEXT_PUBLIC_ADS_INDEX_ID:', process.env.NEXT_PUBLIC_ADS_INDEX_ID,
+                'NEXT_PUBLIC_CONTENT_INDEX_ID:', process.env.NEXT_PUBLIC_CONTENT_INDEX_ID);
+
     const searchDataForm = new FormData();
     searchDataForm.append("search_options", "visual");
     searchDataForm.append("search_options", "audio");
     searchDataForm.append("index_id", indexId);
     searchDataForm.append("query_text", textSearchQuery);
+    searchDataForm.append("adjust_confidence_level", 0.6);
 
     // Add pagination parameters if provided
     searchDataForm.append("page", page.toString());
@@ -83,7 +90,6 @@ export async function POST(request: NextRequest) {
       });
 
       const responseData = response.data;
-      console.log("🚀 > POST > responseData=", responseData)
       console.log("🚀 > POST > Response status:", response.status);
 
       if (!responseData) {
@@ -106,14 +112,24 @@ export async function POST(request: NextRequest) {
       // Add index_id to each result if not already present
       const resultsWithIndexId = (responseData.data as SearchResult[]).map((result: SearchResult) => ({
         ...result,
-        index_id: result.index_id || indexId  // Use the result's index_id or fall back to the one from env
+        index_id: requestIndexId || indexId  // IMPORTANT: Use the requested indexId, not result.index_id
       }));
 
       // Return the search results as a JSON response
-      return NextResponse.json({
-        pageInfo: responseData.page_info || {},
+      const responsePayload = {
+        pageInfo: {
+          ...responseData.page_info,
+          total_results: responseData.page_info?.total_results || 0,
+        },
         textSearchResults: resultsWithIndexId,
+      };
+
+      console.log('🔍 > POST > Final response payload:', {
+        pageInfo: responsePayload.pageInfo,
+        resultCount: responsePayload.textSearchResults.length
       });
+
+      return NextResponse.json(responsePayload);
     } catch (axiosError: unknown) {
       console.error("🔍 > Search API > Axios error:",
         axios.isAxiosError(axiosError) ? axiosError.response?.status : 'unknown status',

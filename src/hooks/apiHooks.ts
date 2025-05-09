@@ -141,16 +141,24 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
   const cleanText = hashtagText.replace(/\n/g, ' ');
   const hashtags = cleanText.split(/\s+/).filter(tag => tag.startsWith('#'));
 
+  // 각 카테고리별 태그를 수집하기 위한 객체
+  const categoryTags: Record<string, string[]> = {
+    demographics: [],
+    sector: [],
+    emotions: [],
+    locations: [],
+    brands: []
+  };
 
   // 카테고리별 키워드 (모두 소문자로 정의)
   const demographicsKeywords = ['male', 'female', '18-25', '25-34', '35-44', '45-54', '55+'];
   const sectorKeywords = ['beauty', 'fashion', 'tech', 'travel', 'cpg', 'food', 'bev', 'retail'];
-  const emotionKeywords = ['happy', 'positive', 'happypositive', 'happy/positive', 'exciting', 'relaxing', 'inspiring', 'serious', 'festive', 'calm'];
+  const emotionKeywords = ['happy', 'positive', 'happypositive', 'happy/positive', 'exciting', 'relaxing', 'inspiring', 'serious', 'festive', 'calm', 'determined'];
 
   // 특정 위치 키워드 - 이것들이 나오면 확실하게 위치로 분류
   const locationKeywords = [
     'seoul', 'dubai', 'doha', 'newyork', 'new york', 'paris', 'tokyo', 'london', 'berlin',
-    'lasvegas', 'las vegas', 'france', 'korea', 'qatar', 'uae', 'usa', 'bocachica', 'bocachicabeach'
+    'lasvegas', 'las vegas', 'france', 'korea', 'qatar', 'uae', 'usa', 'bocachica', 'bocachicabeach', 'marathon'
   ];
 
   // 특정 브랜드 키워드 - 이것들이 나오면 확실하게 브랜드로 분류
@@ -165,31 +173,31 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
 
     // 인구통계 확인 - 인구통계는 demographics 필드에 저장
     if (demographicsKeywords.includes(cleanTag)) {
-      metadata.demographics = cleanTag;
+      categoryTags.demographics.push(cleanTag);
       continue;
     }
 
     // 섹터 확인
     if (sectorKeywords.includes(cleanTag)) {
-      metadata.sector = cleanTag;
+      categoryTags.sector.push(cleanTag);
       continue;
     }
 
     // 감정 확인
     if (emotionKeywords.includes(cleanTag)) {
-      metadata.emotions = cleanTag;
+      categoryTags.emotions.push(cleanTag);
       continue;
     }
 
     // 위치 키워드 확인
     if (locationKeywords.includes(cleanTag)) {
-      metadata.locations = cleanTag;
+      categoryTags.locations.push(cleanTag);
       continue;
     }
 
     // 브랜드 키워드 확인
     if (brandKeywords.includes(cleanTag)) {
-      metadata.brands = cleanTag;
+      categoryTags.brands.push(cleanTag);
       continue;
     }
   }
@@ -204,16 +212,22 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
            !brandKeywords.includes(cleanTag);
   });
 
-
   // 아직 분류되지 않은 태그가 있고, locations가 비어있으면 첫 번째 태그를 locations로 간주
-  if (unclassifiedTags.length > 0 && !metadata.locations) {
-    metadata.locations = unclassifiedTags[0].slice(1).toLowerCase();
+  if (unclassifiedTags.length > 0 && categoryTags.locations.length === 0) {
+    categoryTags.locations.push(unclassifiedTags[0].slice(1).toLowerCase());
     unclassifiedTags.shift();
   }
 
   // 아직 분류되지 않은 태그가 있고, brands가 비어있으면 다음 태그를 brands로 간주
-  if (unclassifiedTags.length > 0 && !metadata.brands) {
-    metadata.brands = unclassifiedTags[0].slice(1).toLowerCase();
+  if (unclassifiedTags.length > 0 && categoryTags.brands.length === 0) {
+    categoryTags.brands.push(unclassifiedTags[0].slice(1).toLowerCase());
+  }
+
+  // 각 카테고리 태그를 쉼표로 구분된 문자열로 변환
+  for (const category in categoryTags) {
+    if (categoryTags[category as keyof typeof categoryTags].length > 0) {
+      metadata[category] = categoryTags[category as keyof typeof categoryTags].join(', ');
+    }
   }
 
   return metadata;
@@ -280,27 +294,42 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
 
   // Demographics - 새로운 필드로 처리
   if (metadata.demographics && typeof metadata.demographics === 'string') {
-    tags.push({ category: 'Demographics', value: metadata.demographics });
+    // 쉼표로 구분된 값을 개별 태그로 추가
+    metadata.demographics.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
+      tags.push({ category: 'Demographics', value: tag });
+    });
   }
 
   // Sector
   if (metadata.sector && typeof metadata.sector === 'string') {
-    tags.push({ category: 'Sector', value: metadata.sector });
+    // 쉼표로 구분된 값을 개별 태그로 추가
+    metadata.sector.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
+      tags.push({ category: 'Sector', value: tag });
+    });
   }
 
   // Emotions
   if (metadata.emotions && typeof metadata.emotions === 'string') {
-    tags.push({ category: 'Emotions', value: metadata.emotions });
+    // 쉼표로 구분된 값을 개별 태그로 추가
+    metadata.emotions.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
+      tags.push({ category: 'Emotions', value: tag });
+    });
   }
 
   // Brands
   if (metadata.brands && typeof metadata.brands === 'string') {
-    tags.push({ category: 'Brands', value: metadata.brands });
+    // 쉼표로 구분된 값을 개별 태그로 추가
+    metadata.brands.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
+      tags.push({ category: 'Brands', value: tag });
+    });
   }
 
   // Locations
   if (metadata.locations && typeof metadata.locations === 'string') {
-    tags.push({ category: 'Location', value: metadata.locations });
+    // 쉼표로 구분된 값을 개별 태그로 추가
+    metadata.locations.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
+      tags.push({ category: 'Location', value: tag });
+    });
   }
 
   return tags;
@@ -311,6 +340,11 @@ interface SearchPageInfo {
   page: number;
   total_page: number;
   total_videos: number;
+  total_results?: number;
+  limit_per_page?: number;
+  next_page_token?: string;
+  prev_page_token?: string;
+  page_expires_at?: string;
 }
 
 interface SearchResult {
@@ -340,15 +374,19 @@ export const searchVideos = async (
 
     if (!searchQuery || searchQuery.trim() === '') {
       return {
-        pageInfo: { page: 1, total_page: 1, total_videos: 0 },
+        pageInfo: { page: 1, total_page: 1, total_videos: 0, total_results: 0 },
         textSearchResults: []
       };
     }
 
-    // Use provided indexId or get from environment
-    const contentIndexId = indexId || process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
-    console.log('🔍 > searchVideos > Using index ID:', contentIndexId);
+    // Use provided indexId or get from environment - renamed variable to avoid confusion
+    const searchIndexId = indexId || process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
+    console.log('🔍 > searchVideos > Using index ID:', searchIndexId,
+                'Is ads index?', searchIndexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID,
+                'Is content index?', searchIndexId === process.env.NEXT_PUBLIC_CONTENT_INDEX_ID);
 
+    // Make an initial search request to get the correct total count
+    // Use a larger page_size to increase chance of getting full count in first request
     const response = await fetch('/api/search', {
       method: 'POST',
       headers: {
@@ -356,7 +394,8 @@ export const searchVideos = async (
       },
       body: JSON.stringify({
         textSearchQuery: searchQuery,
-        indexId: contentIndexId
+        indexId: searchIndexId,
+        page_size: 100  // Request larger page size to get complete results if possible
       }),
     });
 
@@ -365,11 +404,22 @@ export const searchVideos = async (
     }
 
     const data = await response.json();
-    console.log('🔍 > searchVideos > Results count:', data.textSearchResults?.length || 0);
+    console.log('🔍 > searchVideos > Raw API response:', JSON.stringify(data));
+    console.log('🔍 > searchVideos > API response pageInfo:', data.pageInfo);
+    console.log('🔍 > searchVideos > ResultCount from API:', data.textSearchResults?.length || 0);
+    console.log('🔍 > searchVideos > total_results from API:', data.pageInfo?.total_results);
 
+    // If we need to limit the results to display, only pass back first 10
+    const limitedResults = data.textSearchResults?.slice(0, 10) || [];
+
+    // Return results with correct total_results count but limited initial results
     return {
-      pageInfo: data.pageInfo || { page: 1, total_page: 1, total_videos: 0 },
-      textSearchResults: data.textSearchResults || []
+      pageInfo: {
+        ...data.pageInfo,
+        // Ensure total_results is preserved from the original response
+        total_results: data.pageInfo?.total_results || limitedResults.length,
+      },
+      textSearchResults: limitedResults
     };
   } catch (error) {
     console.error('Error searching videos:', error);

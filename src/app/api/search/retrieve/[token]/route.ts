@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * API endpoint for retrieving paginated search results
+ *
+ * Expected URL format: /api/search/retrieve/[token]?indexId=<indexId>
+ *
+ * The indexId parameter in the URL query string is crucial to ensure that
+ * search results come from the correct video library (content or ads).
+ */
 
 // Define interface for search result
 interface SearchResult {
@@ -22,13 +32,20 @@ interface SearchResult {
   [key: string]: string | number | boolean | object | undefined;
 }
 
+// Use the updated approach for Next.js 15+ dynamic routes
 export async function GET(
   request: NextRequest,
   { params }: { params: { token: string } }
 ) {
   try {
-    const pageToken = params.token;
-    console.log('🔍 > Search Retrieve API > Received request for token:', pageToken);
+    // Use object destructuring with await following Next.js 15 guidance
+    const { token } = await params;
+    console.log('🔍 > Search Retrieve API > Received request for token:', token);
+
+    // Get the indexId from URL search params to ensure we preserve the correct index
+    const searchParams = request.nextUrl.searchParams;
+    const requestIndexId = searchParams.get('indexId');
+    console.log('🔍 > Search Retrieve API > Index ID from request:', requestIndexId);
 
     const apiKey = process.env.TWELVELABS_API_KEY;
 
@@ -40,7 +57,7 @@ export async function GET(
       );
     }
 
-    if (!pageToken) {
+    if (!token) {
       console.log('🔍 > Search Retrieve API > Missing page token');
       return NextResponse.json(
         { error: "Page token is required" },
@@ -48,9 +65,9 @@ export async function GET(
       );
     }
 
-    const url = `https://api.twelvelabs.io/v1.3/search/${pageToken}`;
+    const url = `https://api.twelvelabs.io/v1.3/search/${token}`;
 
-    console.log('🔍 > GET > Retrieving page with token:', pageToken);
+    console.log('🔍 > GET > Retrieving page with token:', token);
 
     try {
       const response = await axios.get(url, {
@@ -79,18 +96,31 @@ export async function GET(
         console.log('🔍 > GET > Sample video IDs in results:', videoIds);
       }
 
-      // Add index_id to each result if not already present (using the one from search_pool)
-      const indexId = responseData.search_pool?.index_id;
+      // Determine which index ID to use - prioritize the one from request params
+      const indexId = requestIndexId || responseData.search_pool?.index_id || process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
+      console.log('🔍 > GET > Using index ID for results:', indexId);
+
+      // Add index_id to each result
       const resultsWithIndexId = (responseData.data as SearchResult[]).map((result: SearchResult) => ({
         ...result,
-        index_id: result.index_id || indexId
+        index_id: requestIndexId || indexId
       }));
 
       // Return the search results as a JSON response
-      return NextResponse.json({
-        pageInfo: responseData.page_info || {},
+      const responsePayload = {
+        pageInfo: {
+          ...responseData.page_info,
+          total_results: responseData.page_info?.total_results || 0,
+        },
         textSearchResults: resultsWithIndexId,
+      };
+
+      console.log('🔍 > GET > Final response payload:', {
+        pageInfo: responsePayload.pageInfo,
+        resultCount: responsePayload.textSearchResults.length
       });
+
+      return NextResponse.json(responsePayload);
     } catch (axiosError: unknown) {
       console.error("🔍 > Search Retrieve API > Axios error:",
         axios.isAxiosError(axiosError) ? axiosError.response?.status : 'unknown status',
