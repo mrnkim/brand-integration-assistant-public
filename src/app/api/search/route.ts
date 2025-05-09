@@ -33,7 +33,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('🔍 > Search API > Request body:', body);
 
-    const { textSearchQuery, indexId: requestIndexId } = body;
+    const { textSearchQuery, indexId: requestIndexId, page = 1, page_size = 10, offset = 0 } = body;
+    console.log('🔍 > Search API > Pagination parameters:', { page, page_size, offset });
 
     // Use indexId from request if provided, otherwise use from env
     const indexId = requestIndexId || process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
@@ -60,10 +61,18 @@ export async function POST(request: NextRequest) {
     searchDataForm.append("index_id", indexId);
     searchDataForm.append("query_text", textSearchQuery);
 
+    // Add pagination parameters if provided
+    searchDataForm.append("page", page.toString());
+    searchDataForm.append("page_size", page_size.toString());
+    if (offset > 0) {
+      searchDataForm.append("offset", offset.toString());
+    }
+
     const url = "https://api.twelvelabs.io/v1.3/search"; // API 버전 업데이트
 
     console.log('🔍 > POST > Searching for:', textSearchQuery);
     console.log('🔍 > POST > Index ID:', indexId);
+    console.log('🔍 > POST > Pagination params being sent:', { page, page_size, offset });
 
     try {
       const response = await axios.post(url, searchDataForm, {
@@ -86,6 +95,13 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('🔍 > POST > Search results count:', responseData.data?.length || 0);
+      console.log('🔍 > POST > Pagination info:', responseData.page_info || 'No pagination info');
+
+      // Log first few video IDs to check for duplicates
+      if (responseData.data && responseData.data.length > 0) {
+        const videoIds = responseData.data.slice(0, 3).map((item: SearchResult) => item.video_id);
+        console.log('🔍 > POST > Sample video IDs in results:', videoIds);
+      }
 
       // Add index_id to each result if not already present
       const resultsWithIndexId = (responseData.data as SearchResult[]).map((result: SearchResult) => ({

@@ -14,6 +14,7 @@ interface SearchResultListProps {
       page: number;
       total_page: number;
       total_videos: number;
+      next_page_token?: string;
     };
     textSearchResults: Array<{
       _id: string;
@@ -73,9 +74,13 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
   const [segmentEndReached, setSegmentEndReached] = useState(false);
   const [lastSeekTime, setLastSeekTime] = useState<number | null>(null);
   const [modalOpened, setModalOpened] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMorePages, setHasMorePages] = useState(false);
+  const [isLoadingNextPage, setIsLoadingNextPage] = useState(false);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
 
-  // Using intersection observer to detect elements in view
-  const { ref: observerRef } = useInView({
+  // Using intersection observer to detect when to load more results
+  const { ref: observerRef, inView } = useInView({
     threshold: 0.1,
     triggerOnce: false,
   });
@@ -252,34 +257,88 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
     };
   }, [showModal]);
 
-  // Enhance search results (fetch video details)
+  // Enhance search results (fetch video details) for the initial page
   useEffect(() => {
     const enhanceSearchResults = async () => {
       if (searchResultData?.textSearchResults?.length > 0) {
         setNextPageLoading(true);
+
+        // Initialize pagination variables with fallbacks
+        const initialPage = searchResultData.pageInfo?.page || 1;
+
+        // Check for next_page_token in the initial response
+        if (searchResultData.pageInfo?.next_page_token) {
+          console.log('[DEBUG] Pagination: Found initial next_page_token:', searchResultData.pageInfo.next_page_token);
+          setNextPageToken(searchResultData.pageInfo.next_page_token);
+          setHasMorePages(true);
+        } else {
+          // If there's no token but we have results, use result count to determine if there are more pages
+          const resultsCount = searchResultData.textSearchResults.length;
+          const hasMore = resultsCount >= 10; // If we received a full page, assume there are more
+          console.log('[DEBUG] Pagination: No initial next_page_token, using result count to determine hasMorePages:', hasMore);
+          setHasMorePages(hasMore);
+        }
+
+        console.log('[DEBUG] Pagination: Initial page:', initialPage,
+          'API Total pages:', searchResultData.pageInfo?.total_page || 0,
+          'Estimated total pages:', searchResultData.textSearchResults.length === 10 ? 2 : 1,
+          'Final total pages:', searchResultData.pageInfo?.total_page || 0,
+          'Has more pages:', searchResultData.pageInfo?.next_page_token ? true : (searchResultData.textSearchResults.length >= 10));
+
+        setCurrentPage(initialPage);
+
         try {
           // Get index_id from the first result, or fall back to the default
-          let indexId = searchResultData.textSearchResults[0].index_id;
+          const indexId = searchResultData.textSearchResults[0]?.index_id || defaultIndexId;
 
-          // If index_id is missing, use the default from environment variables
-          if (!indexId) {
-            indexId = defaultIndexId;
-            console.log("Using default index_id for video details:", indexId);
+          // Try to get query from multiple sources
+          let searchQuery = null;
+
+          // Method 1: Get from session storage
+          searchQuery = window.sessionStorage.getItem('lastSearchQuery');
+
+          // Method 2: Try to extract from URL if not in session storage
+          if (!searchQuery) {
+            const queryParam = new URLSearchParams(window.location.search).get('q');
+            if (queryParam) {
+              searchQuery = queryParam;
+              // Store for future use
+              window.sessionStorage.setItem('lastSearchQuery', queryParam);
+            }
           }
 
+          // Method 3: Fallback to any matched_words from the first result's segments
+          if (!searchQuery) {
+            const firstResultSegment = searchResultData.textSearchResults[0]?.segments?.[0];
+            if (firstResultSegment && firstResultSegment.matched_words && firstResultSegment.matched_words.length > 0) {
+              searchQuery = firstResultSegment.matched_words.join(' ');
+              window.sessionStorage.setItem('lastSearchQuery', searchQuery);
+            }
+          }
+
+          // Final fallback: use a default value
+          if (!searchQuery) {
+            searchQuery = 'boat'; // Default fallback
+          }
+
+          console.log('[DEBUG] Pagination: Using query:', searchQuery, 'index_id:', indexId);
+
           if (!indexId) {
-            console.error("Missing index_id in search results and no default configured");
+            console.error("[DEBUG] Pagination: Missing index_id in search results and no default configured");
             setError("Cannot load video information: Missing index ID");
             setNextPageLoading(false);
             return;
           }
 
-          console.log("Using index_id for video details:", indexId);
+          console.log("[DEBUG] Pagination: Using index_id for video details:", indexId);
 
           // Fetch details for all video results
+          console.log('[DEBUG] Pagination: Fetching details for', searchResultData.textSearchResults.length, 'initial results');
+
           const detailedResults = await Promise.all(
-            searchResultData.textSearchResults.map(async (result) => {
+            searchResultData.textSearchResults.map(async (result, index) => {
               try {
+                console.log(`[DEBUG] Pagination: Fetching details for initial video ${index + 1}/${searchResultData.textSearchResults.length}: ${result.video_id}`);
                 // Get video details using videoId and indexId
                 const videoDetail = await fetchVideoDetails(result.video_id, indexId);
                 return {
@@ -287,24 +346,223 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
                   videoDetail,
                 };
               } catch (err) {
-                console.error(`Failed to fetch details for video ${result.video_id}:`, err);
+                console.error(`[DEBUG] Pagination: Failed to fetch details for video ${result.video_id}:`, err);
                 return result;
               }
             })
           );
 
+          console.log('[DEBUG] Pagination: Setting initial', detailedResults.length, 'results');
           setEnhancedResults(detailedResults);
         } catch (err: unknown) {
-          console.error("Error enhancing search results:", err);
+          console.error("[DEBUG] Pagination: Error enhancing search results:", err);
           setError(err instanceof Error ? err.message : "An error occurred loading video details");
         } finally {
           setNextPageLoading(false);
+          console.log('[DEBUG] Pagination: Finished initial load');
         }
+      } else {
+        console.log('[DEBUG] Pagination: No initial search results to process');
       }
     };
 
-    enhanceSearchResults();
+    if (searchResultData?.textSearchResults?.length > 0) {
+      console.log('[DEBUG] Pagination: Setting initial', searchResultData.textSearchResults.length, 'results');
+
+      // Store search query in session storage for pagination
+      const query = new URLSearchParams(window.location.search).get('q');
+      if (query) {
+        console.log('[DEBUG] Pagination: Storing search query:', query);
+        window.sessionStorage.setItem('lastSearchQuery', query);
+      }
+
+      enhanceSearchResults().then(() => {
+        console.log('[DEBUG] Pagination: Finished initial load');
+      });
+    }
   }, [searchResultData]);
+
+  // Fetch and enhance the next page of search results
+  const fetchNextPage = async () => {
+    if (isLoadingNextPage || !hasMorePages) {
+      console.log('[DEBUG] Pagination: Skip fetchNextPage - isLoadingNextPage:', isLoadingNextPage, 'hasMorePages:', hasMorePages);
+      return;
+    }
+
+    setIsLoadingNextPage(true);
+    console.log(`[DEBUG] Pagination: Fetching page ${currentPage + 1}, current results count: ${enhancedResults.length}`);
+
+    try {
+      // Get index_id from the first result, or fall back to the default
+      const indexId = searchResultData.textSearchResults[0]?.index_id || defaultIndexId;
+
+      // Try to get query from multiple sources
+      let searchQuery = null;
+
+      // Method 1: Get from session storage
+      searchQuery = window.sessionStorage.getItem('lastSearchQuery');
+
+      // Method 2: Try to extract from URL if not in session storage
+      if (!searchQuery) {
+        const queryParam = new URLSearchParams(window.location.search).get('q');
+        if (queryParam) {
+          searchQuery = queryParam;
+          // Store for future use
+          window.sessionStorage.setItem('lastSearchQuery', queryParam);
+        }
+      }
+
+      // Method 3: Fallback to any matched_words from the first result's segments
+      if (!searchQuery) {
+        const firstResultSegment = searchResultData.textSearchResults[0]?.segments?.[0];
+        if (firstResultSegment && firstResultSegment.matched_words && firstResultSegment.matched_words.length > 0) {
+          searchQuery = firstResultSegment.matched_words.join(' ');
+          window.sessionStorage.setItem('lastSearchQuery', searchQuery);
+        }
+      }
+
+      // Final fallback: use a default value
+      if (!searchQuery) {
+        searchQuery = 'boat'; // Default fallback
+      }
+
+      console.log('[DEBUG] Pagination: Using query:', searchQuery, 'index_id:', indexId);
+
+      if (!indexId) {
+        console.error("[DEBUG] Pagination: Missing index_id for pagination");
+        setError("Cannot load more results: Missing index ID");
+        setIsLoadingNextPage(false);
+        return;
+      }
+
+      let response;
+      let endpoint;
+
+      // For the first page or if we don't have a next_page_token, use the search endpoint
+      if (currentPage === 1 || !nextPageToken) {
+        // Call API with pagination parameters
+        console.log(`[DEBUG] Pagination: Making initial search request for page ${currentPage + 1}`);
+        const requestBody = {
+          textSearchQuery: searchQuery,
+          indexId: indexId,
+          page_size: 10
+        };
+        console.log('[DEBUG] Pagination: Request payload:', requestBody);
+
+        endpoint = '/api/search';
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else {
+        // Use the retrieve endpoint with the page token for subsequent pages
+        console.log(`[DEBUG] Pagination: Retrieving next page using token: ${nextPageToken}`);
+
+        endpoint = `/api/search/retrieve/${nextPageToken}`;
+        response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[DEBUG] Pagination: API error response:', errorText);
+        throw new Error(`Failed to fetch page ${currentPage + 1}: ${response.status} ${response.statusText}`);
+      }
+
+      const nextPageData = await response.json();
+      console.log('[DEBUG] Pagination: Received data:', nextPageData);
+      console.log('[DEBUG] Pagination: Results count in response:', nextPageData?.textSearchResults?.length || 0);
+
+      // Extract the next page token if available
+      if (nextPageData.pageInfo && nextPageData.pageInfo.next_page_token) {
+        console.log('[DEBUG] Pagination: Found next_page_token:', nextPageData.pageInfo.next_page_token);
+        setNextPageToken(nextPageData.pageInfo.next_page_token);
+        setHasMorePages(true);
+      } else {
+        console.log('[DEBUG] Pagination: No next_page_token found, this is the last page');
+        setNextPageToken(null);
+        setHasMorePages(false);
+      }
+
+      // Fetch video details for the new results
+      if (nextPageData?.textSearchResults?.length > 0) {
+        console.log('[DEBUG] Pagination: Fetching video details for', nextPageData.textSearchResults.length, 'results');
+
+        const newResults = await Promise.all(
+          nextPageData.textSearchResults.map(async (result: EnhancedSearchResult, index: number) => {
+            try {
+              console.log(`[DEBUG] Pagination: Fetching details for video ${index + 1}/${nextPageData.textSearchResults.length}: ${result.video_id}`);
+              const videoDetail = await fetchVideoDetails(result.video_id, indexId);
+              return {
+                ...result,
+                videoDetail,
+              };
+            } catch (err) {
+              console.error(`[DEBUG] Pagination: Failed to fetch details for video ${result.video_id}:`, err);
+              return result;
+            }
+          })
+        );
+
+        console.log('[DEBUG] Pagination: Processed', newResults.length, 'new results');
+
+        // Append new results to existing ones
+        setEnhancedResults(prev => {
+          // Check for duplicates based on unique video IDs and segment times
+          const existingIds = new Set(prev.map(item => `${item.video_id}_${item.start}_${item.end}`));
+
+          // Filter out duplicates
+          const uniqueNewResults = newResults.filter(item => {
+            const itemKey = `${item.video_id}_${item.start}_${item.end}`;
+            return !existingIds.has(itemKey);
+          });
+
+          console.log(`[DEBUG] Pagination: Filtered out ${newResults.length - uniqueNewResults.length} duplicate results`);
+
+          const updated = [...prev, ...uniqueNewResults];
+          console.log('[DEBUG] Pagination: Updated results length:', updated.length);
+          return updated;
+        });
+
+        // Update current page and check if there are more pages
+        // Improved pagination status update logic
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+
+        // Determine if there are more pages based on next_page_token existence
+        // This is already handled above where we set the nextPageToken
+        // and hasMorePages based on the API response
+      } else {
+        console.log('[DEBUG] Pagination: No results in response, setting hasMorePages: false');
+        setHasMorePages(false);
+      }
+    } catch (err) {
+      console.error("[DEBUG] Pagination: Error loading more search results:", err);
+      setError(err instanceof Error ? err.message : "Failed to load more results");
+    } finally {
+      setIsLoadingNextPage(false);
+      console.log('[DEBUG] Pagination: Finished fetch attempt');
+    }
+  };
+
+  // Trigger pagination when scroll reaches the observer element
+  useEffect(() => {
+    console.log('[DEBUG] Pagination: Intersection observed:', inView,
+      'isLoadingNextPage:', isLoadingNextPage,
+      'hasMorePages:', hasMorePages);
+
+    if (inView && !isLoadingNextPage && hasMorePages) {
+      console.log('[DEBUG] Pagination: Triggering next page fetch from intersection observer');
+      fetchNextPage();
+    }
+  }, [inView, isLoadingNextPage, hasMorePages]);
 
   if (nextPageLoading && enhancedResults.length === 0) {
     return (
@@ -322,7 +580,7 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
     );
   }
 
-  const totalMatches = enhancedResults.length;
+  const totalMatches = searchResultData?.pageInfo?.total_videos || 0;
 
   return (
     <div className="relative">
@@ -374,13 +632,25 @@ const SearchResultList = ({ searchResultData }: SearchResultListProps) => {
           ))}
 
           {/* Loading element for infinite scroll */}
-          <div ref={observerRef} className="col-span-full text-center py-4">
-            {nextPageLoading && enhancedResults.length > 0 && (
-              <div className="flex justify-center items-center w-full">
-                <LoadingSpinner />
-              </div>
-            )}
-          </div>
+          {hasMorePages && (
+            <div ref={observerRef} className="col-span-full text-center py-8 mt-4">
+              {isLoadingNextPage ? (
+                <div className="flex justify-center items-center w-full">
+                  <LoadingSpinner />
+                  <span className="ml-2 text-sm text-gray-500">Loading more results...</span>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">Scroll for more results</div>
+              )}
+            </div>
+          )}
+
+          {/* No more results indicator */}
+          {!hasMorePages && enhancedResults.length > 0 && (
+            <div className="col-span-full text-center py-4 text-gray-500">
+              {`End of results - ${enhancedResults.length} videos found`}
+            </div>
+          )}
         </div>
       </div>
 
