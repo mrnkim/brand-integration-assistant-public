@@ -1,4 +1,4 @@
-import { PaginatedResponse, VideoDetails } from '@/types';
+import { PaginatedResponse } from '@/types';
 
 // 비디오 목록 가져오기
 export const fetchVideos = async (
@@ -23,11 +23,33 @@ export const fetchVideos = async (
   }
 };
 
+// 비디오 상세 정보 타입 정의
+export interface VideoDetailResponse {
+  _id: string;
+  index_id?: string;
+  hls?: {
+    video_url?: string;
+    thumbnail_urls?: string[];
+    status?: string;
+    updated_at?: string;
+  };
+  system_metadata?: {
+    filename?: string;
+    video_title?: string;
+    duration?: number;
+    fps?: number;
+    height?: number;
+    width?: number;
+    size?: number;
+  };
+  user_metadata?: Record<string, string>;
+}
+
 // 비디오 상세 정보 가져오기
 export const fetchVideoDetails = async (
   videoId: string,
   indexId: string
-): Promise<VideoDetails> => {
+): Promise<VideoDetailResponse> => {
   try {
     const response = await fetch(`/api/videos/${videoId}?index_id=${indexId}`);
 
@@ -36,23 +58,7 @@ export const fetchVideoDetails = async (
     }
 
     const data = await response.json();
-
-    // API 응답을 VideoDetails 형식으로 변환
-    return {
-      _id: data._id,
-      hls: {
-        video_url: data.hls?.video_url,
-        thumbnail_urls: data.hls?.thumbnail_urls || ['/videoFallback.jpg']
-      },
-      system_metadata: {
-        filename: data.system_metadata?.filename,
-        video_title: data.system_metadata?.video_title,
-        duration: data.system_metadata?.duration || 0,
-        fps: data.system_metadata?.fps,
-        height: data.system_metadata?.height,
-        width: data.system_metadata?.width
-      }
-    };
+    return data;
   } catch (error) {
     console.error('Error fetching video details:', error);
     throw error;
@@ -119,7 +125,6 @@ export const generateMetadata = async (videoId: string): Promise<string> => {
 
 // 파싱된 해시태그에서 메타데이터 객체 생성
 export const parseHashtags = (hashtagText: string): Record<string, string> => {
-  console.log('🚀 > parseHashtags > input:', hashtagText);
 
   // 해시태그 문자열에서 메타데이터 추출
   const metadata: Record<string, string> = {
@@ -136,7 +141,6 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
   const cleanText = hashtagText.replace(/\n/g, ' ');
   const hashtags = cleanText.split(/\s+/).filter(tag => tag.startsWith('#'));
 
-  console.log('🚀 > parseHashtags > hashtags:', hashtags);
 
   // 카테고리별 키워드 (모두 소문자로 정의)
   const demographicsKeywords = ['male', 'female', '18-25', '25-34', '35-44', '45-54', '55+'];
@@ -200,7 +204,6 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
            !brandKeywords.includes(cleanTag);
   });
 
-  console.log('🚀 > parseHashtags > unclassified tags:', unclassifiedTags);
 
   // 아직 분류되지 않은 태그가 있고, locations가 비어있으면 첫 번째 태그를 locations로 간주
   if (unclassifiedTags.length > 0 && !metadata.locations) {
@@ -213,7 +216,6 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     metadata.brands = unclassifiedTags[0].slice(1).toLowerCase();
   }
 
-  console.log('🚀 > parseHashtags > final metadata:', metadata);
   return metadata;
 };
 
@@ -224,7 +226,6 @@ export const updateVideoMetadata = async (
   metadata: Record<string, string>
 ): Promise<boolean> => {
   try {
-    console.log('🚀 > updateVideoMetadata > params:', { videoId, indexId, metadata });
 
     const payload = {
       videoId,
@@ -241,8 +242,6 @@ export const updateVideoMetadata = async (
     });
 
     const responseText = await response.text();
-    console.log('🚀 > updateVideoMetadata > response status:', response.status);
-    console.log('🚀 > updateVideoMetadata > response text:', responseText);
 
     if (!response.ok) {
       // 오류가 발생한 경우, 응답 텍스트를 그대로 사용
@@ -305,4 +304,75 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
   }
 
   return tags;
+};
+
+// 텍스트 검색 결과 타입 정의
+interface SearchPageInfo {
+  page: number;
+  total_page: number;
+  total_videos: number;
+}
+
+interface SearchResult {
+  _id: string;
+  index_id: string;
+  video_id: string;
+  score: number;
+  duration: number;
+  thumbnail_url?: string;
+  video_url?: string;
+  video_title?: string;
+  segments?: Array<{
+    start: number;
+    end: number;
+    score: number;
+    matched_words?: string[];
+  }>;
+}
+
+// 텍스트 검색 수행
+export const searchVideos = async (
+  searchQuery: string,
+  indexId?: string
+): Promise<{ pageInfo: SearchPageInfo; textSearchResults: SearchResult[] }> => {
+  try {
+    console.log('🔍 > searchVideos > Searching for:', searchQuery);
+
+    if (!searchQuery || searchQuery.trim() === '') {
+      return {
+        pageInfo: { page: 1, total_page: 1, total_videos: 0 },
+        textSearchResults: []
+      };
+    }
+
+    // Use provided indexId or get from environment
+    const contentIndexId = indexId || process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
+    console.log('🔍 > searchVideos > Using index ID:', contentIndexId);
+
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        textSearchQuery: searchQuery,
+        indexId: contentIndexId
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('🔍 > searchVideos > Results count:', data.textSearchResults?.length || 0);
+
+    return {
+      pageInfo: data.pageInfo || { page: 1, total_page: 1, total_videos: 0 },
+      textSearchResults: data.textSearchResults || []
+    };
+  } catch (error) {
+    console.error('Error searching videos:', error);
+    throw error;
+  }
 };

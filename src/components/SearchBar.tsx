@@ -1,23 +1,27 @@
-import { FC, ChangeEvent } from 'react';
+import { FC, ChangeEvent, FormEvent, useRef } from 'react';
 
 type SearchBarProps = {
-  value: string;
-  onChange: (value: string) => void;
+  onSearch: (query: string) => void;
   placeholder?: string;
+  defaultValue?: string;
 };
 
-// Placeholder SearchBar component that will be replaced by the actual implementation
 const SearchBar: FC<SearchBarProps> = ({
-  value,
-  onChange,
-  placeholder = 'What are you looking for?'
+  onSearch,
+  placeholder = 'What are you looking for?',
+  defaultValue = ''
 }) => {
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (searchInputRef.current) {
+      onSearch(searchInputRef.current.value);
+    }
   };
 
   return (
-    <div className="relative w-full">
+    <form onSubmit={handleSubmit} className="relative w-full">
       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
         <svg className="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
           <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
@@ -25,12 +29,21 @@ const SearchBar: FC<SearchBarProps> = ({
       </div>
       <input
         type="search"
-        value={value}
-        onChange={handleChange}
-        className="block w-full p-4 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        ref={searchInputRef}
+        defaultValue={defaultValue}
+        className="block w-full p-4 pl-10 pr-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         placeholder={placeholder}
       />
-    </div>
+      <button
+        type="submit"
+        className="absolute right-2.5 bottom-2.5 top-2.5 px-3 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        aria-label="Search"
+      >
+        <svg className="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+          <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+        </svg>
+      </button>
+    </form>
   );
 };
 

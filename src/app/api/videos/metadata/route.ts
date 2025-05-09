@@ -23,7 +23,6 @@ export async function PUT(request: NextRequest) {
     const body: MetadataUpdateRequest = await request.json();
     const { videoId, indexId, metadata } = body;
 
-    console.log('🚀 > PUT > Request body:', JSON.stringify(body));
 
     // Validate required parameters
     if (!videoId || !indexId) {
@@ -44,7 +43,6 @@ export async function PUT(request: NextRequest) {
 
     // Prepare API request
     const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
-    console.log('🚀 > PUT > URL:', url);
 
     const requestBody = {
       user_metadata: {
@@ -57,8 +55,6 @@ export async function PUT(request: NextRequest) {
       }
     };
 
-    console.log('🚀 > PUT > Request payload:', JSON.stringify(requestBody));
-
     const options = {
       method: 'PUT',
       headers: {
@@ -70,7 +66,6 @@ export async function PUT(request: NextRequest) {
 
     // Call Twelve Labs API
     const response = await fetch(url, options);
-    console.log("🚀 > PUT > response status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text();

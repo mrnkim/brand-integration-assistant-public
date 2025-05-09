@@ -30,6 +30,7 @@ const ContentItem: FC<ContentItemProps> = ({
   // videoUrl은 현재 직접 사용하지 않지만 타입 호환성을 위해 남겨둠
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   videoUrl,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   tags,
   videoId,
   indexId,

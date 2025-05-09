@@ -28,30 +28,43 @@ type SidebarProps = {
   activeMenu: 'content-library' | 'ads-library' | 'plan';
 };
 
+// 메뉴 아이템 설정
+const menuConfig = [
+  {
+    id: 'content-library',
+    title: 'Content Library',
+    description: 'Filter / search content',
+    href: '/content-library'
+  },
+  {
+    id: 'ads-library',
+    title: 'Ads Library',
+    description: 'Filter / search ads',
+    href: '/ads-library'
+  },
+  {
+    id: 'plan',
+    title: 'Plan',
+    description: 'Plan your campaign and get recommendations',
+    href: '/plan'
+  }
+];
+
 const Sidebar: FC<SidebarProps> = ({ activeMenu }) => {
   return (
     <div className="w-64 bg-gray-200 h-screen p-4 flex flex-col">
       <div className="text-xl font-bold mb-6 pl-2">Brand Integration Assistant</div>
 
       <nav className="flex-1">
-        <MenuItem
-          title="Content Library"
-          description="Filter / search content"
-          href="/content-library"
-          isActive={activeMenu === 'content-library'}
-        />
-        <MenuItem
-          title="Ads Library"
-          description="Filter / search ads"
-          href="/ads-library"
-          isActive={activeMenu === 'ads-library'}
-        />
-        <MenuItem
-          title="Plan"
-          description="Plan your campaign and get recommendations"
-          href="/plan"
-          isActive={activeMenu === 'plan'}
-        />
+        {menuConfig.map(item => (
+          <MenuItem
+            key={item.id}
+            title={item.title}
+            description={item.description}
+            href={item.href}
+            isActive={activeMenu === item.id}
+          />
+        ))}
       </nav>
     </div>
   );

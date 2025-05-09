@@ -22,7 +22,6 @@ const Video: React.FC<VideoProps> = ({ videoId, indexId, showTitle = true, video
     },
     enabled: !!indexId && (!!videoId) && !providedVideoDetails,
   });
-  console.log("🚀 > videoDetails=", videoDetails)
 
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);

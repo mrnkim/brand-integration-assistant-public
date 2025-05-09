@@ -89,7 +89,6 @@ Mentioned Brands: any mentioned brands in the input`
 
     try {
       const response = await fetch(url, options);
-      console.log("🚀 > GET > response=", response)
 
       if (!response.ok) {
         throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
@@ -102,7 +101,6 @@ Mentioned Brands: any mentioned brands in the input`
       }
 
       const data = JSON.parse(responseText);
-      console.log("🚀 > GET > data=", data)
 
       // Return the complete data object instead of just data.data
       return NextResponse.json(data, { status: 200 });

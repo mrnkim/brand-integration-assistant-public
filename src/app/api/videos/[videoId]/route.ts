@@ -42,7 +42,6 @@ export async function GET(
     }
 
     const data = await response.json();
-    console.log("🚀 > data=", data)
 
     // API 응답을 그대로 반환 (이미 VideoData 타입에 맞게 수정함)
     return NextResponse.json(data);
