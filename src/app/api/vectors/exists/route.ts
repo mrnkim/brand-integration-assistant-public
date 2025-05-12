@@ -12,21 +12,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
     }
 
-    // 개발/테스트 환경에서는 API 호출 없이 성공 응답을 반환
     if (!API_KEY || !TWELVELABS_API_BASE_URL) {
       console.error('Missing API key or base URL in environment variables');
       return NextResponse.json({ exists: true });
     }
 
-    // 실제 환경에서는 비디오 ID로 벡터 임베딩 존재 여부를 확인
-    // Twelve Labs API에 따라 아래 구현은 수정이 필요할 수 있음
-    const url = `${TWELVELABS_API_BASE_URL}/vectors/exists?video_id=${videoId}`;
+    const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
 
     const options = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY,
+      },
+      params: {
+        embedding_option: "visual-text",
       },
     };
 
@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await response.json();
+      console.log("🚀 > GET > data=", data)
       return NextResponse.json({ exists: true });
     } catch (error) {
       // API 호출 실패 시 개발 편의를 위해 벡터가 존재한다고 가정
