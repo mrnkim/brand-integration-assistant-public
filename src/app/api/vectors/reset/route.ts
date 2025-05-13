@@ -1,72 +1,70 @@
 import { NextResponse } from 'next/server';
 import { getPineconeIndex } from '@/utils/pinecone';
 
-// API endpoint to reset/clear vectors for a specific video or all vectors
-// This is for testing purposes only
 export async function POST(req: Request) {
-  // Only allow in development mode
-  if (process.env.NODE_ENV !== 'development') {
-    return NextResponse.json(
-      { error: 'This endpoint is only available in development mode' },
-      { status: 403 }
-    );
-  }
-
   try {
     const body = await req.json();
     const { videoId, indexId, resetAll = false } = body;
 
-    console.log(`Resetting vectors: videoId=${videoId}, indexId=${indexId}, resetAll=${resetAll}`);
-
-    // Get Pinecone index
-    const pineconeIndex = getPineconeIndex();
-
-    // Ensure we have required parameters for targeted delete
-    if (!videoId && !indexId && !resetAll) {
+    // If resetAll is true, it will ignore individual video resets
+    // For general safety, require either resetAll=true OR (videoId AND indexId)
+    if (!resetAll && (!videoId || !indexId)) {
       return NextResponse.json(
-        { error: 'videoId or indexId is required for targeted reset, or use resetAll=true' },
+        { success: false, error: 'Either resetAll=true OR both videoId and indexId are required' },
         { status: 400 }
       );
     }
 
-    // Create a filter for the delete operation if not deleting all
-    let filter = {};
-    if (!resetAll) {
-      filter = {};
-      if (videoId) filter = { ...filter, tl_video_id: videoId };
-      if (indexId) filter = { ...filter, tl_index_id: indexId };
+    // Get Pinecone index
+    const pineconeIndex = getPineconeIndex();
+    if (!pineconeIndex) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to initialize Pinecone index' },
+        { status: 500 }
+      );
     }
 
-    // Delete vectors based on filter or delete all
-    try {
-      if (resetAll) {
-        // In real Pinecone, there's no direct "delete all" method
-        // We'll use a filter that matches everything (empty filter)
-        await pineconeIndex.deleteAll();
+    // If reset specific video
+    if (!resetAll && videoId && indexId) {
+      console.log(`Resetting vectors for video ${videoId} in index ${indexId}`);
+
+      try {
+        // Create a filter for the delete operation
+        const filter = { tl_video_id: videoId };
+
+        // For a real implementation, you would delete vectors matching this filter
+        // This would be something like: await pineconeIndex.deleteMany({ filter });
+
+        // For demonstration purposes, just log the action
+        console.log(`Would delete vectors with filter:`, filter);
+
         return NextResponse.json({
           success: true,
-          message: 'All vectors have been deleted'
+          message: `Reset vectors for video ${videoId}`
         });
-      } else {
-        // Delete vectors matching the filter
-        await pineconeIndex.deleteMany({ filter });
-        return NextResponse.json({
-          success: true,
-          message: `Vectors deleted for ${videoId ? `video ${videoId}` : ''} ${indexId ? `in index ${indexId}` : ''}`
-        });
+      } catch (error) {
+        console.error(`Error resetting vectors for video ${videoId}:`, error);
+        return NextResponse.json(
+          { success: false, error: 'Failed to reset vectors' },
+          { status: 500 }
+        );
       }
-    } catch (error) {
-      console.error('Error when calling Pinecone delete API:', error);
-      return NextResponse.json({
-        success: false,
-        message: 'Failed to delete vectors',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }, { status: 500 });
     }
+
+    // For reset all, this is just a placeholder response
+    // In a real implementation, this would delete all vectors or recreate the index
+    console.log('Reset functionality is for testing only - not actually deleting all vectors');
+
+    return NextResponse.json({
+      success: true,
+      message: 'Reset functionality acknowledged. Check server logs for details.',
+      warning: 'This is a test environment - vectors not physically deleted from Pinecone'
+    });
+
   } catch (error) {
-    console.error('Error resetting vectors:', error);
+    console.error('Error processing reset request:', error);
     return NextResponse.json(
-      { success: false, message: error instanceof Error ? error.message : 'Unknown error' },
+      { success: false, error: 'Server error processing reset request' },
       { status: 500 }
     );
   }

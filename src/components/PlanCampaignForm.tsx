@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchVideos, checkVectorExists, getAndStoreEmbeddings, resetPineconeVectors } from '@/hooks/apiHooks';
+import { fetchVideos, getAndStoreEmbeddings, checkProcessingStatus, resetPineconeVectors } from '@/hooks/apiHooks';
 import LoadingSpinner from './LoadingSpinner';
 
 interface Category {
@@ -21,11 +21,13 @@ interface EmbeddingStatus {
     total: number;
     processed: number;
     completed: boolean;
+    category?: string;
   };
   contentVideos: {
     total: number;
     processed: number;
     completed: boolean;
+    category?: string;
   };
 }
 
@@ -97,12 +99,14 @@ const PlanCampaignForm: React.FC = () => {
         adsVideos: {
           total: adsVideos.length,
           processed: 0,
-          completed: false
+          completed: false,
+          category: 'ad'
         },
         contentVideos: {
           total: contentVideos.length,
           processed: 0,
-          completed: false
+          completed: false,
+          category: 'content'
         }
       });
 
@@ -111,17 +115,18 @@ const PlanCampaignForm: React.FC = () => {
         const adsVideo = adsVideos[0];
         console.log(`### DEBUG: Checking if embedding exists for ads video ${adsVideo._id}`);
 
-        // Check if embedding exists in Pinecone
-        const adsEmbeddingExists = await checkVectorExists(adsVideo._id, adsIndexId);
+        // Check if embedding exists in Pinecone - use the new checkProcessingStatus function
+        const adsProcessingStatus = await checkProcessingStatus(adsVideo._id, adsIndexId);
 
-        if (adsEmbeddingExists) {
-          console.log(`### DEBUG: Embedding already exists for ads video ${adsVideo._id}`);
+        if (adsProcessingStatus.processed) {
+          console.log(`### DEBUG: Embedding already exists for ads video ${adsVideo._id} (category: ${adsProcessingStatus.category})`);
           setEmbeddingStatus(prev => ({
             ...prev,
             adsVideos: {
               ...prev.adsVideos,
               processed: 1,
-              completed: true
+              completed: true,
+              category: adsProcessingStatus.category || 'ad'
             }
           }));
         } else {
@@ -137,7 +142,8 @@ const PlanCampaignForm: React.FC = () => {
             adsVideos: {
               ...prev.adsVideos,
               processed: result.success ? 1 : 0,
-              completed: true
+              completed: true,
+              category: 'ad' // Default to 'ad' for ads index
             }
           }));
         }
@@ -147,7 +153,8 @@ const PlanCampaignForm: React.FC = () => {
           ...prev,
           adsVideos: {
             ...prev.adsVideos,
-            completed: true
+            completed: true,
+            category: 'ad'
           }
         }));
       }
@@ -157,17 +164,18 @@ const PlanCampaignForm: React.FC = () => {
         const contentVideo = contentVideos[0];
         console.log(`### DEBUG: Checking if embedding exists for content video ${contentVideo._id}`);
 
-        // Check if embedding exists in Pinecone
-        const contentEmbeddingExists = await checkVectorExists(contentVideo._id, contentIndexId);
+        // Check if embedding exists in Pinecone - use the new checkProcessingStatus function
+        const contentProcessingStatus = await checkProcessingStatus(contentVideo._id, contentIndexId);
 
-        if (contentEmbeddingExists) {
-          console.log(`### DEBUG: Embedding already exists for content video ${contentVideo._id}`);
+        if (contentProcessingStatus.processed) {
+          console.log(`### DEBUG: Embedding already exists for content video ${contentVideo._id} (category: ${contentProcessingStatus.category})`);
           setEmbeddingStatus(prev => ({
             ...prev,
             contentVideos: {
               ...prev.contentVideos,
               processed: 1,
-              completed: true
+              completed: true,
+              category: contentProcessingStatus.category || 'content'
             }
           }));
         } else {
@@ -183,7 +191,8 @@ const PlanCampaignForm: React.FC = () => {
             contentVideos: {
               ...prev.contentVideos,
               processed: result.success ? 1 : 0,
-              completed: true
+              completed: true,
+              category: 'content' // Default to 'content' for content index
             }
           }));
         }
@@ -193,7 +202,8 @@ const PlanCampaignForm: React.FC = () => {
           ...prev,
           contentVideos: {
             ...prev.contentVideos,
-            completed: true
+            completed: true,
+            category: 'content'
           }
         }));
       }
@@ -278,6 +288,16 @@ const PlanCampaignForm: React.FC = () => {
   const hasKeywords = Object.values(keywords).some(category => category.length > 0);
   const isSubmitEnabled = !isProcessing && isComplete && hasKeywords;
 
+  const isProcessingText = (
+    isProcessing ? (
+      <div className="flex items-center gap-2">
+        <LoadingSpinner size="sm" /> <span>Checking and processing embeddings...</span>
+      </div>
+    ) : (
+      `Processed ${processedVideos} of ${totalVideos} videos (${progress}%)`
+    )
+  );
+
   return (
     <div style={styles.container}>
       {/* Embedding processing status */}
@@ -289,29 +309,23 @@ const PlanCampaignForm: React.FC = () => {
             <div style={{...styles.progressBar, width: `${progress}%`}} />
           </div>
 
-          <p style={styles.processingText}>
-            {isProcessing ? (
-              <span>
-                <LoadingSpinner size="sm" /> Checking and processing embeddings...
-              </span>
-            ) : (
-              `Processed ${processedVideos} of ${totalVideos} videos (${progress}%)`
-            )}
-          </p>
+          <div style={styles.processingText}>
+            {isProcessingText}
+          </div>
 
           <div style={styles.processingDetails}>
-            <p>
-              <strong>Ads Videos:</strong> {embeddingStatus.adsVideos.processed} of {embeddingStatus.adsVideos.total} processed
+            <div style={styles.statusItem}>
+              <strong>Ads Videos ({embeddingStatus.adsVideos.category || 'ad'}):</strong> {embeddingStatus.adsVideos.processed} of {embeddingStatus.adsVideos.total} processed
               {embeddingStatus.adsVideos.completed && ' ✓'}
-            </p>
-            <p>
-              <strong>Content Videos:</strong> {embeddingStatus.contentVideos.processed} of {embeddingStatus.contentVideos.total} processed
+            </div>
+            <div style={styles.statusItem}>
+              <strong>Content Videos ({embeddingStatus.contentVideos.category || 'content'}):</strong> {embeddingStatus.contentVideos.processed} of {embeddingStatus.contentVideos.total} processed
               {embeddingStatus.contentVideos.completed && ' ✓'}
-            </p>
+            </div>
           </div>
 
           {errorMessage && (
-            <p style={styles.errorMessage}>{errorMessage}</p>
+            <div style={styles.errorMessage}>{errorMessage}</div>
           )}
 
           {/* Add reset button for testing */}
@@ -483,6 +497,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     margin: '16px 0 0 0',
   },
+  statusItem: {
+    marginBottom: 8,
+    fontSize: 14,
+  },
   progressContainer: {
     width: '100%',
     height: 8,
@@ -510,7 +528,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: 14,
     cursor: 'pointer',
-  }
+  },
 };
 
 export default PlanCampaignForm;

@@ -95,3 +95,51 @@ export type VideoDetails = {
     width?: number;
   };
 };
+
+export interface Segment {
+  embedding_scope: string;
+  end_offset_sec: number;
+  float: number[];
+  start_offset_sec: number;
+}
+
+export interface Vector {
+  id: string;
+  values: number[];
+  metadata: VectorMetadata;
+}
+
+export interface VectorMetadata {
+  category: string;
+  end_time: number;
+  scope: string;
+  start_time: number;
+  tl_index_id: string;
+  tl_video_id: string;
+  video_file: string;
+  video_segment: number;
+}
+
+// Define types for embeddings and transcription
+export interface EmbeddingSegment {
+  embedding_option: string;
+  embedding_scope: string;
+  end_offset_sec: number;
+  float: number[];
+  start_offset_sec: number;
+}
+
+export interface VideoEmbedding {
+  segments: EmbeddingSegment[];
+}
+
+export interface Embedding {
+  model_name: string;
+  video_embedding: VideoEmbedding;
+}
+
+export interface EmbeddingResponse {
+  videoId: string;
+  exists: boolean;
+  embedding: Embedding;
+}

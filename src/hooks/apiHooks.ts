@@ -1,4 +1,5 @@
 import { PaginatedResponse } from '@/types';
+import { EmbeddingResponse } from '@/types/index';
 
 // 비디오 목록 가져오기
 export const fetchVideos = async (
@@ -62,6 +63,64 @@ export const fetchVideoDetails = async (videoId: string, indexId: string, embed:
   }
 };
 
+// 비디오 처리 상태 확인 - 카테고리 정보 포함
+export interface ProcessingStatusResponse {
+  processed: boolean;
+  source?: string;
+  category?: string;
+  videoId?: string;
+  indexId?: string;
+  error?: string;
+}
+
+// 비디오 처리 상태 확인 함수
+export const checkProcessingStatus = async (
+  videoId: string,
+  indexId: string
+): Promise<ProcessingStatusResponse> => {
+  try {
+    const url = new URL('/api/vectors/check-status', window.location.origin);
+    url.searchParams.append('videoId', videoId);
+    url.searchParams.append('indexId', indexId);
+
+    console.log(`Checking processing status for video ${videoId} in index ${indexId}`);
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      console.error(`Error checking processing status: HTTP status ${response.status}`);
+      return {
+        processed: false,
+        error: `HTTP error ${response.status}`,
+        // Determine category based on indexId even when API fails
+        category: indexId.toLowerCase().includes('ad') ? 'ad' : 'content'
+      };
+    }
+
+    const data = await response.json();
+    console.log(`Processing status for video ${videoId}:`, JSON.stringify(data));
+
+    // 중요: 정확히 processed 값이 무엇인지 명확하게 로깅
+    console.log(`Video ${videoId} processed status is explicitly: ${Boolean(data.processed)}`);
+
+    // 벡터가 없을 때 임베딩 생성 명시적 로깅
+    if (!data.processed) {
+      console.log(`### IMPORTANT: Video ${videoId} is NOT processed. Will attempt to create embedding.`);
+    } else {
+      console.log(`### CONFIRMED: Video ${videoId} is already processed. No need to create embedding.`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error checking processing status:', error);
+    // In case of error, return processed=false with category determination
+    return {
+      processed: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      // Still determine category based on indexId
+      category: indexId.toLowerCase().includes('ad') ? 'ad' : 'content'
+    };
+  }
+};
 
 // 벡터 인덱스 존재 여부 확인
 export const checkVectorExists = async (videoId: string, indexId?: string): Promise<boolean> => {
@@ -93,41 +152,102 @@ export const checkVectorExists = async (videoId: string, indexId?: string): Prom
 // 임베딩 가져오기 및 저장
 export const getAndStoreEmbeddings = async (indexId: string, videoId: string) => {
   try {
-    console.log(`Getting embedding for video ${videoId} in index ${indexId}`);
+    console.log(`### EMBEDDING: Starting embedding process for video ${videoId} in index ${indexId}`);
     const videoDetails = await fetchVideoDetails(videoId, indexId, true);
+
+    // 디버깅을 위해 전체 videoDetails 구조 로깅
+    console.log(`### EMBEDDING - Video details for ${videoId}:`, JSON.stringify({
+      _id: videoDetails._id,
+      has_system_metadata: Boolean(videoDetails.system_metadata),
+      has_embedding: Boolean(videoDetails.embedding),
+      embedding_type: videoDetails.embedding ? typeof videoDetails.embedding : 'none'
+    }, null, 2));
 
     // Check specifically if the embedding property exists and is not null/undefined
     if (!videoDetails || !videoDetails.embedding) {
-      console.error(`No embedding data found for video ${videoId}`);
+      console.error(`### EMBEDDING ERROR: No embedding data found for video ${videoId}`);
       return { success: false, message: 'No embedding data found' };
     }
 
     const embedding = videoDetails.embedding;
-    const filename = videoDetails.system_metadata?.filename || videoId;
 
-    console.log(`Storing embedding for video ${videoId} (${filename})`);
+    // 임베딩 상세 정보 로깅
+    console.log(`### EMBEDDING: Got embedding for video ${videoId}:`,
+      embedding.video_embedding ?
+      `Has ${embedding.video_embedding.segments?.length || 0} segments` :
+      'No segments found in embedding');
+
+    if (!embedding.video_embedding || !embedding.video_embedding.segments || embedding.video_embedding.segments.length === 0) {
+      console.error(`### EMBEDDING ERROR: Invalid embedding structure for video ${videoId} - missing segments`);
+      return { success: false, message: 'Invalid embedding structure - missing segments' };
+    }
+
+    // Get both filename and video title
+    let filename = videoId;
+    let videoTitle = '';
+
+    if (videoDetails.system_metadata) {
+      if (videoDetails.system_metadata.filename) {
+        filename = videoDetails.system_metadata.filename;
+      }
+      if (videoDetails.system_metadata.video_title) {
+        videoTitle = videoDetails.system_metadata.video_title;
+      }
+    }
+
+    // 디버깅 로그 추가
+    console.log(`### EMBEDDING - Original metadata:`, JSON.stringify({
+      original_filename: videoDetails.system_metadata?.filename,
+      original_title: videoDetails.system_metadata?.video_title,
+      final_filename: filename,
+      final_title: videoTitle
+    }, null, 2));
+
+    // If no video title is available, use the filename without extension as title
+    if (!videoTitle && filename) {
+      videoTitle = filename.split('.')[0];
+      console.log(`### EMBEDDING - No title found, using filename without extension: "${videoTitle}"`);
+    }
+
+    console.log(`### EMBEDDING: Storing embedding for video ${videoId} (title: "${videoTitle}", filename: "${filename}")`);
+
+    // 수정된 embedding 데이터
+    const enhancedEmbedding = {
+      ...embedding,
+      system_metadata: {
+        ...(embedding.system_metadata || {}),
+        filename,
+        video_title: videoTitle
+      }
+    };
+
+    console.log(`### EMBEDDING - Enhanced metadata:`, JSON.stringify(enhancedEmbedding.system_metadata, null, 2));
+
     // 2. Store embeddings in Pinecone
-    const response = await fetch('/api/storeEmbeddings', {
+    console.log(`### EMBEDDING: Making API request to store embedding for video ${videoId}`);
+    const response = await fetch('/api/vectors/store', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         videoId,
-        videoName: filename,
-        embedding: embedding,
+        videoName: videoTitle || filename, // Use video title first, fall back to filename
+        embedding: enhancedEmbedding,
         indexId: indexId,
       }),
     });
 
     if (!response.ok) {
-      console.error(`Failed to store embedding for video ${videoId}. Status: ${response.status}`);
+      console.error(`### EMBEDDING ERROR: Failed to store embedding for video ${videoId}. Status: ${response.status}`);
       return { success: false, message: 'Failed to store embedding' };
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log(`### EMBEDDING - Store result for ${videoId}:`, JSON.stringify(result, null, 2));
+    return result;
   } catch (error) {
-    console.error(`Error in getAndStoreEmbeddings for video ${videoId}:`, error);
+    console.error(`### EMBEDDING ERROR: Error in getAndStoreEmbeddings for video ${videoId}:`, error);
     return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
@@ -454,50 +574,6 @@ export const searchVideos = async (
   }
 };
 
-// Check if embedding exists in Snowflake
-export const checkEmbeddingExistsInSnowflake = async (
-  videoId: string,
-  indexId: string
-): Promise<boolean> => {
-  try {
-    const response = await fetch(`/api/vectors/snowflake/exists?video_id=${videoId}&index_id=${indexId}`);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.exists;
-  } catch (error) {
-    console.error('Error checking embedding existence in Snowflake:', error);
-    throw error;
-  }
-};
-
-// Define types for embeddings and transcription
-interface EmbeddingSegment {
-  embedding_option: string;
-  embedding_scope: string;
-  end_offset_sec: number;
-  float: number[];
-  start_offset_sec: number;
-}
-
-interface VideoEmbedding {
-  segments: EmbeddingSegment[];
-}
-
-interface Embedding {
-  model_name: string;
-  video_embedding: VideoEmbedding;
-}
-
-interface EmbeddingResponse {
-  videoId: string;
-  exists: boolean;
-  embedding: Embedding;
-}
-
 // Get embedding from TwelveLabs API
 export const getVideoEmbedding = async (
   videoId: string,
@@ -523,111 +599,14 @@ export const getVideoEmbedding = async (
   }
 };
 
-// Store embedding in Snowflake
-export const storeEmbeddingInSnowflake = async (
-  videoId: string,
-  indexId: string,
-  embedding: Embedding,
-  videoTitle?: string
-): Promise<boolean> => {
-  try {
-    const response = await fetch('/api/vectors/snowflake', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        video_id: videoId,
-        index_id: indexId,
-        embedding,
-        video_title: videoTitle
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.success;
-  } catch (error) {
-    console.error('Error storing embedding in Snowflake:', error);
-    throw error;
-  }
-};
-
-// Process embeddings for a batch of videos
-export const processVideoEmbeddings = async (
-  videos: VideoDetailResponse[],
-  indexId: string
-): Promise<number> => {
-  let processedCount = 0;
-  console.log(`### DEBUG: processVideoEmbeddings called with ${videos.length} videos for index ${indexId}`);
-
-  try {
-    for (let i = 0; i < videos.length; i++) {
-      const video = videos[i];
-      console.log(`### DEBUG: Processing video ${i+1}/${videos.length}: ${video._id}`);
-
-      try {
-        // Step 1: Check if embedding exists in Snowflake
-        console.log(`### DEBUG: Checking if embedding exists in Snowflake for video ${video._id}`);
-        const existsInSnowflake = await checkEmbeddingExistsInSnowflake(video._id, indexId);
-        console.log(`### DEBUG: Embedding exists in Snowflake for video ${video._id}: ${existsInSnowflake}`);
-
-        if (existsInSnowflake) {
-          console.log(`### DEBUG: Embedding for video ${video._id} already exists in Snowflake - skipping`);
-          continue;
-        }
-
-        // Step 2: Get embedding from TwelveLabs API
-        console.log(`### DEBUG: Getting embedding from TwelveLabs API for video ${video._id}`);
-        const embeddingData = await getVideoEmbedding(video._id, indexId);
-        console.log(`### DEBUG: Received embedding data for video ${video._id}`);
-
-        if (!embeddingData || !embeddingData.embedding) {
-          console.error(`### DEBUG ERROR: Failed to get embedding for video ${video._id} - data:`, embeddingData);
-          continue;
-        }
-        console.log(`### DEBUG: Successfully retrieved embedding for video ${video._id}`);
-
-        // Step 3: Store embedding in Snowflake
-        console.log(`### DEBUG: Storing embedding in Snowflake for video ${video._id}`);
-        const success = await storeEmbeddingInSnowflake(
-          video._id,
-          indexId,
-          embeddingData.embedding,
-          video.system_metadata?.video_title || video.system_metadata?.filename
-        );
-
-        if (success) {
-          processedCount++;
-          console.log(`### DEBUG: Successfully stored embedding for video ${video._id}`);
-        } else {
-          console.error(`### DEBUG ERROR: Failed to store embedding for video ${video._id}`);
-        }
-      } catch (videoError) {
-        console.error(`### DEBUG ERROR: Error processing video ${video._id}:`, videoError);
-        // Continue with next video instead of failing the entire batch
-      }
-    }
-
-    console.log(`### DEBUG: Completed processing ${processedCount} of ${videos.length} videos`);
-    return processedCount;
-  } catch (error) {
-    console.error('### DEBUG ERROR: Error in processVideoEmbeddings:', error);
-    throw error;
-  }
-};
-
-// Pinecone 벡터 재설정 (테스트용)
+// Reset Pinecone vectors
 export const resetPineconeVectors = async (
   videoId?: string,
   indexId?: string,
   resetAll: boolean = false
 ): Promise<boolean> => {
   try {
-    console.log(`Resetting Pinecone vectors: videoId=${videoId}, indexId=${indexId}, resetAll=${resetAll}`);
+    console.log(`Resetting vectors: videoId=${videoId || 'none'}, indexId=${indexId || 'none'}, resetAll=${resetAll}`);
 
     const response = await fetch('/api/vectors/reset', {
       method: 'POST',
@@ -642,13 +621,13 @@ export const resetPineconeVectors = async (
     });
 
     if (!response.ok) {
-      console.error('Error resetting vectors:', response.statusText);
+      console.error(`Failed to reset vectors. Status: ${response.status}`);
       return false;
     }
 
-    const result = await response.json();
-    console.log('Reset vectors result:', result);
-    return result.success;
+    const data = await response.json();
+    console.log('Reset response:', data);
+    return data.success === true;
   } catch (error) {
     console.error('Error resetting vectors:', error);
     return false;
