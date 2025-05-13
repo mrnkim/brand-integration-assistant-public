@@ -38,8 +38,8 @@ export async function GET(
   { params }: { params: { token: string } }
 ) {
   try {
-    // Use object destructuring with await following Next.js 15 guidance
-    const { token } = await params;
+    // Remove the incorrect await from params
+    const { token } = params;
     console.log('🔍 > Search Retrieve API > Received request for token:', token);
 
     // Get the indexId from URL search params to ensure we preserve the correct index
