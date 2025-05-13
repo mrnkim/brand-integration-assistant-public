@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchVideos, getAndStoreEmbeddings, checkProcessingStatus, resetPineconeVectors } from '@/hooks/apiHooks';
-import LoadingSpinner from './LoadingSpinner';
+// Temporarily commenting out unused import but keeping for future use
+// import LoadingSpinner from './LoadingSpinner';
 import Video from './Video';
 
 interface Category {
@@ -69,14 +70,17 @@ const PlanCampaignForm: React.FC = () => {
     location: '',
   });
 
-  // New states for embeddings processing
-  const [isProcessing, setIsProcessing] = useState(false);
+  // New states for embeddings processing - commented out temporarily
+  // const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Keep this state but don't show UI
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [embeddingStatus, setEmbeddingStatus] = useState<EmbeddingStatus>({
     adsVideos: { total: 0, processed: 0, completed: false },
     contentVideos: { total: 0, processed: 0, completed: false },
   });
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [errorMessage, setErrorMessage] = useState<string | null>(null); // Kept for handleSubmit function
 
   // Environment variables for index IDs (with fallback values)
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || 'default-ads-index';
@@ -88,10 +92,18 @@ const PlanCampaignForm: React.FC = () => {
 
   // Function to check embeddings when component loads
   useEffect(() => {
-    checkAndProcessEmbeddings();
+    // Temporarily disabled embedding check
+    // checkAndProcessEmbeddings();
+
+    // Set completed to true to enable search immediately
+    setEmbeddingStatus({
+      adsVideos: { total: 0, processed: 0, completed: true },
+      contentVideos: { total: 0, processed: 0, completed: true },
+    });
   }, []);
 
-  // Function to check and process embeddings
+  // Function to check and process embeddings - kept for future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const checkAndProcessEmbeddings = async () => {
     console.log('### DEBUG: Starting embedding check and processing');
     setIsProcessing(true);
@@ -331,7 +343,8 @@ const PlanCampaignForm: React.FC = () => {
     }
   };
 
-  // Add a new function to reset and reload embeddings
+  // Add a new function to reset and reload embeddings - kept for future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleResetAndReload = async () => {
     setIsProcessing(true);
     setErrorMessage(null);
@@ -515,33 +528,26 @@ const PlanCampaignForm: React.FC = () => {
     }
   };
 
-  // Calculate overall progress
+  // Calculate overall progress - temporarily not used
+  /*
   const totalVideos = embeddingStatus.adsVideos.total + embeddingStatus.contentVideos.total;
   const processedVideos = embeddingStatus.adsVideos.processed + embeddingStatus.contentVideos.processed;
   const progress = totalVideos > 0 ? Math.round((processedVideos / totalVideos) * 100) : 0;
+  */
 
-  // Check if all processing is complete
-  const isComplete = embeddingStatus.adsVideos.completed && embeddingStatus.contentVideos.completed;
+  // Check if all processing is complete - temporarily not used
+  // const isComplete = embeddingStatus.adsVideos.completed && embeddingStatus.contentVideos.completed;
+  // const isComplete = true; // Always set to true to enable search
 
   // Check if submit should be enabled
   const hasKeywords = Object.values(keywords).some(category => category.length > 0);
-  console.log("🚀 > hasKeywords=", hasKeywords)
-  const isSubmitEnabled = !isProcessing && isComplete && hasKeywords;
+  const isSubmitEnabled = hasKeywords; // Only check for keywords
 
-  const isProcessingText = (
-    isProcessing ? (
-      <div className="flex items-center gap-2">
-        <LoadingSpinner size="sm" /> <span>Checking and processing embeddings...</span>
-      </div>
-    ) : (
-      `Processed ${processedVideos} of ${totalVideos} videos (${progress}%)`
-    )
-  );
-  console.log("🚀 > isComplete=", isComplete)
+  // console.log("🚀 > isComplete=", isComplete)
 
   return (
     <div style={styles.container}>
-      {/* Embedding processing status - 로딩 중일 때만 보여주기 */}
+      {/* Embedding processing status - commented out temporarily
       {(isProcessing || !isComplete) && (
         <div style={styles.processingBox}>
           <h3 style={styles.processingTitle}>Processing Video Embeddings</h3>
@@ -569,7 +575,6 @@ const PlanCampaignForm: React.FC = () => {
             <div style={styles.errorMessage}>{errorMessage}</div>
           )}
 
-          {/* Add reset button for testing */}
           {!isProcessing && (
             <button
               onClick={handleResetAndReload}
@@ -581,6 +586,7 @@ const PlanCampaignForm: React.FC = () => {
           )}
         </div>
       )}
+      */}
 
       {/* 메인 콘텐츠 영역 - 가로로 배치 */}
       <div style={styles.mainContentLayout}>
