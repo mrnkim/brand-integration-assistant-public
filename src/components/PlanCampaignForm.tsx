@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchVideos, getAndStoreEmbeddings, checkProcessingStatus, resetPineconeVectors } from '@/hooks/apiHooks';
 import LoadingSpinner from './LoadingSpinner';
+import Video from './Video';
 
 interface Category {
   name: string;
@@ -39,6 +40,17 @@ interface SearchResult {
     [key: string]: unknown;
   };
   score: number;
+  searchTerm?: string;
+  searchCategory?: string;
+  method?: number;
+  categories?: string[];
+}
+
+// 시각적 검색 결과 인터페이스
+interface VisualSearchResult extends SearchResult {
+  videoId: string;
+  indexId: string;
+  title: string;
 }
 
 const PlanCampaignForm: React.FC = () => {
@@ -59,7 +71,7 @@ const PlanCampaignForm: React.FC = () => {
 
   // New states for embeddings processing
   const [isProcessing, setIsProcessing] = useState(false);
-  console.log("🚀 > isProcessing=", isProcessing)
+
   const [embeddingStatus, setEmbeddingStatus] = useState<EmbeddingStatus>({
     adsVideos: { total: 0, processed: 0, completed: false },
     contentVideos: { total: 0, processed: 0, completed: false },
@@ -371,8 +383,26 @@ const PlanCampaignForm: React.FC = () => {
     });
   };
 
+  // 검색 결과를 위한 state 업데이트
+  const [searchResults, setSearchResults] = useState<{
+    adsResults: VisualSearchResult[];
+    contentResults: VisualSearchResult[];
+    isSearchCompleted: boolean;
+  }>({
+    adsResults: [],
+    contentResults: [],
+    isSearchCompleted: false,
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 검색 시작 시 결과 초기화
+    setSearchResults({
+      adsResults: [],
+      contentResults: [],
+      isSearchCompleted: false,
+    });
 
     // Check if there are any keywords
     if (!Object.values(keywords).some(arr => arr.length > 0)) {
@@ -397,15 +427,6 @@ const PlanCampaignForm: React.FC = () => {
         .join('; ');
 
       console.log('Unified search query:', allKeywords);
-
-      // 방법 2: 개별 키워드 쿼리 준비 (결과 집계용)
-      const keywordQueries = Object.entries(keywords)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .filter(([_, values]) => values.length > 0)
-        .map(([category, values]) => ({
-          category,
-          keyword: values[0] // Take the first keyword from each category
-        }));
 
       // 방법 1: 통합 쿼리 검색 수행
       console.log('Performing unified search with all keywords combined...');
@@ -452,179 +473,8 @@ const PlanCampaignForm: React.FC = () => {
         console.error(`Unified content search failed with status: ${contentResponse.status}`);
       }
 
-      // 방법 2: 개별 키워드 검색 결과 집계
-      console.log('Performing individual keyword searches and aggregating results...');
-
-      const allAdsResults: Record<string, SearchResult & { categories: string[] }> = {};
-      const allContentResults: Record<string, SearchResult & { categories: string[] }> = {};
-
-      // 각 키워드별로 검색 수행
-      for (const { category, keyword } of keywordQueries) {
-        console.log(`Searching for keyword "${keyword}" (${category})`);
-
-        // Search in ads index
-        const keywordAdsResponse = await fetch('/api/embeddingSearch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            searchTerm: keyword,
-            indexId: adsIndexId
-          })
-        });
-
-        if (keywordAdsResponse.ok) {
-          const results: SearchResult[] = await keywordAdsResponse.json();
-
-          // 결과를 집계 (같은 비디오는 점수를 합산하고 카테고리 추가)
-          for (const result of results) {
-            const videoId = result.metadata?.tl_video_id;
-            if (!videoId) continue;
-
-            if (!allAdsResults[videoId]) {
-              allAdsResults[videoId] = {
-                ...result,
-                categories: [category]
-              };
-            } else {
-              // 이미 있는 비디오면 점수 합산 및 카테고리 추가
-              allAdsResults[videoId].score += result.score;
-              allAdsResults[videoId].categories.push(category);
-            }
-          }
-        }
-
-        // Search in content index
-        const keywordContentResponse = await fetch('/api/embeddingSearch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            searchTerm: keyword,
-            indexId: contentIndexId
-          })
-        });
-
-        if (keywordContentResponse.ok) {
-          const results: SearchResult[] = await keywordContentResponse.json();
-
-          // 결과를 집계
-          for (const result of results) {
-            const videoId = result.metadata?.tl_video_id;
-            if (!videoId) continue;
-
-            if (!allContentResults[videoId]) {
-              allContentResults[videoId] = {
-                ...result,
-                categories: [category]
-              };
-            } else {
-              // 이미 있는 비디오면 점수 합산 및 카테고리 추가
-              allContentResults[videoId].score += result.score;
-              allContentResults[videoId].categories.push(category);
-            }
-          }
-        }
-      }
-
-      // 방법 2: 집계된 결과를 점수 기준으로 정렬
-      const aggregatedAdsResults = Object.values(allAdsResults).sort((a, b) => b.score - a.score);
-      const aggregatedContentResults = Object.values(allContentResults).sort((a, b) => b.score - a.score);
-
-      // ==================== 결과 출력 ====================
-
-      // 두 방법의 결과를 결합
-      console.log('\n========== COMBINED SEARCH RESULTS (METHOD 1 PRIORITIZED) ==========');
-
-      // 결과 결합 - 광고 비디오
-      const combinedAdsResults: Record<string, SearchResult & { method: number; categories?: string[] }> = {};
-
-      // 먼저 방법 1(통합 쿼리) 결과 추가
-      unifiedAdsResults.forEach(result => {
-        const videoId = result.metadata?.tl_video_id;
-        if (!videoId) return;
-
-        combinedAdsResults[videoId] = {
-          ...result,
-          method: 1 // 방법 1로 추가된 결과임을 표시
-        };
-      });
-
-      // 방법 2(집계) 결과 추가 (이미 방법 1에 있으면 무시)
-      aggregatedAdsResults.forEach(result => {
-        const videoId = result.metadata?.tl_video_id;
-        if (!videoId || combinedAdsResults[videoId]) return;
-
-        combinedAdsResults[videoId] = {
-          ...result,
-          method: 2,
-          categories: result.categories
-        };
-      });
-
-      // 결과 정렬 (방법 1 우선, 동일 방법 내에서는 점수 기준)
-      const finalAdsResults = Object.values(combinedAdsResults).sort((a, b) => {
-        // 방법이 다르면 방법 번호로 정렬 (방법 1 우선)
-        if (a.method !== b.method) return a.method - b.method;
-        // 방법이 같으면 점수로 정렬
-        return b.score - a.score;
-      });
-
-      // 결과 결합 - 콘텐츠 비디오
-      const combinedContentResults: Record<string, SearchResult & { method: number; categories?: string[] }> = {};
-
-      // 먼저 방법 1(통합 쿼리) 결과 추가
-      unifiedContentResults.forEach(result => {
-        const videoId = result.metadata?.tl_video_id;
-        if (!videoId) return;
-
-        combinedContentResults[videoId] = {
-          ...result,
-          method: 1 // 방법 1로 추가된 결과임을 표시
-        };
-      });
-
-      // 방법 2(집계) 결과 추가 (이미 방법 1에 있으면 무시)
-      aggregatedContentResults.forEach(result => {
-        const videoId = result.metadata?.tl_video_id;
-        if (!videoId || combinedContentResults[videoId]) return;
-
-        combinedContentResults[videoId] = {
-          ...result,
-          method: 2,
-          categories: result.categories
-        };
-      });
-
-      // 결과 정렬 (방법 1 우선, 동일 방법 내에서는 점수 기준)
-      const finalContentResults = Object.values(combinedContentResults).sort((a, b) => {
-        // 방법이 다르면 방법 번호로 정렬 (방법 1 우선)
-        if (a.method !== b.method) return a.method - b.method;
-        // 방법이 같으면 점수로 정렬
-        return b.score - a.score;
-      });
-
-      // 최종 결과 출력
-      console.log('\n--- FINAL ADS RESULTS (COMBINED) ---');
-      finalAdsResults.forEach((result, index) => {
-        const methodStr = result.method === 1 ? "Unified Query" : "Aggregated";
-        const categoryInfo = result.categories ? `, Matched: ${result.categories.join(', ')}` : '';
-        console.log(`${index + 1}. ID: ${result.metadata?.tl_video_id}, Title: ${result.metadata?.video_title}, Score: ${result.score.toFixed(4)}, Method: ${methodStr}${categoryInfo}`);
-      });
-
-      console.log('\n--- FINAL CONTENT RESULTS (COMBINED) ---');
-      finalContentResults.forEach((result, index) => {
-        const methodStr = result.method === 1 ? "Unified Query" : "Aggregated";
-        const categoryInfo = result.categories ? `, Matched: ${result.categories.join(', ')}` : '';
-        console.log(`${index + 1}. ID: ${result.metadata?.tl_video_id}, Title: ${result.metadata?.video_title}, Score: ${result.score.toFixed(4)}, Method: ${methodStr}${categoryInfo}`);
-      });
-
-      // 기존 출력 방식 (디버깅용으로 유지)
-      console.log('\n========== INDIVIDUAL METHOD RESULTS (FOR DEBUGGING) ==========');
-
-      // 방법 1: 통합 쿼리 결과 출력
+      // 이 부분 제거하고 통합 쿼리 결과만 사용
+      console.log('\n--- ONLY USING UNIFIED QUERY RESULTS ---');
       console.log('\n--- ADS RESULTS (UNIFIED QUERY) ---');
       unifiedAdsResults.forEach((result, index) => {
         console.log(`${index + 1}. ID: ${result.metadata?.tl_video_id}, Title: ${result.metadata?.video_title}, Score: ${result.score.toFixed(4)}`);
@@ -635,15 +485,26 @@ const PlanCampaignForm: React.FC = () => {
         console.log(`${index + 1}. ID: ${result.metadata?.tl_video_id}, Title: ${result.metadata?.video_title}, Score: ${result.score.toFixed(4)}`);
       });
 
-      // 방법 2: 집계 결과 출력
-      console.log('\n--- ADS RESULTS (AGGREGATED) ---');
-      aggregatedAdsResults.forEach((result, index) => {
-        console.log(`${index + 1}. ID: ${result.metadata?.tl_video_id}, Title: ${result.metadata?.video_title}, Score: ${result.score.toFixed(4)}, Matched Categories: ${result.categories.join(', ')}`);
-      });
+      // 검색 결과를 시각적으로 표시할 수 있는 형태로 변환 (통합 쿼리 결과만 사용)
+      const visualAdsResults: VisualSearchResult[] = unifiedAdsResults.map(result => ({
+        ...result,
+        videoId: result.metadata?.tl_video_id || '',
+        indexId: adsIndexId,
+        title: result.metadata?.video_title as string || 'Unknown Title'
+      }));
 
-      console.log('\n--- CONTENT RESULTS (AGGREGATED) ---');
-      aggregatedContentResults.forEach((result, index) => {
-        console.log(`${index + 1}. ID: ${result.metadata?.tl_video_id}, Title: ${result.metadata?.video_title}, Score: ${result.score.toFixed(4)}, Matched Categories: ${result.categories.join(', ')}`);
+      const visualContentResults: VisualSearchResult[] = unifiedContentResults.map(result => ({
+        ...result,
+        videoId: result.metadata?.tl_video_id || '',
+        indexId: contentIndexId,
+        title: result.metadata?.video_title as string || 'Unknown Title'
+      }));
+
+      // 검색 결과 업데이트 (통합 쿼리 결과만 사용)
+      setSearchResults({
+        adsResults: visualAdsResults,
+        contentResults: visualContentResults,
+        isSearchCompleted: true,
       });
 
     } catch (error) {
@@ -680,7 +541,7 @@ const PlanCampaignForm: React.FC = () => {
 
   return (
     <div style={styles.container}>
-      {/* Embedding processing status */}
+      {/* Embedding processing status - 로딩 중일 때만 보여주기 */}
       {(isProcessing || !isComplete) && (
         <div style={styles.processingBox}>
           <h3 style={styles.processingTitle}>Processing Video Embeddings</h3>
@@ -721,48 +582,103 @@ const PlanCampaignForm: React.FC = () => {
         </div>
       )}
 
-      {/* Campaign form */}
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <h2 style={styles.title}>Plan Campaign</h2>
-        {categories.map((cat) => (
-          <div key={cat.name} style={styles.categoryBox}>
-            <label style={styles.label}>{cat.label}</label>
-            <div style={styles.tagsContainer}>
-              {keywords[cat.name].map((kw, idx) => (
-                <span key={kw + idx} style={styles.tag}>
-                  {kw}
-                  <button
-                    type="button"
-                    style={styles.removeBtn}
-                    onClick={() => handleRemoveKeyword(cat.name, idx)}
-                  >
-                    ×
-                  </button>
-                </span>
+      {/* 메인 콘텐츠 영역 - 가로로 배치 */}
+      <div style={styles.mainContentLayout}>
+        {/* 왼쪽: 캠페인 폼 */}
+        <div style={styles.formSection}>
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <h2 style={styles.title}>Plan Campaign</h2>
+            {categories.map((cat) => (
+              <div key={cat.name} style={styles.categoryBox}>
+                <label style={styles.label}>{cat.label}</label>
+                <div style={styles.tagsContainer}>
+                  {keywords[cat.name].map((kw, idx) => (
+                    <span key={kw + idx} style={styles.tag}>
+                      {kw}
+                      <button
+                        type="button"
+                        style={styles.removeBtn}
+                        onClick={() => handleRemoveKeyword(cat.name, idx)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={inputs[cat.name]}
+                    onChange={(e) => handleInputChange(e, cat.name)}
+                    onKeyDown={(e) => handleInputKeyDown(e, cat.name)}
+                    placeholder={`Add ${cat.label}`}
+                    style={styles.input}
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              type="submit"
+              style={{
+                ...styles.submitBtn,
+                ...(isSubmitEnabled ? {} : styles.disabledBtn)
+              }}
+              disabled={!isSubmitEnabled}
+            >
+              Submit
+            </button>
+          </form>
+        </div>
+
+        {/* 가운데: 추천 콘텐츠 */}
+        <div style={styles.resultsColumn}>
+          <h2 style={styles.columnTitle}>Recommended Content</h2>
+          {searchResults.isSearchCompleted ? (
+            <div style={styles.videoList}>
+              {searchResults.contentResults.map((result, index) => (
+                <div key={`content-${index}`} style={styles.videoCard}>
+                  <Video
+                    videoId={result.videoId}
+                    indexId={result.indexId}
+                    showTitle={true}
+                  />
+                  <div style={styles.scoreTag}>
+                    {Math.round(result.score * 100)}% Match
+                  </div>
+                </div>
               ))}
-              <input
-                type="text"
-                value={inputs[cat.name]}
-                onChange={(e) => handleInputChange(e, cat.name)}
-                onKeyDown={(e) => handleInputKeyDown(e, cat.name)}
-                placeholder={`Add ${cat.label}`}
-                style={styles.input}
-                disabled={isProcessing}
-              />
             </div>
-          </div>
-        ))}
-        <button
-          type="submit"
-          style={{
-            ...styles.submitBtn,
-            ...(isSubmitEnabled ? {} : styles.disabledBtn)
-          }}
-          disabled={!isSubmitEnabled}
-        >
-          Submit
-        </button>
-      </form>
+          ) : (
+            <div style={styles.emptyState}>
+              Submit keywords to see content recommendations
+            </div>
+          )}
+        </div>
+
+        {/* 오른쪽: 추천 광고 */}
+        <div style={styles.resultsColumn}>
+          <h2 style={styles.columnTitle}>Recommended Ads</h2>
+          {searchResults.isSearchCompleted ? (
+            <div style={styles.videoList}>
+              {searchResults.adsResults.map((result, index) => (
+                <div key={`ads-${index}`} style={styles.videoCard}>
+                  <Video
+                    videoId={result.videoId}
+                    indexId={result.indexId}
+                    showTitle={true}
+                  />
+                  <div style={styles.scoreTag}>
+                    {Math.round(result.score * 100)}% Match
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={styles.emptyState}>
+              Submit keywords to see ad recommendations
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
@@ -773,85 +689,68 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 24,
-    maxWidth: 800,
+    maxWidth: 1200,
     margin: '0 auto',
+    padding: '0 16px',
+  },
+  mainContentLayout: {
+    display: 'flex',
+    flexDirection: 'row',
+    gap: 24,
+    width: '100%',
+    height: 'calc(100vh - 150px)', // 화면 높이 기준으로 설정
+  },
+  formSection: {
+    width: '300px',
+    flexShrink: 0,
   },
   form: {
     background: '#fff',
     borderRadius: 16,
-    padding: 32,
+    padding: 24,
     width: '100%',
     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
     display: 'flex',
     flexDirection: 'column',
-    gap: 24,
+    gap: 16,
   },
-  title: {
-    margin: 0,
-    marginBottom: 8,
-    fontSize: 22,
-    fontWeight: 700,
-    textAlign: 'center',
-  },
-  categoryBox: {
+  resultsColumn: {
+    flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
+    background: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+    maxWidth: 'calc(50% - 150px - 36px)', // (50% - 폼 너비/2 - 갭/2)
+    height: '700px', // 컬럼 높이 고정
+    overflow: 'hidden', // 컬럼 자체는 오버플로우 숨김
   },
-  label: {
+  columnTitle: {
+    fontSize: 18,
     fontWeight: 600,
-    marginBottom: 4,
+    marginBottom: 16,
+    padding: 0,
   },
-  tagsContainer: {
+  videoList: {
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-    minHeight: 36,
-    background: '#f5f5f5',
-    borderRadius: 8,
-    padding: '6px 8px',
+    flexDirection: 'column',
+    gap: 16, // 적당한 간격
+    overflowY: 'auto', // 세로 스크롤 가능하게 설정
+    paddingRight: 8, // 스크롤바 공간 확보
+    maxHeight: '600px', // 약 4개의 비디오만 보이도록 제한
   },
-  tag: {
-    background: '#e0e7ff',
-    color: '#3730a3',
-    borderRadius: 12,
-    padding: '4px 10px',
+  emptyState: {
+    height: 200,
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    color: '#9ca3af',
     fontSize: 14,
-  },
-  removeBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#a1a1aa',
-    marginLeft: 4,
-    cursor: 'pointer',
-    fontSize: 16,
-    lineHeight: 1,
-  },
-  input: {
-    border: 'none',
-    outline: 'none',
-    background: 'transparent',
-    fontSize: 15,
-    minWidth: 80,
-    flex: 1,
-  },
-  submitBtn: {
-    marginTop: 16,
-    padding: '10px 0',
+    fontStyle: 'italic',
+    border: '1px dashed #e5e7eb',
     borderRadius: 8,
-    border: 'none',
-    background: '#6366f1',
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: 16,
-    cursor: 'pointer',
-  },
-  disabledBtn: {
-    background: '#c7d2fe',
-    cursor: 'not-allowed',
+    padding: 16,
   },
   processingBox: {
     background: '#fff',
@@ -908,6 +807,94 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: 14,
     cursor: 'pointer',
+  },
+  title: {
+    margin: 0,
+    marginBottom: 8,
+    fontSize: 18,
+    fontWeight: 600,
+    textAlign: 'center',
+  },
+  categoryBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  label: {
+    fontWeight: 600,
+    marginBottom: 4,
+    fontSize: 14,
+  },
+  tagsContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'center',
+    minHeight: 36,
+    background: '#f5f5f5',
+    borderRadius: 8,
+    padding: '4px 6px',
+  },
+  tag: {
+    background: '#e0e7ff',
+    color: '#3730a3',
+    borderRadius: 12,
+    padding: '2px 8px',
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: 12,
+  },
+  removeBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#a1a1aa',
+    marginLeft: 4,
+    cursor: 'pointer',
+    fontSize: 14,
+    lineHeight: 1,
+  },
+  input: {
+    border: 'none',
+    outline: 'none',
+    background: 'transparent',
+    fontSize: 14,
+    minWidth: 60,
+    flex: 1,
+  },
+  submitBtn: {
+    marginTop: 8,
+    padding: '8px 0',
+    borderRadius: 8,
+    border: 'none',
+    background: '#6366f1',
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: 14,
+    cursor: 'pointer',
+  },
+  disabledBtn: {
+    background: '#c7d2fe',
+    cursor: 'not-allowed',
+  },
+  videoCard: {
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+    flexShrink: 0, // 카드가 줄어들지 않도록 설정
+    height: '140px', // 고정 높이
+    marginBottom: 0, // 간격은 gap으로 조절
+    display: 'block', // 블록 요소로 설정
+  },
+  scoreTag: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    background: 'rgba(0,0,0,0.7)',
+    color: '#fff',
+    padding: '2px 6px',
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: 500,
   },
 };
 
