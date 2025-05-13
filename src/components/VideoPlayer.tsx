@@ -7,7 +7,7 @@ type VideoPlayerProps = {
 };
 
 // Placeholder VideoPlayer component that will be replaced by the actual implementation
-const VideoPlayer: FC<VideoPlayerProps> = ({ url, title, poster }) => {
+const VideoPlayer: FC<VideoPlayerProps> = ({ title, poster }) => {
   return (
     <div className="flex flex-col">
       <div className="w-full h-36 md:h-48 lg:h-64 bg-gray-200 relative rounded-md overflow-hidden">

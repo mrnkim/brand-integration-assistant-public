@@ -1,4 +1,4 @@
-import { FC, ChangeEvent, FormEvent, useRef } from 'react';
+import { FC, FormEvent, useRef } from 'react';
 
 type SearchBarProps = {
   onSearch: (query: string) => void;

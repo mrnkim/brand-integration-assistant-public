@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
           });
         }
       } catch (error) {
+        console.error(`Error updating video ${videoId}:`, error);
         results.errors++;
         results.details.push({
           videoId,
