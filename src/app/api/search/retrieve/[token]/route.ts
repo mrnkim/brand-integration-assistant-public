@@ -32,14 +32,13 @@ interface SearchResult {
   [key: string]: string | number | boolean | object | undefined;
 }
 
-// Use the updated approach for Next.js 15+ dynamic routes
+// Next.js App Router dynamic route handler
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    // Remove the incorrect await from params
-    const { token } = params;
+    const { token } = await params; // ✅ params를 await로 처리
     console.log('🔍 > Search Retrieve API > Received request for token:', token);
 
     // Get the indexId from URL search params to ensure we preserve the correct index
