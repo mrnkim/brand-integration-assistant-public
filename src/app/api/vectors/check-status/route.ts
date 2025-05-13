@@ -8,25 +8,25 @@ export async function GET(req: Request) {
     const indexId = searchParams.get('indexId');
 
     if (!videoId || !indexId) {
-      console.error('API: check-status - Missing required parameters');
+      console.error('🔍 CHECK-STATUS - Missing required parameters');
       return NextResponse.json(
         { processed: false, error: 'videoId and indexId are required parameters' },
         { status: 400 }
       );
     }
 
-    console.log(`API: Checking if video ${videoId} is processed in index ${indexId}`);
+    console.log(`🔍 CHECK-STATUS - Checking if video ${videoId} exists in index ${indexId}`);
 
     // Determine category based on indexId
     const isAdsIndex = indexId.toLowerCase().includes('ad');
     const category = isAdsIndex ? 'ad' : 'content';
-    console.log(`API: check-status - Using category "${category}" for index ${indexId}`);
+    console.log(`🔍 CHECK-STATUS - Using category "${category}" for index ${indexId}`);
 
     // Get Pinecone index
     const pineconeIndex = getPineconeIndex();
 
     if (!pineconeIndex) {
-      console.error('API: check-status - Failed to get Pinecone index');
+      console.error('🔍 CHECK-STATUS - Failed to get Pinecone index');
       return NextResponse.json(
         { processed: false, error: 'Failed to get Pinecone index', category },
         { status: 500 }
@@ -35,28 +35,30 @@ export async function GET(req: Request) {
 
     try {
       // Query for vectors with this video ID
-      console.log(`API: check-status - Querying Pinecone for video ${videoId}`);
+      console.log(`🔍 CHECK-STATUS - Querying Pinecone for video ${videoId}`);
 
       // Use a zero vector with correct dimensions (1024) - only using filter to find vectors
       const queryResponse = await pineconeIndex.query({
-        vector: Array(1024).fill(0), // Zero vector with 1024 dimensions to match embedding size
+        vector: Array(1024).fill(0), // Zero vector with 1024 dimensions to match the index dimension
         filter: { tl_video_id: videoId },
         topK: 1,
         includeMetadata: true
       });
 
-      console.log(`API: check-status - Query response for ${videoId}:`,
-        JSON.stringify({
-          matches_count: queryResponse.matches?.length || 0,
-          has_matches: Boolean(queryResponse.matches?.length),
-          first_match_id: queryResponse.matches?.[0]?.id,
-          first_match_metadata: queryResponse.matches?.[0]?.metadata
-        }, null, 2)
-      );
+      const matchCount = queryResponse.matches?.length || 0;
+      const processed = Boolean(matchCount);
 
-      // 명확하게 처리 상태 로깅
-      const processed = Boolean(queryResponse.matches?.length);
-      console.log(`API: check-status - Video ${videoId} processed status: ${processed}`);
+      // Log basic query results
+      console.log(`🔍 CHECK-STATUS - Query result for ${videoId}: ${processed ? "FOUND" : "NOT FOUND"}`);
+
+      // If found, log the first match details
+      if (processed && queryResponse.matches && queryResponse.matches[0]) {
+        const firstMatch = queryResponse.matches[0];
+        console.log(`🔍 CHECK-STATUS - First match info:`, JSON.stringify({
+          id: firstMatch.id,
+          metadata: firstMatch.metadata
+        }, null, 2));
+      }
 
       return NextResponse.json({
         processed,
@@ -64,15 +66,16 @@ export async function GET(req: Request) {
         category,
         videoId,
         indexId,
-        matches_count: queryResponse.matches?.length || 0,
+        matches_count: matchCount,
         debug_info: {
           query_time: new Date().toISOString(),
-          has_matches: Boolean(queryResponse.matches?.length),
-          first_match_id: queryResponse.matches?.[0]?.id
+          has_matches: processed,
+          first_match_id: queryResponse.matches?.[0]?.id,
+          first_match_metadata: queryResponse.matches?.[0]?.metadata
         }
       });
     } catch (error) {
-      console.error(`API: check-status - Error checking if video ${videoId} is processed:`, error);
+      console.error(`🔍 CHECK-STATUS - Error checking if video ${videoId} is processed:`, error);
       return NextResponse.json(
         {
           processed: false,
@@ -84,7 +87,7 @@ export async function GET(req: Request) {
       );
     }
   } catch (error) {
-    console.error('API: check-status - Error checking video processing status:', error);
+    console.error('🔍 CHECK-STATUS - Error checking video processing status:', error);
     return NextResponse.json(
       { processed: false, error: 'Server error checking processing status' },
       { status: 500 }

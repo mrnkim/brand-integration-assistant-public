@@ -58,7 +58,7 @@ export const fetchVideoDetails = async (videoId: string, indexId: string, embed:
     return data;
   } catch (error) {
     console.error('Error fetching video details:', error);
-    // Just rethrow for now, the API endpoint will handle fallback to dummy data
+    // Rethrow the error for the caller to handle
     throw error;
   }
 };
@@ -149,82 +149,57 @@ export const checkVectorExists = async (videoId: string, indexId?: string): Prom
   }
 };
 
-// 임베딩 가져오기 및 저장
 export const getAndStoreEmbeddings = async (indexId: string, videoId: string) => {
   try {
-    console.log(`### EMBEDDING: Starting embedding process for video ${videoId} in index ${indexId}`);
+    console.log(`Getting embeddings for video ${videoId} in index ${indexId}`);
     const videoDetails = await fetchVideoDetails(videoId, indexId, true);
-
-    // 디버깅을 위해 전체 videoDetails 구조 로깅
-    console.log(`### EMBEDDING - Video details for ${videoId}:`, JSON.stringify({
-      _id: videoDetails._id,
-      has_system_metadata: Boolean(videoDetails.system_metadata),
-      has_embedding: Boolean(videoDetails.embedding),
-      embedding_type: videoDetails.embedding ? typeof videoDetails.embedding : 'none'
-    }, null, 2));
 
     // Check specifically if the embedding property exists and is not null/undefined
     if (!videoDetails || !videoDetails.embedding) {
-      console.error(`### EMBEDDING ERROR: No embedding data found for video ${videoId}`);
+      console.error(`No embedding data found for video ${videoId}`);
       return { success: false, message: 'No embedding data found' };
     }
 
     const embedding = videoDetails.embedding;
 
-    // 임베딩 상세 정보 로깅
-    console.log(`### EMBEDDING: Got embedding for video ${videoId}:`,
-      embedding.video_embedding ?
-      `Has ${embedding.video_embedding.segments?.length || 0} segments` :
-      'No segments found in embedding');
-
+    // Check if the embedding has segments
     if (!embedding.video_embedding || !embedding.video_embedding.segments || embedding.video_embedding.segments.length === 0) {
-      console.error(`### EMBEDDING ERROR: Invalid embedding structure for video ${videoId} - missing segments`);
+      console.error(`Invalid embedding structure for video ${videoId} - missing segments`);
       return { success: false, message: 'Invalid embedding structure - missing segments' };
     }
 
-    // Get both filename and video title
-    let filename = videoId;
+    // Get proper filename and title from system_metadata
+    let filename = '';
     let videoTitle = '';
 
     if (videoDetails.system_metadata) {
       if (videoDetails.system_metadata.filename) {
         filename = videoDetails.system_metadata.filename;
+        console.log(`Using filename from system_metadata: ${filename}`);
       }
       if (videoDetails.system_metadata.video_title) {
         videoTitle = videoDetails.system_metadata.video_title;
+        console.log(`Using video title from system_metadata: ${videoTitle}`);
       }
     }
 
-    // 디버깅 로그 추가
-    console.log(`### EMBEDDING - Original metadata:`, JSON.stringify({
-      original_filename: videoDetails.system_metadata?.filename,
-      original_title: videoDetails.system_metadata?.video_title,
-      final_filename: filename,
-      final_title: videoTitle
-    }, null, 2));
+    // If filename is not found, use videoId as fallback
+    if (!filename) {
+      filename = `${videoId}.mp4`;
+      console.log(`No filename found, using fallback: ${filename}`);
+    }
 
-    // If no video title is available, use the filename without extension as title
+    // If no video title, extract from filename (remove extension)
     if (!videoTitle && filename) {
       videoTitle = filename.split('.')[0];
-      console.log(`### EMBEDDING - No title found, using filename without extension: "${videoTitle}"`);
+      console.log(`No video title found, using name from filename: ${videoTitle}`);
     }
 
-    console.log(`### EMBEDDING: Storing embedding for video ${videoId} (title: "${videoTitle}", filename: "${filename}")`);
+    console.log(`Storing embedding for video ${videoId}`);
+    console.log(`- Title: ${videoTitle}`);
+    console.log(`- Filename: ${filename}`);
 
-    // 수정된 embedding 데이터
-    const enhancedEmbedding = {
-      ...embedding,
-      system_metadata: {
-        ...(embedding.system_metadata || {}),
-        filename,
-        video_title: videoTitle
-      }
-    };
-
-    console.log(`### EMBEDDING - Enhanced metadata:`, JSON.stringify(enhancedEmbedding.system_metadata, null, 2));
-
-    // 2. Store embeddings in Pinecone
-    console.log(`### EMBEDDING: Making API request to store embedding for video ${videoId}`);
+    // Store the embeddings in Pinecone
     const response = await fetch('/api/vectors/store', {
       method: 'POST',
       headers: {
@@ -232,23 +207,35 @@ export const getAndStoreEmbeddings = async (indexId: string, videoId: string) =>
       },
       body: JSON.stringify({
         videoId,
-        videoName: videoTitle || filename, // Use video title first, fall back to filename
-        embedding: enhancedEmbedding,
-        indexId: indexId,
+        videoName: filename, // Use the filename for vector ID generation
+        embedding: {
+          ...embedding,
+          // Ensure system_metadata has the correct title and filename
+          system_metadata: {
+            ...(videoDetails.system_metadata || {}),
+            filename: filename,
+            video_title: videoTitle
+          }
+        },
+        indexId,
       }),
     });
 
     if (!response.ok) {
-      console.error(`### EMBEDDING ERROR: Failed to store embedding for video ${videoId}. Status: ${response.status}`);
-      return { success: false, message: 'Failed to store embedding' };
+      const errorText = await response.text();
+      console.error(`Failed to store embedding. Status: ${response.status}. Error: ${errorText}`);
+      return { success: false, message: `Failed to store embedding: ${response.statusText}` };
     }
 
     const result = await response.json();
-    console.log(`### EMBEDDING - Store result for ${videoId}:`, JSON.stringify(result, null, 2));
-    return result;
+    console.log(`Successfully stored embeddings for video ${videoId}`);
+    return { success: true, ...result };
   } catch (error) {
-    console.error(`### EMBEDDING ERROR: Error in getAndStoreEmbeddings for video ${videoId}:`, error);
-    return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    console.error(`Error in getAndStoreEmbeddings for video ${videoId}:`, error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 };
 

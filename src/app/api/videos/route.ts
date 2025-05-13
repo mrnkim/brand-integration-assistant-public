@@ -49,8 +49,10 @@ export async function GET(request: NextRequest) {
 
     if (!API_KEY || !TWELVELABS_API_BASE_URL) {
       console.error('Missing API key or base URL in environment variables');
-      // 환경 변수가 설정되지 않은 경우 더미 데이터 반환
-      return NextResponse.json(getDummyData(indexId, page));
+      return NextResponse.json(
+        { error: 'API credentials not configured' },
+        { status: 500 }
+      );
     }
 
     const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos?page=${page}&page_limit=${pageLimit}`;
@@ -67,7 +69,10 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error(`API error: ${response.status} - ${await response.text()}`);
-      throw new Error('Network response was not ok');
+      return NextResponse.json(
+        { error: `Failed to fetch videos: ${response.statusText}` },
+        { status: response.status }
+      );
     }
 
     const data = await response.json() as TwelveLabsApiResponse;
@@ -85,93 +90,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedData);
   } catch (error) {
     console.error('Error in videos API:', error);
-
-    // 에러가 발생한 경우 더미 데이터로 대체하여 프론트엔드 개발 진행 가능하도록 함
-    if (request.nextUrl.searchParams.get('index_id')) {
-      return NextResponse.json(
-        getDummyData(
-          request.nextUrl.searchParams.get('index_id') || '',
-          request.nextUrl.searchParams.get('page') || '1'
-        )
-      );
-    }
-
     return NextResponse.json(
-      { error: 'Failed to fetch videos' },
+      { error: 'Failed to fetch videos', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
-}
-
-// 더미 데이터 생성 함수
-function getDummyData(indexId: string, page: string) {
-  return {
-    data: [
-      {
-        _id: 'video1',
-        index_id: indexId,
-        created_at: new Date().toISOString(),
-        system_metadata: {
-          video_title: 'Skanska NYC Building Construction',
-          filename: 'skanska_nyc.mp4',
-          duration: 120,
-          fps: 30,
-          height: 720,
-          width: 1280,
-          size: 1024000,
-        },
-        hls: {
-          video_url: 'https://www.youtube.com/watch?v=example1',
-          thumbnail_urls: ['https://placehold.co/600x400'],
-          status: 'COMPLETE',
-          updated_at: new Date().toISOString()
-        }
-      },
-      {
-        _id: 'video2',
-        index_id: indexId,
-        created_at: new Date().toISOString(),
-        system_metadata: {
-          video_title: 'Skanska Urban Planning Initiative',
-          filename: 'skanska_urban.mp4',
-          duration: 180,
-          fps: 30,
-          height: 720,
-          width: 1280,
-          size: 1024000,
-        },
-        hls: {
-          video_url: 'https://www.youtube.com/watch?v=example2',
-          thumbnail_urls: ['https://placehold.co/600x400'],
-          status: 'COMPLETE',
-          updated_at: new Date().toISOString()
-        }
-      },
-      {
-        _id: 'video3',
-        index_id: indexId,
-        created_at: new Date().toISOString(),
-        system_metadata: {
-          video_title: 'Skanska Real Estate Showcase',
-          filename: 'skanska_realestate.mp4',
-          duration: 240,
-          fps: 30,
-          height: 720,
-          width: 1280,
-          size: 1024000,
-        },
-        hls: {
-          video_url: 'https://www.youtube.com/watch?v=example3',
-          thumbnail_urls: ['https://placehold.co/600x400'],
-          status: 'COMPLETE',
-          updated_at: new Date().toISOString()
-        }
-      }
-    ],
-    page_info: {
-      page: parseInt(page),
-      total_page: 1,
-      total_count: 3
-    }
-  };
 }

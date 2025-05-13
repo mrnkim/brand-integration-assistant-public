@@ -5,8 +5,11 @@ const TWELVELABS_API_BASE_URL = process.env.TWELVELABS_API_BASE_URL;
 
 // Define a basic interface for the expected response data structure
 interface VideoApiResponse {
+  _id: string;
+  index_id?: string;
   hls?: Record<string, unknown>; // Or a more specific HLS type if available
-  metadata?: Record<string, unknown>; // Or a more specific Metadata type
+  system_metadata?: Record<string, unknown>; // Renamed from metadata to system_metadata
+  user_metadata?: Record<string, unknown>; // Added for user metadata
   source?: Record<string, unknown>; // Or a more specific Source type
   embedding?: Record<string, unknown>; // Or a more specific Embedding type
 }
@@ -18,9 +21,9 @@ function isValidVideoData(data: unknown): data is Record<string, unknown> {
 
 export async function GET(
   req: Request,
-  { params }: { params: { videoId: string } }
+  context: { params: Promise<{ videoId: string }> }
 ) {
-  // Get videoId from URL path parameter
+  const params = await context.params;
   const videoId = params.videoId;
 
   // Get other params from search params
@@ -39,6 +42,13 @@ export async function GET(
     return NextResponse.json(
       { error: "videoId is required" },
       { status: 400 }
+    );
+  }
+
+  if (!API_KEY || !TWELVELABS_API_BASE_URL) {
+    return NextResponse.json(
+      { error: "API credentials not configured" },
+      { status: 500 }
     );
   }
 
@@ -67,9 +77,10 @@ export async function GET(
 
     if (!response.ok) {
       console.error(`API error: ${response.status} ${response.statusText}`);
-      // Return dummy data when API request fails
-      const dummyData = getDummyVideoData(videoId, indexId);
-      return NextResponse.json(dummyData);
+      return NextResponse.json(
+        { error: `Failed to fetch video data: ${response.statusText}` },
+        { status: response.status }
+      );
     }
 
     // Use unknown type and a type guard for safer handling
@@ -80,13 +91,35 @@ export async function GET(
       throw new Error("Invalid video data structure received.");
     }
 
-    // Prepare response data using the defined interface
+    // Deep clone videoData to avoid mutating the original
     const responseData: VideoApiResponse = {
-      hls: videoData.hls as Record<string, unknown> | undefined,
-      // Use system_metadata as per documentation, handle if missing
-      metadata: (videoData.system_metadata || videoData.metadata) as Record<string, unknown> | undefined,
-      source: videoData.source as Record<string, unknown> | undefined,
+      _id: videoId,
+      index_id: indexId,
     };
+
+    // Copy over original fields directly to preserve the structure
+    if ('hls' in videoData && videoData.hls) {
+      responseData.hls = videoData.hls as Record<string, unknown>;
+    }
+
+    if ('system_metadata' in videoData && videoData.system_metadata) {
+      // Preserve the original system_metadata structure
+      responseData.system_metadata = videoData.system_metadata as Record<string, unknown>;
+
+      // Log the actual titles for debugging
+      console.log('API Response - actual system_metadata:', {
+        filename: (videoData.system_metadata as Record<string, string>)?.filename,
+        video_title: (videoData.system_metadata as Record<string, string>)?.video_title
+      });
+    }
+
+    if ('user_metadata' in videoData && videoData.user_metadata) {
+      responseData.user_metadata = videoData.user_metadata as Record<string, unknown>;
+    }
+
+    if ('source' in videoData && videoData.source) {
+      responseData.source = videoData.source as Record<string, unknown>;
+    }
 
     // Check if the 'embedding' field exists in the response from TwelveLabs
     if ('embedding' in videoData && videoData.embedding) {
@@ -97,50 +130,9 @@ export async function GET(
 
   } catch (e) {
     console.error('Error fetching video details:', e);
-    // Return dummy data for any error
-    const dummyData = getDummyVideoData(videoId, indexId);
-    return NextResponse.json(dummyData);
+    return NextResponse.json(
+      { error: `Failed to fetch or process video data: ${e instanceof Error ? e.message : 'Unknown error'}` },
+      { status: 500 }
+    );
   }
-}
-
-// Dummy video data generator function
-function getDummyVideoData(videoId: string, indexId: string) {
-  // Create dummy embedding data with realistic structure
-  const dummyEmbedding = {
-    model_name: "Marengo-retrieval-2.7",
-    video_embedding: {
-      segments: Array.from({ length: 10 }, (_, i) => ({
-        embedding_scope: "clip",
-        start_offset_sec: i * 5,
-        end_offset_sec: (i + 1) * 5,
-        embedding_option: "visual-text",
-        float: Array.from({ length: 512 }, () => Math.random() * 2 - 1) // Generate random floating points between -1 and 1
-      }))
-    }
-  };
-
-  return {
-    _id: videoId,
-    index_id: indexId,
-    system_metadata: {
-      video_title: videoId === 'video1'
-        ? 'Skanska NYC Building Construction'
-        : videoId === 'video2'
-        ? 'Skanska Urban Planning Initiative'
-        : 'Skanska Real Estate Showcase',
-      filename: `${videoId}.mp4`,
-      duration: videoId === 'video1' ? 120 : videoId === 'video2' ? 180 : 240,
-      fps: 30,
-      height: 720,
-      width: 1280,
-      size: 1024000,
-    },
-    hls: {
-      video_url: `https://example.com/hls/${videoId}.m3u8`,
-      thumbnail_urls: [`https://placehold.co/600x400?text=${videoId}`],
-      status: 'COMPLETE',
-      updated_at: new Date().toISOString()
-    },
-    embedding: dummyEmbedding
-  };
 }
