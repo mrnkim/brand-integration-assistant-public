@@ -20,6 +20,42 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Copy the `src/env.example` file to a new file called `.env.local` in the root directory and fill in your actual credentials:
+
+```bash
+cp src/env.example .env.local
+```
+
+## Snowflake Integration
+
+This application integrates with Snowflake to store and retrieve video embeddings. Follow these steps to set up your Snowflake environment:
+
+1. **Install Snowflake SDK**:
+
+   ```bash
+   npm install snowflake-sdk
+   ```
+
+2. **Setup Snowflake Database**:
+   Run the SQL script in `scripts/setup-snowflake.sql` in your Snowflake console to create the required database, schema, and tables.
+
+3. **Configure Environment Variables**:
+   Make sure to set the following Snowflake connection parameters in your `.env.local` file:
+
+   ```
+   SNOWFLAKE_ACCOUNT=your_account_id.your_region
+   SNOWFLAKE_USERNAME=your_username
+   SNOWFLAKE_PASSWORD=your_password
+   SNOWFLAKE_DATABASE=BRAND_INTEGRATION_DB
+   SNOWFLAKE_SCHEMA=EMBEDDINGS
+   SNOWFLAKE_WAREHOUSE=COMPUTE_WH
+   ```
+
+4. **Development Mode**:
+   If Snowflake credentials are not properly configured, the application will use fallback mock responses in development mode to allow continued development.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

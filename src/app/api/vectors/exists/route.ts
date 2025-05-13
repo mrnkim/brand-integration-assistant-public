@@ -1,60 +1,54 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { getPineconeIndex } from '@/utils/pinecone';
 
-const API_KEY = process.env.TWELVELABS_API_KEY;
-const TWELVELABS_API_BASE_URL = process.env.TWELVELABS_API_BASE_URL;
-
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(req.url);
     const videoId = searchParams.get('video_id');
+    const indexId = searchParams.get('index_id');
 
     if (!videoId) {
-      return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'video_id parameter is required' },
+        { status: 400 }
+      );
     }
 
-    if (!API_KEY || !TWELVELABS_API_BASE_URL) {
-      console.error('Missing API key or base URL in environment variables');
-      return NextResponse.json({ exists: true });
-    }
+    console.log(`Checking if embeddings exist for video ${videoId} in Pinecone`);
 
-    const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
+    const pineconeIndex = getPineconeIndex();
 
-    const options = {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
-      },
-      params: {
-        embedding_option: "visual-text",
-      },
-    };
+    // Build the filter for the query
+    const filter: Record<string, string> = { tl_video_id: videoId };
+    if (indexId) filter.tl_index_id = indexId;
 
     try {
-      const response = await fetch(url, options);
+      // Query Pinecone using vector_id to search by metadata
+      const queryResponse = await pineconeIndex.query({
+        // For query by metadata, we need to provide a dummy vector
+        vector: Array(1536).fill(0),  // Pinecone typically uses 1536-dimensional vectors
+        filter,
+        topK: 1,
+        includeMetadata: true
+      });
 
-      if (!response.ok) {
-        // API가 404를 반환하면 벡터가 존재하지 않는 것으로 간주
-        if (response.status === 404) {
-          return NextResponse.json({ exists: false });
-        }
+      console.log(`Found ${queryResponse.matches?.length || 0} matches for video ${videoId}`);
 
-        console.error(`API error: ${response.status} - ${await response.text()}`);
-        throw new Error('Network response was not ok');
-      }
+      // If there are any matches, the embedding exists
+      const exists = queryResponse.matches && queryResponse.matches.length > 0;
 
-      const data = await response.json();
-      console.log("🚀 > GET > data=", data)
-      return NextResponse.json({ exists: true });
+      return NextResponse.json({ exists });
     } catch (error) {
-      // API 호출 실패 시 개발 편의를 위해 벡터가 존재한다고 가정
-      console.error('Error checking vector existence, assuming exists:', error);
-      return NextResponse.json({ exists: true });
+      console.error('Error querying Pinecone:', error);
+      return NextResponse.json({
+        error: 'Failed to query Pinecone',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 500 });
     }
   } catch (error) {
-    console.error('Error in vector exists API:', error);
+    console.error('Error checking if embedding exists:', error);
     return NextResponse.json(
-      { error: 'Failed to check vector existence' },
+      { error: 'Failed to check if embedding exists', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
