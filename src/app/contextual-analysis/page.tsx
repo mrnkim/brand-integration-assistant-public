@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { fetchVideos } from '@/hooks/apiHooks';
+import { fetchVideos, textToVideoEmbeddingSearch, EmbeddingSearchResult } from '@/hooks/apiHooks';
 import VideosDropDown from '@/components/VideosDropdown';
 import Video from '@/components/Video';
 import { VideoData, PaginatedResponse, VideoPage } from '@/types';
@@ -22,10 +22,11 @@ const adaptToPaginatedResponse = (response: PaginatedResponse): VideoPage => ({
 
 export default function ContextualAnalysis() {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  console.log("🚀 > ContextualAnalysis > selectedVideoId=", selectedVideoId)
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
-  console.log("🚀 > ContextualAnalysis > selectedVideo=", selectedVideo)
-  const indexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
+  const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
+  const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
   const {
     data: videosData,
@@ -34,15 +35,15 @@ export default function ContextualAnalysis() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery<PaginatedResponse, Error>({
-    queryKey: ['videos', indexId],
-    queryFn: ({ pageParam = 1 }) => fetchVideos(pageParam as number, indexId),
+    queryKey: ['videos', adsIndexId],
+    queryFn: ({ pageParam = 1 }) => fetchVideos(pageParam as number, adsIndexId),
     initialPageParam: 1,
     getNextPageParam: (lastPage: PaginatedResponse) => {
       return lastPage.page_info.page < lastPage.page_info.total_page
         ? lastPage.page_info.page + 1
         : undefined;
     },
-    enabled: !!indexId,
+    enabled: !!adsIndexId,
   });
 
   const handleVideoChange = (videoId: string) => {
@@ -50,6 +51,40 @@ export default function ContextualAnalysis() {
     const allVideos = videosData?.pages.flatMap((page: PaginatedResponse) => page.data) || [];
     const video = allVideos.find((v: VideoData) => v._id === videoId);
     setSelectedVideo(video || null);
+    // Reset analysis results when video changes
+    setSimilarResults([]);
+  };
+
+  const handleContextualAnalysis = async () => {
+    if (!selectedVideoId) return;
+
+    try {
+      setIsAnalyzing(true);
+      console.log(`Running contextual alignment analysis for video ${selectedVideoId}`);
+
+      const results = await textToVideoEmbeddingSearch(
+        selectedVideoId,
+        adsIndexId,
+        contentIndexId
+      );
+
+      setSimilarResults(results);
+      console.log("Contextual analysis results:", results);
+
+      // Display additional details for top result
+      if (results.length > 0) {
+        const topResult = results[0];
+        console.log("Top match:", {
+          videoId: topResult.metadata?.tl_video_id,
+          fileName: topResult.metadata?.video_file,
+          score: topResult.score,
+        });
+      }
+    } catch (error) {
+      console.error("Error during contextual analysis:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // Create adapted data structure for VideosDropDown
@@ -77,7 +112,7 @@ export default function ContextualAnalysis() {
               selectedFile={null}
               taskId={null}
               footageVideoId={selectedVideoId}
-              indexId={indexId}
+              indexId={adsIndexId}
             />
           </div>
 
@@ -89,7 +124,7 @@ export default function ContextualAnalysis() {
                 {selectedVideoId ? (
                   <Video
                     videoId={selectedVideoId}
-                    indexId={indexId}
+                    indexId={adsIndexId}
                     showTitle={true}
                     videoDetails={undefined}
                   />
@@ -124,16 +159,22 @@ export default function ContextualAnalysis() {
             {/* Button for contextual alignment analysis */}
             <div className="mt-6 flex justify-center">
               <button
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow-sm"
-                disabled={!selectedVideoId}
-                onClick={() => {
-                  // TODO: Implement contextual alignment analysis
-                  console.log('Running contextual alignment analysis');
-                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow-sm disabled:opacity-50"
+                disabled={!selectedVideoId || isAnalyzing}
+                onClick={handleContextualAnalysis}
               >
-                Contextual Alignment Analysis
+                {isAnalyzing ? 'Analyzing...' : 'Contextual Alignment Analysis'}
               </button>
             </div>
+
+            {/* Display analysis results count */}
+            {similarResults.length > 0 && (
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600">
+                  Found {similarResults.length} similar content items. Check console for details.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

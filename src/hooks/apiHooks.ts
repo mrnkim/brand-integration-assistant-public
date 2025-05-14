@@ -620,3 +620,80 @@ export const resetPineconeVectors = async (
     return false;
   }
 };
+
+// Embedding 검색 결과 타입 정의
+export interface EmbeddingSearchResult {
+  score: number;
+  metadata?: {
+    tl_video_id: string;
+    tl_index_id: string;
+    video_file: string;
+    [key: string]: string | number | boolean | string[];
+  };
+}
+
+// 임베딩 검색 - 텍스트(태그)로 유사한 비디오 검색
+export const textToVideoEmbeddingSearch = async (
+  videoId: string,
+  adsIndexId: string,
+  contentIndexId: string
+): Promise<EmbeddingSearchResult[]> => {
+  try {
+    console.log(`Searching similar content for video ${videoId}`);
+
+    // 선택된 광고 비디오의 태그 정보(sector, emotions)를 검색어로 사용
+    const videoDetails = await fetchVideoDetails(videoId, adsIndexId);
+    const sector = videoDetails.user_metadata?.sector || '';
+    const emotions = videoDetails.user_metadata?.emotions || '';
+
+    // 섹터와 감정 정보를 결합하여 검색어 생성
+    const searchTerm = `${sector} ${emotions}`.trim();
+
+    // 검색어가 비어있으면 기본 파일명 사용
+    const finalSearchTerm = searchTerm ||
+                          videoDetails.system_metadata?.filename ||
+                          videoDetails.system_metadata?.video_title ||
+                          `Video ${videoId}`;
+
+    console.log(`Using search term: "${finalSearchTerm}" for contextual analysis`);
+
+    const response = await fetch('/api/embeddingSearch', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        searchTerm: finalSearchTerm,
+        indexId: contentIndexId
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const results: EmbeddingSearchResult[] = await response.json();
+    console.log(`Found ${results.length} similar content results`);
+
+    // 원래 검색 결과 정보 로깅 추가
+    console.log(`Raw search results: ${results.length} matches`);
+
+    // 중복 제거 후 결과 수 로깅
+    const uniqueResults = [...new Set(results.map(result => result.metadata?.tl_video_id))]
+      .map(id => results.find(result => result.metadata?.tl_video_id === id))
+      .filter((result): result is EmbeddingSearchResult => result !== undefined);
+    console.log(`After removing duplicates: ${uniqueResults.length} unique videos`);
+
+    return uniqueResults;
+  } catch (error) {
+    console.error('Error in text to video embedding search:', error);
+    throw error;
+  }
+};
+
+// 점수 범위가 낮은 경우 조정된 임계값
+export const getSimilarityLabel = (score: number) => {
+  if (score >= 0.4) return { label: "High", color: "green" };
+  if (score >= 0.2) return { label: "Medium", color: "yellow" };
+  return { label: "Low", color: "red" };
+};
