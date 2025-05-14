@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { fetchVideos, textToVideoEmbeddingSearch, EmbeddingSearchResult } from '@/hooks/apiHooks';
+import { fetchVideos, textToVideoEmbeddingSearch, videoToVideoEmbeddingSearch, EmbeddingSearchResult } from '@/hooks/apiHooks';
 import VideosDropDown from '@/components/VideosDropdown';
 import Video from '@/components/Video';
 import { VideoData, PaginatedResponse, VideoPage } from '@/types';
@@ -25,6 +25,8 @@ export default function ContextualAnalysis() {
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
+  const [textBasedResults, setTextBasedResults] = useState<EmbeddingSearchResult[]>([]);
+  const [videoBasedResults, setVideoBasedResults] = useState<EmbeddingSearchResult[]>([]);
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
@@ -62,24 +64,130 @@ export default function ContextualAnalysis() {
       setIsAnalyzing(true);
       console.log(`Running contextual alignment analysis for video ${selectedVideoId}`);
 
-      const results = await textToVideoEmbeddingSearch(
-        selectedVideoId,
-        adsIndexId,
-        contentIndexId
-      );
+      // Clear previous results
+      setTextBasedResults([]);
+      setVideoBasedResults([]);
+      setSimilarResults([]);
 
-      setSimilarResults(results);
-      console.log("Contextual analysis results:", results);
+      // 두 가지 검색 방식을 병렬로 실행
+      let textResults = [];
+      let videoResults = [];
 
-      // Display additional details for top result
-      if (results.length > 0) {
-        const topResult = results[0];
-        console.log("Top match:", {
-          videoId: topResult.metadata?.tl_video_id,
-          fileName: topResult.metadata?.video_file,
-          score: topResult.score,
-        });
+      try {
+        textResults = await textToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
+        console.log("=== TEXT-BASED SEARCH RESULTS ===");
+        console.log("🚀 > handleContextualAnalysis > textResults=", textResults)
+
+        if (textResults.length > 0) {
+          textResults.forEach((result, index) => {
+            // 검색 방법 정보 표시 (태그 또는 제목)
+            const searchMethodInfo = result.searchMethod ?
+              `(by ${result.searchMethod})` : '';
+
+            console.log(`${index + 1}. ${result.metadata?.video_file || 'Unknown'} - Score: ${(result.score * 100).toFixed(1)}% ${searchMethodInfo} (ID: ${result.metadata?.tl_video_id})`);
+          });
+        } else {
+          console.log("No text-based matches found");
+        }
+
+        // Store text results
+        setTextBasedResults(textResults);
+      } catch (error) {
+        console.error("Error in text-based search:", error);
       }
+
+      try {
+        videoResults = await videoToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
+        console.log("\n=== VIDEO-BASED SEARCH RESULTS ===");
+        console.log("🚀 > handleContextualAnalysis > videoResults=", videoResults)
+
+        if (videoResults.length > 0) {
+          videoResults.forEach((result, index) => {
+            console.log(`${index + 1}. ${result.metadata?.video_file || 'Unknown'} - Score: ${(result.score * 100).toFixed(1)}% (ID: ${result.metadata?.tl_video_id})`);
+          });
+        } else {
+          console.log("No video-based matches found");
+        }
+
+        // Store video results
+        setVideoBasedResults(videoResults);
+      } catch (error) {
+        console.error("Error in video-based search:", error);
+      }
+
+      // Create a map to track all results by videoId
+      const combinedResultsMap = new Map();
+
+      // Add text-based results to the map
+      textResults.forEach(result => {
+        const videoId = result.metadata?.tl_video_id;
+        if (videoId) {
+          combinedResultsMap.set(videoId, {
+            videoId,
+            metadata: result.metadata,
+            textScore: result.score,
+            videoScore: 0,
+            finalScore: result.score,  // Initial score is just the text score
+            source: "TEXT"
+          });
+        }
+      });
+
+      // Add/update video-based results in the map
+      videoResults.forEach(result => {
+        const videoId = result.metadata?.tl_video_id;
+        if (videoId) {
+          if (combinedResultsMap.has(videoId)) {
+            // This is a match found in both searches - update it
+            const existingResult = combinedResultsMap.get(videoId);
+
+            // Apply a significant boost for results found in both searches (50% boost)
+            const boostMultiplier = 2;
+
+            // Combine the scores: use the max of both scores and apply the boost
+            const maxScore = Math.max(existingResult.textScore, result.score);
+            const boostedScore = maxScore * boostMultiplier;
+
+            combinedResultsMap.set(videoId, {
+              ...existingResult,
+              videoScore: result.score,
+              finalScore: boostedScore,  // Boosted score for appearing in both searches
+              source: "BOTH"
+            });
+          } else {
+            // This is a result only found in video search
+            combinedResultsMap.set(videoId, {
+              videoId,
+              metadata: result.metadata,
+              textScore: 0,
+              videoScore: result.score,
+              finalScore: result.score,  // Initial score is just the video score
+              source: "VIDEO"
+            });
+          }
+        }
+      });
+
+      // Convert the map to an array and sort by finalScore
+      const mergedResults = Array.from(combinedResultsMap.values())
+        .sort((a, b) => b.finalScore - a.finalScore);
+
+      // Convert to format expected by the UI
+      const formattedResults = mergedResults.map(item => ({
+        score: item.finalScore,
+        metadata: item.metadata,
+        originalSource: item.source,
+        textScore: item.textScore,
+        videoScore: item.videoScore
+      }));
+
+      // Set the results for display
+      setSimilarResults(formattedResults);
+
+      // Log the results with source information
+      console.log("\n=== COMBINED RESULTS WITH PRIORITIZED SCORING ===");
+      console.log(`Combined ${textResults.length} text-based and ${videoResults.length} video-based results into ${formattedResults.length} unique videos`);
+
     } catch (error) {
       console.error("Error during contextual analysis:", error);
     } finally {
@@ -142,12 +250,26 @@ export default function ContextualAnalysis() {
                   {selectedVideo && selectedVideo.user_metadata ? (
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(selectedVideo.user_metadata)
-                        .filter(([key]) => key !== 'source')
-                        .map(([key, value]) => (
-                          <div key={key} className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm">
-                            {value?.toString()}
-                          </div>
-                        ))}
+                        .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
+                        .flatMap(([key, value]) => {
+                          // 쉼표로 구분된 문자열을 배열로 변환
+                          const tagValues = value.toString().split(',');
+
+                          // 각 태그를 개별적으로 렌더링
+                          return tagValues.map((tag, index) => {
+                            const trimmedTag = tag.trim();
+                            if (trimmedTag.length === 0) return null;
+
+                            return (
+                              <div
+                                key={`${key}-${index}`}
+                                className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm"
+                              >
+                                {trimmedTag}
+                              </div>
+                            );
+                          }).filter(Boolean); // null 값 제거
+                        })}
                     </div>
                   ) : (
                     <p className="text-gray-500 text-sm">No tags available</p>
@@ -169,10 +291,41 @@ export default function ContextualAnalysis() {
 
             {/* Display analysis results count */}
             {similarResults.length > 0 && (
-              <div className="mt-4 text-center">
-                <p className="text-sm text-gray-600">
-                  Found {similarResults.length} similar content items. Check console for details.
-                </p>
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-3 text-center">Content Alignment Results</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 border">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">File Name</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {similarResults.slice(0, 10).map((result, index) => {
+                        // source 정보를 getSimilarityLabel에 전달
+                        const { label, color } = getSimilarityLabel(result.score, result.originalSource);
+
+                        // 소스 정보에 따라 레이블 텍스트 업데이트
+                        let sourceLabel = "";
+                        if (result.originalSource === "BOTH") {
+                          sourceLabel = " (Both Sources)";
+                        }
+
+                        return (
+                          <tr key={index}>
+                            <td className="px-4 py-2 text-sm text-gray-900">{result.metadata?.video_file || 'N/A'}</td>
+                            <td className="px-4 py-2">
+                              <span className={`px-2 py-1 bg-${color}-100 text-${color}-800 rounded-full text-xs font-medium`}>
+                                {label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -181,3 +334,15 @@ export default function ContextualAnalysis() {
     </div>
   );
 }
+
+const getSimilarityLabel = (score: number, source?: string) => {
+  // BOTH 소스에서 나온 결과는 무조건 High로 표시
+  if (source === "BOTH") {
+    return { label: "High", color: "green" };
+  }
+
+  // 단일 소스의 경우 점수에 따라 결정
+  if (score >= 1) return { label: "High", color: "green" };
+  if (score >= 0.5) return { label: "Medium", color: "yellow" };
+  return { label: "Low", color: "red" };
+};

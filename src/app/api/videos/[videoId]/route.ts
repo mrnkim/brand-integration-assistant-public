@@ -105,12 +105,6 @@ export async function GET(
     if ('system_metadata' in videoData && videoData.system_metadata) {
       // Preserve the original system_metadata structure
       responseData.system_metadata = videoData.system_metadata as Record<string, unknown>;
-
-      // Log the actual titles for debugging
-      console.log('API Response - actual system_metadata:', {
-        filename: (videoData.system_metadata as Record<string, string>)?.filename,
-        video_title: (videoData.system_metadata as Record<string, string>)?.video_title
-      });
     }
 
     if ('user_metadata' in videoData && videoData.user_metadata) {

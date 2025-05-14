@@ -645,25 +645,123 @@ export const textToVideoEmbeddingSearch = async (
     const videoDetails = await fetchVideoDetails(videoId, adsIndexId);
     const sector = videoDetails.user_metadata?.sector || '';
     const emotions = videoDetails.user_metadata?.emotions || '';
+    const videoTitle = videoDetails.system_metadata?.video_title ||
+                     videoDetails.system_metadata?.filename ||
+                     `Video ${videoId}`;
 
-    // 섹터와 감정 정보를 결합하여 검색어 생성
-    const searchTerm = `${sector} ${emotions}`.trim();
+    // 결과를 저장할 Map (videoId를 키로 사용)
+    const resultMap = new Map();
 
-    // 검색어가 비어있으면 기본 파일명 사용
-    const finalSearchTerm = searchTerm ||
-                          videoDetails.system_metadata?.filename ||
-                          videoDetails.system_metadata?.video_title ||
-                          `Video ${videoId}`;
+    // 1. 태그 기반 검색 (sector + emotions)
+    const tagSearchTerm = `${sector} ${emotions}`.trim();
+    if (tagSearchTerm) {
+      console.log(`Using tag search term: "${tagSearchTerm}" for contextual analysis`);
 
-    console.log(`Using search term: "${finalSearchTerm}" for contextual analysis`);
+      try {
+        const tagResponse = await fetch('/api/embeddingSearch/textToVideo', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            searchTerm: tagSearchTerm,
+            indexId: contentIndexId
+          }),
+        });
 
-    const response = await fetch('/api/embeddingSearch', {
+        if (tagResponse.ok) {
+          const tagResults: EmbeddingSearchResult[] = await tagResponse.json();
+          console.log(`Found ${tagResults.length} tag-based search results`);
+
+          // 태그 기반 결과를 Map에 저장
+          tagResults.forEach(result => {
+            const resultVideoId = result.metadata?.tl_video_id;
+            if (resultVideoId) {
+              // 각 결과에 searchMethod 속성 추가
+              result.searchMethod = 'tag';
+              resultMap.set(resultVideoId, result);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error in tag-based search:", error);
+      }
+    }
+
+    // 2. 제목 기반 검색
+    console.log(`Using title search term: "${videoTitle}" for contextual analysis`);
+
+    try {
+      const titleResponse = await fetch('/api/embeddingSearch/textToVideo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          searchTerm: videoTitle,
+          indexId: contentIndexId
+        }),
+      });
+
+      if (titleResponse.ok) {
+        const titleResults: EmbeddingSearchResult[] = await titleResponse.json();
+        console.log(`Found ${titleResults.length} title-based search results`);
+
+        // 제목 기반 결과를 Map에 추가 (이미 존재하는 경우 점수 비교)
+        titleResults.forEach(result => {
+          const resultVideoId = result.metadata?.tl_video_id;
+          if (resultVideoId) {
+            result.searchMethod = 'title';
+
+            // 이미 태그 검색에서 발견된 결과인 경우 점수 비교
+            if (resultMap.has(resultVideoId)) {
+              const existingResult = resultMap.get(resultVideoId);
+              // 점수가 더 높은 결과만 유지
+              if (result.score > existingResult.score) {
+                resultMap.set(resultVideoId, result);
+              }
+            } else {
+              // 새로운 결과 추가
+              resultMap.set(resultVideoId, result);
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error in title-based search:", error);
+    }
+
+    // Map의 모든 값을 배열로 변환
+    const finalResults = Array.from(resultMap.values());
+
+    // 점수 기준으로 정렬
+    finalResults.sort((a, b) => b.score - a.score);
+
+    console.log(`Final text-based search results: ${finalResults.length} unique videos`);
+
+    return finalResults;
+  } catch (error) {
+    console.error('Error in text to video embedding search:', error);
+    throw error;
+  }
+};
+
+// 비디오 기반 임베딩 검색 - 선택한 광고와 유사한 콘텐츠 찾기
+export const videoToVideoEmbeddingSearch = async (
+  videoId: string,
+  adsIndexId: string,
+  contentIndexId: string
+): Promise<EmbeddingSearchResult[]> => {
+  try {
+    console.log(`Searching video-to-video similar content for ad ${videoId}`);
+
+    const response = await fetch('/api/embeddingSearch/videoToVideo', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        searchTerm: finalSearchTerm,
+        videoId: videoId,
         indexId: contentIndexId
       }),
     });
@@ -673,27 +771,11 @@ export const textToVideoEmbeddingSearch = async (
     }
 
     const results: EmbeddingSearchResult[] = await response.json();
-    console.log(`Found ${results.length} similar content results`);
+    console.log(`Found ${results.length} similar videos by video embedding`);
 
-    // 원래 검색 결과 정보 로깅 추가
-    console.log(`Raw search results: ${results.length} matches`);
-
-    // 중복 제거 후 결과 수 로깅
-    const uniqueResults = [...new Set(results.map(result => result.metadata?.tl_video_id))]
-      .map(id => results.find(result => result.metadata?.tl_video_id === id))
-      .filter((result): result is EmbeddingSearchResult => result !== undefined);
-    console.log(`After removing duplicates: ${uniqueResults.length} unique videos`);
-
-    return uniqueResults;
+    return results;
   } catch (error) {
-    console.error('Error in text to video embedding search:', error);
+    console.error('Error in video to video embedding search:', error);
     throw error;
   }
-};
-
-// 점수 범위가 낮은 경우 조정된 임계값
-export const getSimilarityLabel = (score: number) => {
-  if (score >= 0.4) return { label: "High", color: "green" };
-  if (score >= 0.2) return { label: "Medium", color: "yellow" };
-  return { label: "Low", color: "red" };
 };
