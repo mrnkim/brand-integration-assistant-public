@@ -54,6 +54,17 @@ export type VideoData = {
   };
 };
 
+export interface VideoPage {
+  data: VideoData[];
+  page_info: {
+    limit_per_page: number;
+    page: number;
+    total_duration: number;
+    total_page: number;
+    total_results: number;
+  };
+}
+
 export type PageInfo = {
   page: number;
   total_page: number;
@@ -79,6 +90,22 @@ export type VideoProps = {
   playing?: boolean;
   onPlay?: () => void;
 };
+
+export interface VideosDropDownProps {
+  indexId: string;
+  onVideoChange: (footageVideoId: string) => void;
+  videosData: {
+    pages: VideoPage[];
+    pageParams: number[];
+  };
+  fetchNextPage: () => void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  isLoading: boolean;
+  selectedFile: File | null;
+  taskId: string | null;
+  footageVideoId: string | null;
+}
 
 export type VideoDetails = {
   _id: string;
@@ -143,3 +170,11 @@ export interface EmbeddingResponse {
   exists: boolean;
   embedding: Embedding;
 }
+
+export interface LoadingSpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
+  size?: Size;
+  color?: Color;
+}
+
+export type Size = 'sm' | 'md' | 'lg';
+export type Color = 'default' | 'primary';

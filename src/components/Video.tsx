@@ -11,6 +11,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import { VideoProps, VideoDetails } from "@/types";
 
 const Video: React.FC<VideoProps> = ({ videoId, indexId, showTitle = true, videoDetails: providedVideoDetails, playing = false, onPlay }) => {
+  console.log("🚀 > videoId, indexId, showTitle = true, videoDetails=", videoId, indexId, showTitle, providedVideoDetails)
 
   const { data: videoDetails } = useQuery<VideoDetails, Error>({
     queryKey: ["videoDetails", videoId],
@@ -22,6 +23,7 @@ const Video: React.FC<VideoProps> = ({ videoId, indexId, showTitle = true, video
     },
     enabled: !!indexId && (!!videoId) && !providedVideoDetails,
   });
+  console.log("🚀 > videoDetails=", videoDetails)
 
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -89,7 +91,7 @@ const Video: React.FC<VideoProps> = ({ videoId, indexId, showTitle = true, video
                     "bg-grey-1000/60",
                     "px-2",
                     "py-1",
-                    "rounded-sm"
+                  "rounded-sm"
                   )}
                 >
                   <p className={clsx("text-white", "text-xs", "font-light")}>

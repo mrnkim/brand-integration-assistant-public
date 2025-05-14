@@ -25,7 +25,7 @@ const MenuItem: FC<MenuItemProps> = ({ title, description, href, isActive = fals
 };
 
 type SidebarProps = {
-  activeMenu: 'content-library' | 'ads-library' | 'plan';
+  activeMenu: 'content-library' | 'ads-library' | 'contextual-analysis';
 };
 
 // 메뉴 아이템 설정
@@ -43,10 +43,10 @@ const menuConfig = [
     href: '/ads-library'
   },
   {
-    id: 'plan',
-    title: 'Plan',
-    description: 'Plan your campaign and get recommendations',
-    href: '/plan'
+    id: 'contextual-analysis',
+    title: 'Contextual Alignment Analysis',
+    description: 'Get automated content recommendations',
+    href: '/contextual-analysis'
   }
 ];
 
