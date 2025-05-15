@@ -155,6 +155,7 @@ export default function ContentLibrary() {
 
   // Convert API response to ContentItemType
   const convertToContentItem = (video: VideoData): ContentItemType => {
+    console.log("🚀 > convertToContentItem > video=", video)
     let tags: Tag[] = [];
 
     // Use existing tags if available

@@ -10,7 +10,23 @@ import { fetchVideoDetails } from "@/hooks/apiHooks";
 import LoadingSpinner from "./LoadingSpinner";
 import { VideoProps, VideoDetails } from "@/types";
 
-const Video: React.FC<VideoProps> = ({ videoId, indexId, showTitle = true, videoDetails: providedVideoDetails, playing = false, onPlay }) => {
+interface EnhancedVideoProps extends VideoProps {
+  confidenceLabel?: string;
+  confidenceColor?: 'green' | 'yellow' | 'red';
+  timeRange?: { start: string; end: string };
+}
+
+const Video: React.FC<EnhancedVideoProps> = ({
+  videoId,
+  indexId,
+  showTitle = true,
+  videoDetails: providedVideoDetails,
+  playing = false,
+  onPlay,
+  confidenceLabel,
+  confidenceColor = 'green',
+  timeRange
+}) => {
   console.log("🚀 > videoId, indexId, showTitle = true, videoDetails=", videoId, indexId, showTitle, providedVideoDetails)
 
   const { data: videoDetails } = useQuery<VideoDetails, Error>({
@@ -38,6 +54,16 @@ const Video: React.FC<VideoProps> = ({ videoId, indexId, showTitle = true, video
   };
 
   const finalVideoDetails = providedVideoDetails || videoDetails;
+
+  // Get confidence label background color
+  const getConfidenceBgColor = () => {
+    switch (confidenceColor) {
+      case 'green': return 'bg-green-500';
+      case 'yellow': return 'bg-yellow-500';
+      case 'red': return 'bg-red-500';
+      default: return 'bg-green-500';
+    }
+  };
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -76,33 +102,40 @@ const Video: React.FC<VideoProps> = ({ videoId, indexId, showTitle = true, video
                 progressInterval={100}
                 onPlay={onPlay}
               />
-              <div
-                className={clsx(
-                  "absolute",
-                  "top-2",
-                  "left-1/2",
-                  "transform",
-                  "-translate-x-1/2",
-                  "z-10"
-                )}
-              >
-                <div
-                  className={clsx(
-                    "bg-grey-1000/60",
-                    "px-2",
-                    "py-1",
-                  "rounded-sm"
-                  )}
-                >
-                  <p className={clsx("text-white", "text-xs", "font-light")}>
-                    {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
-                  </p>
+
+              {/* Confidence Label (top-left) */}
+              {confidenceLabel && (
+                <div className="absolute top-2 left-2 z-10">
+                  <div className={`${getConfidenceBgColor()} px-3 py-1 rounded-md`}>
+                    <p className="text-white text-xs font-medium uppercase">
+                      {confidenceLabel}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Timestamp/Duration (bottom-center) */}
+              {timeRange ? (
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10">
+                  <div className="bg-black/60 px-3 py-1 rounded-md">
+                    <p className="text-white text-xs font-medium">
+                      {timeRange.start} - {timeRange.end}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10">
+                  <div className="bg-black/60 px-3 py-1 rounded-md">
+                    <p className="text-white text-xs font-medium">
+                      {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           {showTitle && (
-            <div className="mt-2">
+            <div className="mt-2 mb-0">
               <p className={clsx("text-body3", "truncate", "text-grey-700")}>
                 {finalVideoDetails?.system_metadata?.filename || finalVideoDetails?.system_metadata?.video_title}
               </p>

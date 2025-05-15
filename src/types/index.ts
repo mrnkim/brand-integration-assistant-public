@@ -25,20 +25,38 @@ export type VideoData = {
   _id: string;
   index_id?: string;
   created_at?: string;
-  user_metadata?: Record<string, unknown>;
+  updated_at?: string;
+  user_metadata?: {
+    source?: string;
+    sector?: string;
+    emotions?: string;
+    brands?: string;
+    locations?: string;
+    demographics?: string;
+    [key: string]: string | undefined;
+  };
   system_metadata?: {
-    title?: string;
     filename?: string;
-    url?: string;
-    thumbnail_url?: string;
-    duration?: number;
-    created_at?: string;
     video_title?: string;
+    duration?: number;
     fps?: number;
     height?: number;
     width?: number;
     size?: number;
+    audio_channel?: number;
+    audio_length_ns?: number;
+    audio_sample_rate?: number;
+    audio_stream_id?: string;
+    audio_stream_idx?: number;
+    video_length_ns?: number;
+    video_stream_id?: string;
+    video_stream_idx?: number;
+    engine_ids?: string[];
     model_names?: string[];
+    created_at?: string;
+    title?: string;
+    url?: string;
+    thumbnail_url?: string;
   };
   hls?: {
     video_url?: string;
