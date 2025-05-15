@@ -151,7 +151,7 @@ const ContentItem: FC<ContentItemProps> = ({
   return (
     <div className="flex items-center border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors">
       {/* Video */}
-      <div style={{ width: '250px' }} className="flex-shrink-0 pr-4">
+      <div style={{ width: '300px' }} className="flex-shrink-0 pr-4">
         <Video
           videoId={videoId}
           indexId={indexId}
@@ -160,49 +160,46 @@ const ContentItem: FC<ContentItemProps> = ({
         />
       </div>
 
-
       {/* Topic Category */}
-      <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
+      <div style={{ width: '180px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
         {isLoadingMetadata && (!localMetadata.topic_category) ? renderLoading() : (
           isFieldUpdating('topic_category') ? renderLoading() : renderEditableMetadata('Topic Category', 'topic_category')
         )}
       </div>
 
       {/* Emotions */}
-      <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
+      <div style={{ width: '180px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
         {isLoadingMetadata && (!localMetadata.emotions) ? renderLoading() : (
           isFieldUpdating('emotions') ? renderLoading() : renderEditableMetadata('Emotions', 'emotions')
         )}
       </div>
 
       {/* Brands */}
-      <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
+      <div style={{ width: '180px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
         {isLoadingMetadata && (!localMetadata.brands) ? renderLoading() : (
           isFieldUpdating('brands') ? renderLoading() : renderEditableMetadata('Brands', 'brands')
         )}
       </div>
 
        {/* Target Demo: Gender */}
-       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
+       <div style={{ width: '180px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
         {isFieldUpdating('demo_gender') ? renderLoading() : renderEditableMetadata('Target Demo: Gender', 'demo_gender')}
       </div>
 
-
       {/* Target Demo: Age */}
-      <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
+      <div style={{ width: '180px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
         {isFieldUpdating('demo_age') ? renderLoading() : renderEditableMetadata('Target Demo: Age', 'demo_age')}
       </div>
 
-
       {/* Location */}
-      <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
+      <div style={{ width: '180px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
         {isLoadingMetadata && (!localMetadata.locations) ? renderLoading() : (
           isFieldUpdating('locations') ? renderLoading() : renderEditableMetadata('Location', 'locations')
         )}
       </div>
 
        {/* Source */}
-       <div style={{ width: '180px' }} className="flex-shrink-0 pr-4 flex justify-center items-center">
+       <div style={{ width: '200px' }} className="flex-shrink-0 pr-4 flex justify-center items-center">
         {isLoadingMetadata && needsMetadata ? renderLoading() : (
           isFieldUpdating('source') ? renderLoading() : renderEditableMetadata('Source', 'source')
         )}

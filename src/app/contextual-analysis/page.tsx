@@ -9,6 +9,7 @@ import SimilarVideoResults from '@/components/SimilarVideoResults';
 import { VideoData, PaginatedResponse, VideoPage } from '@/types';
 import Sidebar from '@/components/Sidebar';
 import { useGlobalState } from '@/providers/ReactQueryProvider';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 // VideoPage adapter for the API response
 const adaptToPaginatedResponse = (response: PaginatedResponse): VideoPage => ({
@@ -292,8 +293,16 @@ export default function ContextualAnalysis() {
               </button>
             </div>
 
+            {/* Display loading spinner when analyzing */}
+            {isAnalyzing && (
+              <div className="flex justify-center items-center mt-10">
+                <LoadingSpinner size="md"/>
+                <span className="ml-3 text-gray-600">Finding contextually aligned content...</span>
+              </div>
+            )}
+
             {/* Display analysis results as videos */}
-            {similarResults.length > 0 && (
+            {similarResults.length > 0 && !isAnalyzing && (
               <SimilarVideoResults
                 results={similarResults}
                 indexId={contentIndexId}

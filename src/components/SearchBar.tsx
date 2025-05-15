@@ -35,7 +35,7 @@ const SearchBar: FC<SearchBarProps> = ({
         type="search"
         ref={searchInputRef}
         defaultValue={defaultValue}
-        className="block w-full p-4 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="block w-full py-2 px-4 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         placeholder={placeholder}
       />
     </form>

@@ -3,6 +3,7 @@ import Video from './Video';
 import VideoModal from './VideoModal';
 import { EmbeddingSearchResult, fetchVideoDetails } from '@/hooks/apiHooks';
 import { VideoData } from '@/types';
+import LoadingSpinner from './LoadingSpinner';
 
 interface SimilarVideoResultsProps {
   results: EmbeddingSearchResult[];
@@ -183,7 +184,10 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
               {/* Show loading indicator if details are still loading */}
               {loadingDetails && !videoData ? (
-                <div className="text-xs text-gray-400 mt-1">Loading tags...</div>
+                <div className="flex items-center space-x-2 mt-1">
+                  <LoadingSpinner size="sm" color="default" />
+                  <span className="text-xs text-gray-400">Loading tags...</span>
+                </div>
               ) : (
                 /* Render actual tags from the fetched video data */
                 renderTags(videoData)

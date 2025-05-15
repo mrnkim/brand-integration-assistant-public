@@ -128,7 +128,7 @@ const Video: React.FC<EnhancedVideoProps> = ({
 
               {/* Confidence Label (top-left) */}
               {confidenceLabel && (
-                <div className="absolute top-2 left-2 z-10">
+                <div className="absolute top-2 left-2 z-[1]">
                   <div className={`${getConfidenceBgColor()} px-3 py-1 rounded-md`}>
                     <p className="text-white text-xs font-medium uppercase">
                       {confidenceLabel}
@@ -137,9 +137,9 @@ const Video: React.FC<EnhancedVideoProps> = ({
                 </div>
               )}
 
-              {/* Timestamp/Duration (bottom-center) */}
+              {/* Timestamp/Duration (bottom-center) - only show when not playing */}
               {timeRange ? (
-                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10">
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
                   <div className="bg-black/60 px-3 py-1 rounded-md">
                     <p className="text-white text-xs font-medium">
                       {timeRange.start} - {timeRange.end}
@@ -147,13 +147,15 @@ const Video: React.FC<EnhancedVideoProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10">
-                  <div className="bg-black/60 px-3 py-1 rounded-md">
-                    <p className="text-white text-xs font-medium">
-                      {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
-                    </p>
+                !playing && (
+                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
+                    <div className="bg-black/60 px-3 py-1 rounded-md">
+                      <p className="text-white text-xs font-medium">
+                        {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )
               )}
             </div>
           </div>

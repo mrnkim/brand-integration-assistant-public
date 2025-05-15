@@ -38,14 +38,14 @@ const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || 'default-ads-index';
 
 // Column definitions
 const COLUMNS = [
-  { id: 'video', label: 'Video', width: '250px' },
-  { id: 'topic_category', label: 'Topic Category', width: '140px' },
-  { id: 'emotions', label: 'Emotions', width: '140px' },
-  { id: 'brands', label: 'Brands', width: '140px' },
-  { id: 'demo_gender', label: 'Target Demo: Gender', width: '140px' },
-  { id: 'demo_age', label: 'Target Demo: Age', width: '140px' },
-  { id: 'location', label: 'Location', width: '140px' },
-  { id: 'source', label: 'Source', width: '180px' },
+  { id: 'video', label: 'Video', width: '300px' },
+  { id: 'topic_category', label: 'Topic Category', width: '180px' },
+  { id: 'emotions', label: 'Emotions', width: '180px' },
+  { id: 'brands', label: 'Brands', width: '180px' },
+  { id: 'demo_gender', label: 'Target Demo: Gender', width: '180px' },
+  { id: 'demo_age', label: 'Target Demo: Age', width: '180px' },
+  { id: 'location', label: 'Location', width: '180px' },
+  { id: 'source', label: 'Source', width: '200px' },
 ];
 
 // Limit for concurrent metadata processing
@@ -688,7 +688,7 @@ export default function AdsLibrary() {
           ) : (
             <div className="flex flex-col">
               {/* Action buttons and filter tabs - 고정 영역 */}
-              <div className="p-3 border-b border-gray-200 bg-white sticky top-[57px] z-20">
+              <div className="p-3 border-b border-gray-200 bg-white sticky top-[45px] z-20">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-2">
                     <ActionButtons
