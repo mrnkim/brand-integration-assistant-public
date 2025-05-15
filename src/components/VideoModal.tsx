@@ -45,8 +45,8 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, videoId, isOpen, onCl
     setSelectedChapter(index);
 
     if (playerRef.current) {
-      // 챕터 시작 시간으로 이동
-      playerRef.current.seekTo(chapter.start, 'seconds');
+      // 챕터 시작 시간으로 이동 - 해당 챕터의 end 시간으로 이동
+      playerRef.current.seekTo(chapter.end, 'seconds');
     }
   };
 
@@ -63,7 +63,7 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, videoId, isOpen, onCl
       onClick={onClose}
     >
       <div
-        className="relative bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col"
+        className="relative bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b flex justify-between items-center">
@@ -80,54 +80,61 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, videoId, isOpen, onCl
           </button>
         </div>
 
-        <div className="relative w-full overflow-hidden" style={{ paddingTop: '56.25%' }}> {/* 16:9 Aspect Ratio */}
-          <ReactPlayer
-            ref={playerRef}
-            url={videoUrl}
-            controls
-            playing
-            width="100%"
-            height="100%"
-            style={{ position: 'absolute', top: 0, left: 0 }}
-            onDuration={handleDuration}
-            config={{
-              file: {
-                attributes: {
-                  controlsList: 'nodownload',
-                  disablePictureInPicture: true,
+        <div className="relative w-full px-6 pt-6 pb-2 overflow-auto flex-grow">
+          <div className="relative w-full overflow-hidden" style={{ paddingTop: '56.25%' }}> {/* 16:9 Aspect Ratio */}
+            <ReactPlayer
+              ref={playerRef}
+              url={videoUrl}
+              controls
+              playing
+              width="100%"
+              height="100%"
+              style={{ position: 'absolute', top: 0, left: 0 }}
+              onDuration={handleDuration}
+              config={{
+                file: {
+                  attributes: {
+                    controlsList: 'nodownload',
+                    disablePictureInPicture: true,
+                  },
                 },
-              },
-            }}
-          />
-        </div>
+              }}
+            />
+          </div>
 
-        {/* 챕터 타임라인 바 */}
-        <div className="relative w-full h-16 bg-gray-100 p-4 mt-2">
-          {isChaptersLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <LoadingSpinner />
-            </div>
-          ) : (
-            <>
-              <div className="absolute w-full h-1 bg-black top-1/2 -translate-y-1/2 z-0"></div>
-              {chaptersData?.chapters?.map((chapter: Chapter, index: number) => (
-                <div
-                  key={`timeline-${index}`}
-                  className={`absolute w-4 h-4 rounded-full -translate-y-1/2 -translate-x-1/2 z-10 cursor-pointer hover:scale-110 transition-transform
-                    ${selectedChapter === index ? 'bg-green-500 ring-2 ring-black' : 'bg-white ring-2 ring-black'}`}
-                  style={{
-                    left: `${(chapter.end / (duration || 1)) * 100}%`,
-                    top: '50%'
-                  }}
-                  onClick={() => handleChapterClick(index)}
-                >
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap">
-                    {formatTime(chapter.end)}
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
+          {/* 챕터 타임라인 바 */}
+          <div className="relative w-full h-28 bg-gray-100 p-4 mt-6 rounded-md">
+            {isChaptersLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <>
+                <div className="absolute w-[96%] h-1 bg-black top-1/3 left-[2%] -translate-y-1/2 z-0"></div>
+                {chaptersData?.chapters?.map((chapter: Chapter, index: number) => {
+                  // Adjust position to ensure dots stay within the visible area
+                  const position = Math.max(2, Math.min(98, (chapter.end / (duration || 1)) * 96 + 2));
+
+                  return (
+                    <div
+                      key={`timeline-${index}`}
+                      className={`absolute w-4 h-4 rounded-full -translate-y-1/2 -translate-x-1/2 z-10 cursor-pointer hover:scale-110 transition-transform
+                        ${selectedChapter === index ? 'bg-green-500 ring-2 ring-black' : 'bg-white ring-2 ring-black'}`}
+                      style={{
+                        left: `${position}%`,
+                        top: '33%'
+                      }}
+                      onClick={() => handleChapterClick(index)}
+                    >
+                      <div className="absolute top-6 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap">
+                        {formatTime(chapter.end)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
