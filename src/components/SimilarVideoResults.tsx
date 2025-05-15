@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Video from './Video';
+import VideoModal from './VideoModal';
 import { EmbeddingSearchResult, fetchVideoDetails } from '@/hooks/apiHooks';
 import { VideoData } from '@/types';
 
@@ -11,6 +12,7 @@ interface SimilarVideoResultsProps {
 const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, indexId }) => {
   const [videoDetails, setVideoDetails] = useState<Record<string, VideoData>>({});
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
+  const [selectedVideo, setSelectedVideo] = useState<{ id: string; url: string; title: string } | null>(null);
 
   // Fetch video details for each result
   useEffect(() => {
@@ -110,6 +112,27 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
     );
   };
 
+  // 비디오 클릭 핸들러
+  const handleVideoClick = (videoId: string) => {
+    const videoData = videoDetails[videoId];
+    if (!videoData || !videoData.hls?.video_url) return;
+
+    const title = videoData.system_metadata?.filename ||
+                 videoData.system_metadata?.video_title ||
+                 `Video ${videoId}`;
+
+    setSelectedVideo({
+      id: videoId,
+      url: videoData.hls.video_url,
+      title: title
+    });
+  };
+
+  // 모달 닫기 핸들러
+  const handleCloseModal = () => {
+    setSelectedVideo(null);
+  };
+
   return (
     <div className="mt-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -125,13 +148,15 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
           return (
             <div key={index} className="flex flex-col">
-              <Video
-                videoId={videoId}
-                indexId={indexId}
-                showTitle={true}
-                confidenceLabel={label}
-                confidenceColor={color as 'green' | 'yellow' | 'red'}
-              />
+              <div className="cursor-pointer" onClick={() => handleVideoClick(videoId)}>
+                <Video
+                  videoId={videoId}
+                  indexId={indexId}
+                  showTitle={true}
+                  confidenceLabel={label}
+                  confidenceColor={color as 'green' | 'yellow' | 'red'}
+                />
+              </div>
 
               {/* Show loading indicator if details are still loading */}
               {loadingDetails && !videoData ? (
@@ -144,6 +169,16 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
           );
         })}
       </div>
+
+      {/* 비디오 재생 모달 */}
+      {selectedVideo && (
+        <VideoModal
+          videoUrl={selectedVideo.url}
+          isOpen={!!selectedVideo}
+          onClose={handleCloseModal}
+          title={selectedVideo.title}
+        />
+      )}
     </div>
   );
 };
