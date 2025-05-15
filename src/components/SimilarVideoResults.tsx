@@ -174,6 +174,7 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
       {selectedVideo && (
         <VideoModal
           videoUrl={selectedVideo.url}
+          videoId={selectedVideo.id}
           isOpen={!!selectedVideo}
           onClose={handleCloseModal}
           title={selectedVideo.title}

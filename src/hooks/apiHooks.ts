@@ -783,3 +783,37 @@ export const videoToVideoEmbeddingSearch = async (
     throw error;
   }
 };
+
+// Chapter 타입 정의
+export interface Chapter {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface ChaptersData {
+  chapters: Chapter[];
+}
+
+// 비디오의 챕터를 가져오는 함수
+export const generateChapters = async (videoId: string): Promise<ChaptersData> => {
+  try {
+    const response = await fetch(`/api/generateChapters?videoId=${videoId}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // 챕터 데이터의 유효성 검사
+    if (!data || !data.chapters || !Array.isArray(data.chapters)) {
+      throw new Error('Invalid chapters data received');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error generating chapters:', error);
+    throw error;
+  }
+};

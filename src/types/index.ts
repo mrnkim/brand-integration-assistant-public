@@ -196,3 +196,16 @@ export interface LoadingSpinnerProps extends React.HTMLAttributes<HTMLDivElement
 
 export type Size = 'sm' | 'md' | 'lg';
 export type Color = 'default' | 'primary';
+
+// 챕터 데이터용 타입
+export interface ChapterData {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface ChaptersResponse {
+  chapters: ChapterData[];
+  type: string;
+  video_id: string;
+}
