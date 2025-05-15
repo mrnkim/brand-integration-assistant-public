@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { fetchVideos, textToVideoEmbeddingSearch, videoToVideoEmbeddingSearch, EmbeddingSearchResult } from '@/hooks/apiHooks';
 import VideosDropDown from '@/components/VideosDropdown';
@@ -48,6 +48,14 @@ export default function ContextualAnalysis() {
     },
     enabled: !!adsIndexId,
   });
+
+  // Auto-select the first video when data is loaded
+  useEffect(() => {
+    if (videosData?.pages[0]?.data && videosData.pages[0].data.length > 0 && !selectedVideoId) {
+      const firstVideo = videosData.pages[0].data[0];
+      handleVideoChange(firstVideo._id);
+    }
+  }, [videosData]);
 
   const handleVideoChange = (videoId: string) => {
     setSelectedVideoId(videoId);
