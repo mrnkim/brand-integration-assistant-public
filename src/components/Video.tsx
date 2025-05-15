@@ -14,6 +14,7 @@ interface EnhancedVideoProps extends VideoProps {
   confidenceLabel?: string;
   confidenceColor?: 'green' | 'yellow' | 'red';
   timeRange?: { start: string; end: string };
+  disablePlayback?: boolean;
 }
 
 const Video: React.FC<EnhancedVideoProps> = ({
@@ -25,7 +26,8 @@ const Video: React.FC<EnhancedVideoProps> = ({
   onPlay,
   confidenceLabel,
   confidenceColor = 'green',
-  timeRange
+  timeRange,
+  disablePlayback = false
 }) => {
   console.log("🚀 > videoId, indexId, showTitle = true, videoDetails=", videoId, indexId, showTitle, providedVideoDetails)
 
@@ -65,6 +67,15 @@ const Video: React.FC<EnhancedVideoProps> = ({
     }
   };
 
+  // 비디오 플레이 방지 핸들러
+  const preventPlayback = (e: React.MouseEvent) => {
+    if (disablePlayback) {
+      // Only prevent default behavior, but allow click event to propagate to parent
+      e.preventDefault();
+      // Don't call e.stopPropagation() so the click reaches the parent handler
+    }
+  };
+
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <Suspense fallback={<LoadingSpinner />}>
@@ -72,15 +83,10 @@ const Video: React.FC<EnhancedVideoProps> = ({
           <div className="relative">
             <div
               className="w-full h-0 pb-[56.25%] relative overflow-hidden rounded cursor-pointer"
-              onClick={onPlay}
+              onClick={disablePlayback ? preventPlayback : onPlay}
             >
-              <ReactPlayer
-                url={finalVideoDetails?.hls?.video_url}
-                controls
-                width="100%"
-                height="100%"
-                style={{ position: 'absolute', top: 0, left: 0 }}
-                light={
+              {disablePlayback ? (
+                <div className="absolute inset-0">
                   <img
                     src={
                       finalVideoDetails?.hls?.thumbnail_urls?.[0] ||
@@ -89,19 +95,36 @@ const Video: React.FC<EnhancedVideoProps> = ({
                     className="object-cover w-full h-full"
                     alt="thumbnail"
                   />
-                }
-                playIcon={<></>}
-                playing={playing}
-                config={{
-                  file: {
-                    attributes: {
-                      preload: "auto",
+                </div>
+              ) : (
+                <ReactPlayer
+                  url={finalVideoDetails?.hls?.video_url}
+                  controls={!disablePlayback}
+                  width="100%"
+                  height="100%"
+                  style={{ position: 'absolute', top: 0, left: 0 }}
+                  light={
+                    <img
+                      src={
+                        finalVideoDetails?.hls?.thumbnail_urls?.[0] ||
+                        '/videoFallback.jpg'
+                      }
+                      className="object-cover w-full h-full"
+                      alt="thumbnail"
+                    />
+                  }
+                  playing={playing}
+                  config={{
+                    file: {
+                      attributes: {
+                        preload: "auto",
+                      },
                     },
-                  },
-                }}
-                progressInterval={100}
-                onPlay={onPlay}
-              />
+                  }}
+                  progressInterval={100}
+                  onPlay={() => onPlay && onPlay()}
+                />
+              )}
 
               {/* Confidence Label (top-left) */}
               {confidenceLabel && (

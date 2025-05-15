@@ -145,16 +145,23 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
           // Get the full video details from our fetched data
           const videoData = videoDetails[videoId];
+          console.log("🚀 > {results.slice > videoData=", videoData)
+
 
           return (
             <div key={index} className="flex flex-col">
-              <div className="cursor-pointer" onClick={() => handleVideoClick(videoId)}>
+              <div
+                className="cursor-pointer"
+                onClick={() => handleVideoClick(videoId)}
+              >
                 <Video
                   videoId={videoId}
                   indexId={indexId}
                   showTitle={true}
                   confidenceLabel={label}
                   confidenceColor={color as 'green' | 'yellow' | 'red'}
+                  disablePlayback={true}
+                  onPlay={() => handleVideoClick(videoId)}
                 />
               </div>
 
