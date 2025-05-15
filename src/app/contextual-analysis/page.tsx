@@ -8,6 +8,7 @@ import Video from '@/components/Video';
 import SimilarVideoResults from '@/components/SimilarVideoResults';
 import { VideoData, PaginatedResponse, VideoPage } from '@/types';
 import Sidebar from '@/components/Sidebar';
+import { useGlobalState } from '@/providers/ReactQueryProvider';
 
 // VideoPage adapter for the API response
 const adaptToPaginatedResponse = (response: PaginatedResponse): VideoPage => ({
@@ -26,6 +27,7 @@ export default function ContextualAnalysis() {
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
+  const { setSelectedAdId } = useGlobalState();
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
@@ -54,6 +56,8 @@ export default function ContextualAnalysis() {
     setSelectedVideo(video || null);
     // Reset analysis results when video changes
     setSimilarResults([]);
+    // Update global state with selected ad ID
+    setSelectedAdId(videoId);
   };
 
   const handleContextualAnalysis = async () => {
