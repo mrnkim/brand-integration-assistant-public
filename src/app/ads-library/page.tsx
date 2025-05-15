@@ -686,7 +686,7 @@ export default function AdsLibrary() {
               />
             </div>
           ) : (
-            <div className="flex flex-col h-[calc(100vh-64px)]">
+            <div className="flex flex-col">
               {/* Action buttons and filter tabs - 고정 영역 */}
               <div className="p-3 border-b border-gray-200 bg-white sticky top-[57px] z-20">
                 <div className="flex justify-between items-center">
@@ -847,57 +847,55 @@ export default function AdsLibrary() {
                 </div>
               </div>
 
-              {/* 스크롤 가능한 컨텐츠 영역 */}
-              <div className="overflow-auto" style={{ height: 'calc(100vh - 170px)' }}>
-                {isLoading ? (
-                  <div className="flex flex-col justify-center items-center h-40">
-                    <LoadingSpinner />
-                    <p className="mt-4 text-gray-500">Loading videos...</p>
-                  </div>
-                ) : isError ? (
-                  <div className="flex justify-center items-center h-40 text-red-500">
-                    Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
-                  </div>
-                ) : (isFiltering ? filteredItems : adItems).length === 0 ? (
-                  <div className="flex justify-center items-center h-40 text-gray-500">
-                    {isFiltering ? 'No videos match the current filters' : 'No videos available'}
-                  </div>
-                ) : (
-                  <div className="min-w-max">
-                    {(isFiltering ? filteredItems : adItems).map(item => (
-                      <ContentItem
-                        key={item.id}
-                        videoId={item.id}
-                        indexId={adsIndexId}
-                        thumbnailUrl={item.thumbnailUrl}
-                        title={item.title}
-                        videoUrl={item.videoUrl}
-                        tags={item.tags}
-                        metadata={item.metadata}
-                        isLoadingMetadata={videosInProcessing.includes(item.id)}
-                        onMetadataUpdated={() => {
-                          // Refresh the content after user updates metadata
-                          console.log('Metadata updated by user, refreshing metadata for video', item.id);
-                          refreshVideoMetadata(item.id);
-                        }}
-                      />
-                    ))}
+              {/* 컨텐츠 영역 - 별도의 스크롤 컨테이너 없이 페이지 자연스러운 스크롤 사용 */}
+              {isLoading ? (
+                <div className="flex flex-col justify-center items-center h-40">
+                  <LoadingSpinner />
+                  <p className="mt-4 text-gray-500">Loading videos...</p>
+                </div>
+              ) : isError ? (
+                <div className="flex justify-center items-center h-40 text-red-500">
+                  Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
+                </div>
+              ) : (isFiltering ? filteredItems : adItems).length === 0 ? (
+                <div className="flex justify-center items-center h-40 text-gray-500">
+                  {isFiltering ? 'No videos match the current filters' : 'No videos available'}
+                </div>
+              ) : (
+                <div>
+                  {(isFiltering ? filteredItems : adItems).map(item => (
+                    <ContentItem
+                      key={item.id}
+                      videoId={item.id}
+                      indexId={adsIndexId}
+                      thumbnailUrl={item.thumbnailUrl}
+                      title={item.title}
+                      videoUrl={item.videoUrl}
+                      tags={item.tags}
+                      metadata={item.metadata}
+                      isLoadingMetadata={videosInProcessing.includes(item.id)}
+                      onMetadataUpdated={() => {
+                        // Refresh the content after user updates metadata
+                        console.log('Metadata updated by user, refreshing metadata for video', item.id);
+                        refreshVideoMetadata(item.id);
+                      }}
+                    />
+                  ))}
 
-                    {/* Load more button - only show when not filtering */}
-                    {!isFiltering && hasNextPage && (
-                      <div className="flex justify-center py-4">
-                        <button
-                          onClick={handleLoadMore}
-                          disabled={isFetchingNextPage}
-                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-                        >
-                          {isFetchingNextPage ? 'Loading...' : 'Load More'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                  {/* Load more button - only show when not filtering */}
+                  {!isFiltering && hasNextPage && (
+                    <div className="flex justify-center py-4 mb-8">
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={isFetchingNextPage}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
