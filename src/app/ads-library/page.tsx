@@ -666,7 +666,7 @@ export default function AdsLibrary() {
         <Sidebar activeMenu="ads-library" />
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col overflow-hidden ml-64">
+        <div className="flex-1 flex flex-col ml-64">
           {/* Search area */}
           <div className="p-4 border-b border-gray-200 sticky top-0 z-30 bg-white">
             <SearchBar
@@ -686,7 +686,7 @@ export default function AdsLibrary() {
               />
             </div>
           ) : (
-            <div className="flex-1 flex flex-col">
+            <div className="flex flex-col h-[calc(100vh-64px)]">
               {/* Action buttons and filter tabs - 고정 영역 */}
               <div className="p-3 border-b border-gray-200 bg-white sticky top-[57px] z-20">
                 <div className="flex justify-between items-center">
@@ -832,9 +832,9 @@ export default function AdsLibrary() {
                 )}
               </div>
 
-              {/* 컬럼 헤더 - 상단에 고정 */}
-              <div className="sticky top-[106px] z-10 bg-gray-100 shadow-sm">
-                <div className="flex py-2 px-4 border-b border-gray-200">
+              {/* 테이블 헤더 - 확실하게 고정 */}
+              <div className="sticky top-[106px] z-10 bg-gray-100 border-b border-gray-200 shadow-sm">
+                <div className="flex py-2 px-4">
                   {COLUMNS.map(column => (
                     <div
                       key={column.id}
@@ -847,8 +847,8 @@ export default function AdsLibrary() {
                 </div>
               </div>
 
-              {/* 스크롤 컨테이너 - 단순화된 구조 */}
-              <div className="overflow-auto flex-1">
+              {/* 스크롤 가능한 컨텐츠 영역 */}
+              <div className="overflow-auto" style={{ height: 'calc(100vh - 170px)' }}>
                 {isLoading ? (
                   <div className="flex flex-col justify-center items-center h-40">
                     <LoadingSpinner />
