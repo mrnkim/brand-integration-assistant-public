@@ -39,13 +39,13 @@ const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || 'default-ads-index';
 // Column definitions
 const COLUMNS = [
   { id: 'video', label: 'Video', width: '250px' },
-  { id: 'source', label: 'Source', width: '180px' },
   { id: 'topic_category', label: 'Topic Category', width: '140px' },
   { id: 'emotions', label: 'Emotions', width: '140px' },
   { id: 'brands', label: 'Brands', width: '140px' },
-  { id: 'demo_age', label: 'Target Demo: Age', width: '140px' },
   { id: 'demo_gender', label: 'Target Demo: Gender', width: '140px' },
+  { id: 'demo_age', label: 'Target Demo: Age', width: '140px' },
   { id: 'location', label: 'Location', width: '140px' },
+  { id: 'source', label: 'Source', width: '180px' },
 ];
 
 // Limit for concurrent metadata processing
@@ -668,7 +668,7 @@ export default function AdsLibrary() {
         {/* Main content */}
         <div className="flex-1 flex flex-col overflow-hidden ml-64">
           {/* Search area */}
-          <div className="p-4 border-b border-gray-200 sticky top-0 z-20 bg-white">
+          <div className="p-4 border-b border-gray-200 sticky top-0 z-30 bg-white">
             <SearchBar
               onSearch={handleSearch}
               placeholder="Search videos..."
@@ -686,10 +686,10 @@ export default function AdsLibrary() {
               />
             </div>
           ) : (
-            <>
-              {/* Action buttons and filter tabs */}
-              <div className="p-4 border-b border-gray-200 sticky top-14 z-10 bg-white">
-                <div className="flex justify-between items-center mb-4">
+            <div className="flex-1 flex flex-col">
+              {/* Action buttons and filter tabs - 고정 영역 */}
+              <div className="p-3 border-b border-gray-200 bg-white sticky top-[57px] z-20">
+                <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-2">
                     <ActionButtons
                       onUpload={handleUpload}
@@ -749,7 +749,7 @@ export default function AdsLibrary() {
                 {/* Filter Menu */}
                 {showFilterMenu && (
                   <div className="relative">
-                    <div className="absolute z-10 mt-1 bg-white rounded-md shadow-lg border border-gray-200">
+                    <div className="absolute z-40 mt-1 bg-white rounded-md shadow-lg border border-gray-200">
                       {selectedFilterCategory === null ? (
                         <div className="py-1">
                           {filterCategories.map((category) => (
@@ -825,88 +825,80 @@ export default function AdsLibrary() {
 
                     {/* Backdrop to close menu when clicking outside */}
                     <div
-                      className="fixed inset-0 z-0"
+                      className="fixed inset-0 z-30"
                       onClick={closeFilterMenu}
                     ></div>
                   </div>
                 )}
-
-                {/* Filter tabs in horizontal row */}
-                {/* FilterTabs 컴포넌트는 지금 사용하지 않으므로 주석 처리
-                <FilterTabs
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                /> */}
               </div>
 
-              {/* Content area with fixed header and scrollable content */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Fixed header */}
-                <div className="flex items-center bg-gray-100 py-3 px-4 border-b border-gray-200 shadow-sm sticky z-5">
+              {/* 컬럼 헤더 - 상단에 고정 */}
+              <div className="sticky top-[106px] z-10 bg-gray-100 shadow-sm">
+                <div className="flex py-2 px-4 border-b border-gray-200">
                   {COLUMNS.map(column => (
                     <div
                       key={column.id}
-                      className="font-medium text-sm text-gray-600 flex-shrink-0 pr-4"
+                      className="font-medium text-center text-sm text-gray-600 flex-shrink-0 pr-4"
                       style={{ width: column.width }}
                     >
                       {column.label}
                     </div>
                   ))}
                 </div>
-
-                {/* Scrollable content with padding to prevent overlap */}
-                <div className="flex-1 overflow-auto bg-white">
-                  {isLoading ? (
-                    <div className="flex flex-col justify-center items-center h-40">
-                      <LoadingSpinner />
-                      <p className="mt-4 text-gray-500">Loading videos...</p>
-                    </div>
-                  ) : isError ? (
-                    <div className="flex justify-center items-center h-40 text-red-500">
-                      Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
-                    </div>
-                  ) : (isFiltering ? filteredItems : adItems).length === 0 ? (
-                    <div className="flex justify-center items-center h-40 text-gray-500">
-                      {isFiltering ? 'No videos match the current filters' : 'No videos available'}
-                    </div>
-                  ) : (
-                    <div className="min-w-max">
-                      {(isFiltering ? filteredItems : adItems).map(item => (
-                        <ContentItem
-                          key={item.id}
-                          videoId={item.id}
-                          indexId={adsIndexId}
-                          thumbnailUrl={item.thumbnailUrl}
-                          title={item.title}
-                          videoUrl={item.videoUrl}
-                          tags={item.tags}
-                          metadata={item.metadata}
-                          isLoadingMetadata={videosInProcessing.includes(item.id)}
-                          onMetadataUpdated={() => {
-                            // Refresh the content after user updates metadata
-                            console.log('Metadata updated by user, refreshing metadata for video', item.id);
-                            refreshVideoMetadata(item.id);
-                          }}
-                        />
-                      ))}
-
-                      {/* Load more button - only show when not filtering */}
-                      {!isFiltering && hasNextPage && (
-                        <div className="flex justify-center py-4">
-                          <button
-                            onClick={handleLoadMore}
-                            disabled={isFetchingNextPage}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-                          >
-                            {isFetchingNextPage ? 'Loading...' : 'Load More'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
-            </>
+
+              {/* 스크롤 컨테이너 - 단순화된 구조 */}
+              <div className="overflow-auto flex-1">
+                {isLoading ? (
+                  <div className="flex flex-col justify-center items-center h-40">
+                    <LoadingSpinner />
+                    <p className="mt-4 text-gray-500">Loading videos...</p>
+                  </div>
+                ) : isError ? (
+                  <div className="flex justify-center items-center h-40 text-red-500">
+                    Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
+                  </div>
+                ) : (isFiltering ? filteredItems : adItems).length === 0 ? (
+                  <div className="flex justify-center items-center h-40 text-gray-500">
+                    {isFiltering ? 'No videos match the current filters' : 'No videos available'}
+                  </div>
+                ) : (
+                  <div className="min-w-max">
+                    {(isFiltering ? filteredItems : adItems).map(item => (
+                      <ContentItem
+                        key={item.id}
+                        videoId={item.id}
+                        indexId={adsIndexId}
+                        thumbnailUrl={item.thumbnailUrl}
+                        title={item.title}
+                        videoUrl={item.videoUrl}
+                        tags={item.tags}
+                        metadata={item.metadata}
+                        isLoadingMetadata={videosInProcessing.includes(item.id)}
+                        onMetadataUpdated={() => {
+                          // Refresh the content after user updates metadata
+                          console.log('Metadata updated by user, refreshing metadata for video', item.id);
+                          refreshVideoMetadata(item.id);
+                        }}
+                      />
+                    ))}
+
+                    {/* Load more button - only show when not filtering */}
+                    {!isFiltering && hasNextPage && (
+                      <div className="flex justify-center py-4">
+                        <button
+                          onClick={handleLoadMore}
+                          disabled={isFetchingNextPage}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -194,7 +194,7 @@ const EditableTag: React.FC<EditableTagProps> = ({
   }
 
   return (
-    <div className="flex flex-wrap items-center">
+    <div className="flex flex-wrap items-center justify-center w-full">
       {renderTags()}
       {renderAddButton()}
       {!value && (
