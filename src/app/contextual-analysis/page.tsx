@@ -229,54 +229,55 @@ export default function ContextualAnalysis() {
 
           {/* Main content area */}
           <div className="flex flex-col">
-            <div className="flex flex-col md:flex-row gap-6">
+            {/* Video and tags section with adjusted layout - no gap between elements */}
+            <div className="flex justify-center items-start">
               {/* Video component */}
-              <div className="md:w-2/3">
+              <div className="flex justify-center">
                 {selectedVideoId ? (
-                  <Video
-                    videoId={selectedVideoId}
-                    indexId={adsIndexId}
-                    showTitle={true}
-                    videoDetails={undefined}
-                  />
+                  <div>
+                    <Video
+                      videoId={selectedVideoId}
+                      indexId={adsIndexId}
+                      showTitle={true}
+                      videoDetails={undefined}
+                    />
+                  </div>
                 ) : (
-                  <div className="border rounded-md bg-gray-50 p-8 flex items-center justify-center h-64">
+                  <div className="border rounded-md bg-gray-50 p-8 flex items-center justify-center h-64 w-[320px]">
                     <p className="text-gray-500">Select an ad from the dropdown</p>
                   </div>
                 )}
               </div>
 
-              {/* Tags/metadata */}
-              <div className="md:w-1/3">
-                <div className="rounded-md p-4">
-                  {selectedVideo && selectedVideo.user_metadata ? (
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(selectedVideo.user_metadata)
-                        .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
-                        .flatMap(([key, value]) => {
-                          // 쉼표로 구분된 문자열을 배열로 변환
-                          const tagValues = (value as unknown as string).toString().split(',');
+              {/* Tags/metadata - placed directly next to the video */}
+              <div className="ml-4 mt-2 w-48">
+                {selectedVideo && selectedVideo.user_metadata ? (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(selectedVideo.user_metadata)
+                      .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
+                      .flatMap(([key, value]) => {
+                        // 쉼표로 구분된 문자열을 배열로 변환
+                        const tagValues = (value as unknown as string).toString().split(',');
 
-                          // 각 태그를 개별적으로 렌더링
-                          return tagValues.map((tag: string, idx: number) => {
-                            const trimmedTag = tag.trim();
-                            if (trimmedTag.length === 0) return null;
+                        // 각 태그를 개별적으로 렌더링
+                        return tagValues.map((tag: string, idx: number) => {
+                          const trimmedTag = tag.trim();
+                          if (trimmedTag.length === 0) return null;
 
-                            return (
-                              <div
-                                key={`${key}-${idx}`}
-                                className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm"
-                              >
-                                {trimmedTag}
-                              </div>
-                            );
-                          }).filter(Boolean); // null 값 제거
-                        })}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No tags available</p>
-                  )}
-                </div>
+                          return (
+                            <div
+                              key={`${key}-${idx}`}
+                              className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm"
+                            >
+                              {trimmedTag}
+                            </div>
+                          );
+                        }).filter(Boolean); // null 값 제거
+                      })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">No tags available</p>
+                )}
               </div>
             </div>
 
