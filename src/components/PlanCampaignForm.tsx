@@ -10,10 +10,11 @@ interface Category {
 }
 
 const categories: Category[] = [
-  { name: 'sector', label: 'Sector' },
+  { name: 'topic_category', label: 'Topic Category' },
   { name: 'emotion', label: 'Emotion' },
   { name: 'brand', label: 'Brand' },
-  { name: 'demographics', label: 'Demographics' },
+  { name: 'demo_age', label: 'Target Demo: Age' },
+  { name: 'demo_gender', label: 'Target Demo: Gender' },
   { name: 'location', label: 'Location' },
 ];
 
@@ -56,17 +57,19 @@ interface VisualSearchResult extends SearchResult {
 
 const PlanCampaignForm: React.FC = () => {
   const [keywords, setKeywords] = useState<Record<string, string[]>>({
-    sector: [],
+    topic_category: [],
     emotion: [],
     brand: [],
-    demographics: [],
+    demo_age: [],
+    demo_gender: [],
     location: [],
   });
   const [inputs, setInputs] = useState<Record<string, string>>({
-    sector: '',
+    topic_category: '',
     emotion: '',
     brand: '',
-    demographics: '',
+    demo_age: '',
+    demo_gender: '',
     location: '',
   });
 

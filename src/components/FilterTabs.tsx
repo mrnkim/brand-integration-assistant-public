@@ -33,10 +33,11 @@ const FilterTabs: FC<FilterTabsProps> = ({
   const tabs = [
     'Video',
     'Source',
-    'Sector',
+    'Topic Category',
     'Emotions',
     'Brands',
-    'Demographics',
+    'Target Demo: Age',
+    'Target Demo: Gender',
     'Location'
   ];
 

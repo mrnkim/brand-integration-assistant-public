@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { generateChapters, Chapter, fetchVideoDetails } from '@/hooks/apiHooks';
 import LoadingSpinner from './LoadingSpinner';
 import { useGlobalState } from '@/providers/ReactQueryProvider';
+import { VideoData } from '@/types';
 
 interface VideoModalProps {
   videoUrl: string;
@@ -11,6 +12,11 @@ interface VideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  searchScore?: number;
+  textScore?: number;
+  videoScore?: number;
+  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
+  contentMetadata?: VideoData;
 }
 
 const VideoModal: React.FC<VideoModalProps> = ({
@@ -18,7 +24,12 @@ const VideoModal: React.FC<VideoModalProps> = ({
   videoId,
   isOpen,
   onClose,
-  title
+  title,
+  searchScore,
+  textScore,
+  videoScore,
+  originalSource,
+  contentMetadata
 }) => {
   const playerRef = useRef<ReactPlayer>(null);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
@@ -135,6 +146,58 @@ const VideoModal: React.FC<VideoModalProps> = ({
                  adVideoDetail?.system_metadata?.video_title ||
                  'Advertisement';
 
+  // Format percentage for scores
+  const formatScore = (score?: number): string => {
+    if (score === undefined) return "N/A";
+    return `${(score * 100).toFixed(0)}`;
+  };
+
+  // Generate explanation text based on search results
+  const getExplanationText = (): string => {
+    if (!originalSource) return "This content was found in the search results.";
+
+    const adMetadata = adVideoDetail?.user_metadata;
+    const contentTags = contentMetadata?.user_metadata
+      ? Object.entries(contentMetadata.user_metadata)
+          .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
+          .flatMap(entry => (entry[1] as string).split(',').map(tag => tag.trim()))
+          .filter(tag => tag.length > 0)
+      : [];
+
+    const adTags = adMetadata
+      ? Object.entries(adMetadata)
+          .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
+          .flatMap(entry => (entry[1] as string).split(',').map(tag => tag.trim()))
+          .filter(tag => tag.length > 0)
+      : [];
+
+    const commonTags = adTags.filter(tag => contentTags.includes(tag));
+
+    let explanation = "";
+
+    switch (originalSource) {
+      case "BOTH":
+        explanation = `it shares both visual and thematic elements with the selected ad.`;
+        if (commonTags.length > 0) {
+          explanation += ` They share common tags: ${commonTags.slice(0, 3).join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
+        }
+        break;
+      case "TEXT":
+        explanation = `it shares thematic elements and keywords with the selected ad.`;
+        if (commonTags.length > 0) {
+          explanation += ` They share common tags: ${commonTags.slice(0, 3).join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
+        }
+        break;
+      case "VIDEO":
+        explanation = `it shares visual elements and style with the selected ad.`;
+        break;
+      default:
+        explanation = `it was found in the search results.`;
+    }
+
+    return explanation;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -160,6 +223,27 @@ const VideoModal: React.FC<VideoModalProps> = ({
             </svg>
           </button>
         </div>
+
+        {/* Contextual alignment explanation */}
+        {originalSource && (
+          <div className="px-6 py-3 bg-blue-50 text-blue-700 border-b border-blue-100">
+            <p className="text-sm font-medium">
+              <span className="mr-1">This content was recommended as</span>
+              {getExplanationText()}
+            </p>
+            {searchScore !== undefined && (
+              <div className="mt-1 text-xs text-blue-600 flex flex-wrap gap-x-4">
+                  {videoScore !== undefined && videoScore > 0 && (
+                  <span>Visual match: <strong>{formatScore(videoScore)}</strong></span>
+                )}
+                {textScore !== undefined && textScore > 0 && (
+                  <span>Text match: <strong>{formatScore(textScore)}</strong></span>
+                )}
+
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative w-full px-6 pt-6 pb-2 overflow-auto flex-grow">
           <div className="relative w-full overflow-hidden" style={{ paddingTop: '56.25%' }}> {/* 16:9 Aspect Ratio */}

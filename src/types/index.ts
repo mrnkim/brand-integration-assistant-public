@@ -13,10 +13,12 @@ export type ContentItem = {
   tags: Tag[];
   metadata?: {
     source?: string;
-    sector?: string;
+    topic_category?: string;
     emotions?: string;
     brands?: string;
     locations?: string;
+    demo_age?: string;
+    demo_gender?: string;
   };
 };
 
@@ -28,11 +30,14 @@ export type VideoData = {
   updated_at?: string;
   user_metadata?: {
     source?: string;
-    sector?: string;
+    topic_category?: string;
+    sector?: string; // Keep for backward compatibility
     emotions?: string;
     brands?: string;
     locations?: string;
-    demographics?: string;
+    demo_age?: string;
+    demo_gender?: string;
+    demographics?: string; // Keep for backward compatibility
     [key: string]: string | undefined;
   };
   system_metadata?: {

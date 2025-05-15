@@ -9,10 +9,21 @@ interface SimilarVideoResultsProps {
   indexId: string;
 }
 
+interface SelectedVideoData {
+  id: string;
+  url: string;
+  title: string;
+  score?: number;
+  textScore?: number;
+  videoScore?: number;
+  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
+  metadata: VideoData;
+}
+
 const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, indexId }) => {
   const [videoDetails, setVideoDetails] = useState<Record<string, VideoData>>({});
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
-  const [selectedVideo, setSelectedVideo] = useState<{ id: string; url: string; title: string } | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<SelectedVideoData | null>(null);
 
   // Fetch video details for each result
   useEffect(() => {
@@ -115,6 +126,8 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
   // 비디오 클릭 핸들러
   const handleVideoClick = (videoId: string) => {
     const videoData = videoDetails[videoId];
+    const resultData = results.find(result => result.metadata?.tl_video_id === videoId);
+
     if (!videoData || !videoData.hls?.video_url) return;
 
     const title = videoData.system_metadata?.filename ||
@@ -124,7 +137,12 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
     setSelectedVideo({
       id: videoId,
       url: videoData.hls.video_url,
-      title: title
+      title: title,
+      score: resultData?.score,
+      textScore: resultData?.textScore,
+      videoScore: resultData?.videoScore,
+      originalSource: resultData?.originalSource as 'TEXT' | 'VIDEO' | 'BOTH',
+      metadata: videoData
     });
   };
 
@@ -145,8 +163,6 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
           // Get the full video details from our fetched data
           const videoData = videoDetails[videoId];
-          console.log("🚀 > {results.slice > videoData=", videoData)
-
 
           return (
             <div key={index} className="flex flex-col">
@@ -185,6 +201,11 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
           isOpen={!!selectedVideo}
           onClose={handleCloseModal}
           title={selectedVideo.title}
+          searchScore={selectedVideo.score}
+          textScore={selectedVideo.textScore}
+          videoScore={selectedVideo.videoScore}
+          originalSource={selectedVideo.originalSource}
+          contentMetadata={selectedVideo.metadata}
         />
       )}
     </div>

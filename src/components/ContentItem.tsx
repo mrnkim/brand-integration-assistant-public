@@ -16,11 +16,12 @@ type ContentItemProps = {
   // Add user metadata
   metadata?: {
     source?: string;
-    sector?: string;
+    topic_category?: string;
     emotions?: string;
     brands?: string;
     locations?: string;
-    demographics?: string;
+    demo_age?: string;
+    demo_gender?: string;
   };
   isLoadingMetadata?: boolean;
   onMetadataUpdated?: () => void;
@@ -58,8 +59,8 @@ const ContentItem: FC<ContentItemProps> = ({
         case 'source':
           field = 'source';
           break;
-        case 'sector':
-          field = 'sector';
+        case 'topic category':
+          field = 'topic_category';
           break;
         case 'emotions':
           field = 'emotions';
@@ -70,9 +71,11 @@ const ContentItem: FC<ContentItemProps> = ({
         case 'location':
           field = 'locations';
           break;
-        case 'demographics':
-          // Demographics는 더 이상 source 필드에 저장하지 않고 별도로 처리
-          field = 'demographics';
+        case 'target demo: age':
+          field = 'demo_age';
+          break;
+        case 'target demo: gender':
+          field = 'demo_gender';
           break;
         default:
           throw new Error(`Unknown category: ${category}`);
@@ -137,7 +140,7 @@ const ContentItem: FC<ContentItemProps> = ({
   const needsMetadata = !localMetadata ||
     Object.keys(localMetadata).length === 0 ||
     !localMetadata.source ||
-    !localMetadata.sector ||
+    !localMetadata.topic_category ||
     !localMetadata.emotions ||
     !localMetadata.brands ||
     !localMetadata.locations;
@@ -164,10 +167,10 @@ const ContentItem: FC<ContentItemProps> = ({
         )}
       </div>
 
-      {/* Sector */}
+      {/* Topic Category */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {isLoadingMetadata && (!localMetadata.sector) ? renderLoading() : (
-          isFieldUpdating('sector') ? renderLoading() : renderEditableMetadata('Sector', 'sector')
+        {isLoadingMetadata && (!localMetadata.topic_category) ? renderLoading() : (
+          isFieldUpdating('topic_category') ? renderLoading() : renderEditableMetadata('Topic Category', 'topic_category')
         )}
       </div>
 
@@ -185,9 +188,14 @@ const ContentItem: FC<ContentItemProps> = ({
         )}
       </div>
 
-      {/* Demographics */}
+      {/* Target Demo: Age */}
       <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
-        {isFieldUpdating('demographics') ? renderLoading() : renderEditableMetadata('Demographics', 'demographics')}
+        {isFieldUpdating('demo_age') ? renderLoading() : renderEditableMetadata('Target Demo: Age', 'demo_age')}
+      </div>
+
+      {/* Target Demo: Gender */}
+      <div style={{ width: '140px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1">
+        {isFieldUpdating('demo_gender') ? renderLoading() : renderEditableMetadata('Target Demo: Gender', 'demo_gender')}
       </div>
 
       {/* Location */}

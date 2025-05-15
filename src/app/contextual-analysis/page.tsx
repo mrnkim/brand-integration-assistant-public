@@ -248,8 +248,7 @@ export default function ContextualAnalysis() {
 
               {/* Tags/metadata */}
               <div className="md:w-1/3">
-                <div className="border rounded-md p-4">
-                  <h3 className="font-medium mb-3">Tags</h3>
+                <div className="rounded-md p-4">
                   {selectedVideo && selectedVideo.user_metadata ? (
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(selectedVideo.user_metadata)

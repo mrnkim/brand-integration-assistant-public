@@ -40,10 +40,11 @@ const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || 'default-ads-index';
 const COLUMNS = [
   { id: 'video', label: 'Video', width: '250px' },
   { id: 'source', label: 'Source', width: '180px' },
-  { id: 'sector', label: 'Sector', width: '140px' },
+  { id: 'topic_category', label: 'Topic Category', width: '140px' },
   { id: 'emotions', label: 'Emotions', width: '140px' },
   { id: 'brands', label: 'Brands', width: '140px' },
-  { id: 'demographics', label: 'Demographics', width: '140px' },
+  { id: 'demo_age', label: 'Target Demo: Age', width: '140px' },
+  { id: 'demo_gender', label: 'Target Demo: Gender', width: '140px' },
   { id: 'location', label: 'Location', width: '140px' },
 ];
 
@@ -64,11 +65,12 @@ interface AdItemType {
   tags: Tag[];
   metadata?: {
     source?: string;
-    sector?: string;
+    topic_category?: string;
     emotions?: string;
     brands?: string;
     locations?: string;
-    demographics?: string;
+    demo_age?: string;
+    demo_gender?: string;
   };
 }
 
@@ -105,17 +107,19 @@ export default function AdsLibrary() {
 
   // Filter states
   const [filterOptions, setFilterOptions] = useState<{[key: string]: string[]}>({
-    sector: [],
+    topic_category: [],
     emotions: [],
     brands: [],
-    demographics: [],
+    demo_age: [],
+    demo_gender: [],
     location: []
   });
   const [activeFilters, setActiveFilters] = useState<{[key: string]: string[]}>({
-    sector: [],
+    topic_category: [],
     emotions: [],
     brands: [],
-    demographics: [],
+    demo_age: [],
+    demo_gender: [],
     location: []
   });
   const [filteredItems, setFilteredItems] = useState<AdItemType[]>([]);
@@ -123,10 +127,11 @@ export default function AdsLibrary() {
 
   // Filter categories
   const filterCategories = [
-    { id: 'sector', label: 'Sector' },
+    { id: 'topic_category', label: 'Topic Category' },
     { id: 'emotions', label: 'Emotions' },
     { id: 'brands', label: 'Brands' },
-    { id: 'demographics', label: 'Demographics' },
+    { id: 'demo_age', label: 'Target Demo: Age' },
+    { id: 'demo_gender', label: 'Target Demo: Gender' },
     { id: 'location', label: 'Location' },
   ];
 
@@ -170,11 +175,20 @@ export default function AdsLibrary() {
     // 데이터 타입에 맞게 메타데이터를 추출합니다
     const metadata = video.user_metadata ? {
       source: video.user_metadata.source as string,
-      sector: video.user_metadata.sector as string,
+      topic_category: video.user_metadata.sector as string,
       emotions: video.user_metadata.emotions as string,
       brands: video.user_metadata.brands as string,
       locations: video.user_metadata.locations as string,
-      demographics: video.user_metadata.demographics as string
+      demo_age: video.user_metadata.demographics ?
+                (video.user_metadata.demographics as string).split(',')
+                .filter(d => d.toLowerCase().includes('age') ||
+                            d.toLowerCase().includes('old') ||
+                            /\d+-\d+/.test(d)).join(', ') : '',
+      demo_gender: video.user_metadata.demographics ?
+                  (video.user_metadata.demographics as string).split(',')
+                  .filter(d => d.toLowerCase().includes('male') ||
+                              d.toLowerCase().includes('women') ||
+                              d.toLowerCase().includes('men')).join(', ') : '',
     } : undefined;
 
     // 메타데이터 상태를 보존하기 위해 로그 추가
@@ -212,11 +226,12 @@ export default function AdsLibrary() {
                 tags: updatedVideo.user_metadata ? convertMetadataToTags(updatedVideo.user_metadata) : [],
                 metadata: updatedVideo.user_metadata as {
                   source?: string;
-                  sector?: string;
+                  topic_category?: string;
                   emotions?: string;
                   brands?: string;
                   locations?: string;
-                  demographics?: string;
+                  demo_age?: string;
+                  demo_gender?: string;
                 }
               };
               console.log(`Updated ads item for ${videoId}:`, updatedItem);
@@ -252,7 +267,7 @@ export default function AdsLibrary() {
       // 1. Only process if metadata is missing - stricter check
       if (!video.user_metadata ||
           Object.keys(video.user_metadata).length === 0 ||
-          (!video.user_metadata.source && !video.user_metadata.sector &&
+          (!video.user_metadata.source && !video.user_metadata.topic_category &&
            !video.user_metadata.emotions && !video.user_metadata.brands &&
            !video.user_metadata.locations)) {
 
@@ -304,20 +319,27 @@ export default function AdsLibrary() {
     }
   }, [adsIndexId, processedVideoIds, videosInProcessing]);
 
+  // Function to filter videos that need metadata processing
+  const filterVideosNeedingMetadata = (videos: VideoData[], processedIds: Set<string>, inProcessingIds: string[]) => {
+    return videos.filter(video =>
+      !processedIds.has(video._id) &&
+      !inProcessingIds.includes(video._id) &&
+      (!video.user_metadata ||
+      Object.keys(video.user_metadata).length === 0 ||
+      (!video.user_metadata.source &&
+       !video.user_metadata.topic_category &&
+       !video.user_metadata.emotions &&
+       !video.user_metadata.brands &&
+       !video.user_metadata.locations))
+    );
+  };
+
   // Batch process video metadata with concurrency control
   const processVideoMetadata = useCallback(async (videos: VideoData[]) => {
     if (!adsIndexId || videos.length === 0 || skipMetadataProcessing) return;
 
     // Filter videos that need metadata
-    const videosNeedingMetadata = videos.filter(video =>
-      !processedVideoIds.has(video._id) && !videosInProcessing.includes(video._id) && (
-        !video.user_metadata ||
-        Object.keys(video.user_metadata).length === 0 ||
-        (!video.user_metadata.source && !video.user_metadata.sector &&
-         !video.user_metadata.emotions && !video.user_metadata.brands &&
-         !video.user_metadata.locations)
-      )
-    );
+    const videosNeedingMetadata = filterVideosNeedingMetadata(videos, processedVideoIds, videosInProcessing);
 
     if (videosNeedingMetadata.length === 0) return;
 
@@ -403,15 +425,7 @@ export default function AdsLibrary() {
         // 새로 로드된 모든 비디오에 대해 메타데이터 처리를 지연시킵니다
         setTimeout(() => {
           const allVideos = videosData.pages.flatMap(page => page.data);
-          const newlyLoadedVideos = allVideos.filter(video =>
-            !processedVideoIds.has(video._id) &&
-            !videosInProcessing.includes(video._id) &&
-            (!video.user_metadata ||
-            Object.keys(video.user_metadata).length === 0 ||
-            (!video.user_metadata.source && !video.user_metadata.sector &&
-            !video.user_metadata.emotions && !video.user_metadata.brands &&
-            !video.user_metadata.locations))
-          );
+          const newlyLoadedVideos = filterVideosNeedingMetadata(allVideos, processedVideoIds, videosInProcessing);
 
           if (newlyLoadedVideos.length > 0) {
             console.log(`Processing metadata for ${newlyLoadedVideos.length} newly loaded videos`);
@@ -426,20 +440,21 @@ export default function AdsLibrary() {
   useEffect(() => {
     if (adItems.length > 0) {
       const options: {[key: string]: Set<string>} = {
-        sector: new Set<string>(),
+        topic_category: new Set<string>(),
         emotions: new Set<string>(),
         brands: new Set<string>(),
-        demographics: new Set<string>(),
+        demo_age: new Set<string>(),
+        demo_gender: new Set<string>(),
         location: new Set<string>()
       };
 
       adItems.forEach(item => {
         if (item.metadata) {
-          // Extract sector
-          if (item.metadata.sector) {
-            const sectors = item.metadata.sector.split(',').map(s => s.trim());
-            sectors.forEach(sector => {
-              if (sector) options.sector.add(sector);
+          // Extract topic_category
+          if (item.metadata.topic_category) {
+            const topics = item.metadata.topic_category.split(',').map(s => s.trim());
+            topics.forEach(topic => {
+              if (topic) options.topic_category.add(topic);
             });
           }
 
@@ -459,11 +474,19 @@ export default function AdsLibrary() {
             });
           }
 
-          // Extract demographics
-          if (item.metadata.demographics) {
-            const demographics = item.metadata.demographics.split(',').map(d => d.trim());
-            demographics.forEach(demographic => {
-              if (demographic) options.demographics.add(demographic);
+          // Extract demo_age
+          if (item.metadata.demo_age) {
+            const ages = item.metadata.demo_age.split(',').map(a => a.trim());
+            ages.forEach(age => {
+              if (age) options.demo_age.add(age);
+            });
+          }
+
+          // Extract demo_gender
+          if (item.metadata.demo_gender) {
+            const genders = item.metadata.demo_gender.split(',').map(g => g.trim());
+            genders.forEach(gender => {
+              if (gender) options.demo_gender.add(gender);
             });
           }
 
@@ -479,10 +502,11 @@ export default function AdsLibrary() {
 
       // Convert Sets to arrays
       setFilterOptions({
-        sector: Array.from(options.sector),
+        topic_category: Array.from(options.topic_category),
         emotions: Array.from(options.emotions),
         brands: Array.from(options.brands),
-        demographics: Array.from(options.demographics),
+        demo_age: Array.from(options.demo_age),
+        demo_gender: Array.from(options.demo_gender),
         location: Array.from(options.location)
       });
     }
@@ -507,8 +531,8 @@ export default function AdsLibrary() {
         // Get the metadata value for this category
         let metadataValue = '';
         switch (category) {
-          case 'sector':
-            metadataValue = item.metadata?.sector || '';
+          case 'topic_category':
+            metadataValue = item.metadata?.topic_category || '';
             break;
           case 'emotions':
             metadataValue = item.metadata?.emotions || '';
@@ -516,8 +540,11 @@ export default function AdsLibrary() {
           case 'brands':
             metadataValue = item.metadata?.brands || '';
             break;
-          case 'demographics':
-            metadataValue = item.metadata?.demographics || '';
+          case 'demo_age':
+            metadataValue = item.metadata?.demo_age || '';
+            break;
+          case 'demo_gender':
+            metadataValue = item.metadata?.demo_gender || '';
             break;
           case 'location':
             metadataValue = item.metadata?.locations || '';
@@ -566,10 +593,11 @@ export default function AdsLibrary() {
   // Reset all filters
   const resetAllFilters = () => {
     setActiveFilters({
-      sector: [],
+      topic_category: [],
       emotions: [],
       brands: [],
-      demographics: [],
+      demo_age: [],
+      demo_gender: [],
       location: []
     });
     setShowFilterMenu(false);
