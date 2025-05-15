@@ -5,6 +5,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { fetchVideos, textToVideoEmbeddingSearch, videoToVideoEmbeddingSearch, EmbeddingSearchResult } from '@/hooks/apiHooks';
 import VideosDropDown from '@/components/VideosDropdown';
 import Video from '@/components/Video';
+import SimilarVideoResults from '@/components/SimilarVideoResults';
 import { VideoData, PaginatedResponse, VideoPage } from '@/types';
 import Sidebar from '@/components/Sidebar';
 
@@ -25,8 +26,6 @@ export default function ContextualAnalysis() {
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
-  const [textBasedResults, setTextBasedResults] = useState<EmbeddingSearchResult[]>([]);
-  const [videoBasedResults, setVideoBasedResults] = useState<EmbeddingSearchResult[]>([]);
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
@@ -65,13 +64,11 @@ export default function ContextualAnalysis() {
       console.log(`Running contextual alignment analysis for video ${selectedVideoId}`);
 
       // Clear previous results
-      setTextBasedResults([]);
-      setVideoBasedResults([]);
       setSimilarResults([]);
 
       // 두 가지 검색 방식을 병렬로 실행
-      let textResults = [];
-      let videoResults = [];
+      let textResults: EmbeddingSearchResult[] = [];
+      let videoResults: EmbeddingSearchResult[] = [];
 
       try {
         textResults = await textToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
@@ -89,9 +86,6 @@ export default function ContextualAnalysis() {
         } else {
           console.log("No text-based matches found");
         }
-
-        // Store text results
-        setTextBasedResults(textResults);
       } catch (error) {
         console.error("Error in text-based search:", error);
       }
@@ -108,9 +102,6 @@ export default function ContextualAnalysis() {
         } else {
           console.log("No video-based matches found");
         }
-
-        // Store video results
-        setVideoBasedResults(videoResults);
       } catch (error) {
         console.error("Error in video-based search:", error);
       }
@@ -207,7 +198,7 @@ export default function ContextualAnalysis() {
       <Sidebar activeMenu="contextual-analysis" />
 
       <div className="flex-1 overflow-auto ml-64">
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-8 max-w-6xl mx-auto">
           {/* Dropdown menu */}
           <div className="mb-6">
             <VideosDropDown
@@ -253,16 +244,16 @@ export default function ContextualAnalysis() {
                         .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
                         .flatMap(([key, value]) => {
                           // 쉼표로 구분된 문자열을 배열로 변환
-                          const tagValues = value.toString().split(',');
+                          const tagValues = (value as unknown as string).toString().split(',');
 
                           // 각 태그를 개별적으로 렌더링
-                          return tagValues.map((tag, index) => {
+                          return tagValues.map((tag: string, idx: number) => {
                             const trimmedTag = tag.trim();
                             if (trimmedTag.length === 0) return null;
 
                             return (
                               <div
-                                key={`${key}-${index}`}
+                                key={`${key}-${idx}`}
                                 className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm"
                               >
                                 {trimmedTag}
@@ -289,44 +280,12 @@ export default function ContextualAnalysis() {
               </button>
             </div>
 
-            {/* Display analysis results count */}
+            {/* Display analysis results as videos */}
             {similarResults.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-medium mb-3 text-center">Content Alignment Results</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 border">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">File Name</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Similarity</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {similarResults.slice(0, 10).map((result, index) => {
-                        // source 정보를 getSimilarityLabel에 전달
-                        const { label, color } = getSimilarityLabel(result.score, result.originalSource);
-
-                        // 소스 정보에 따라 레이블 텍스트 업데이트
-                        let sourceLabel = "";
-                        if (result.originalSource === "BOTH") {
-                          sourceLabel = " (Both Sources)";
-                        }
-
-                        return (
-                          <tr key={index}>
-                            <td className="px-4 py-2 text-sm text-gray-900">{result.metadata?.video_file || 'N/A'}</td>
-                            <td className="px-4 py-2">
-                              <span className={`px-2 py-1 bg-${color}-100 text-${color}-800 rounded-full text-xs font-medium`}>
-                                {label}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <SimilarVideoResults
+                results={similarResults}
+                indexId={contentIndexId}
+              />
             )}
           </div>
         </div>
@@ -334,15 +293,3 @@ export default function ContextualAnalysis() {
     </div>
   );
 }
-
-const getSimilarityLabel = (score: number, source?: string) => {
-  // BOTH 소스에서 나온 결과는 무조건 High로 표시
-  if (source === "BOTH") {
-    return { label: "High", color: "green" };
-  }
-
-  // 단일 소스의 경우 점수에 따라 결정
-  if (score >= 1) return { label: "High", color: "green" };
-  if (score >= 0.5) return { label: "Medium", color: "yellow" };
-  return { label: "Low", color: "red" };
-};

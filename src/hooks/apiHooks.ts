@@ -630,6 +630,10 @@ export interface EmbeddingSearchResult {
     video_file: string;
     [key: string]: string | number | boolean | string[];
   };
+  searchMethod?: string;
+  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
+  textScore?: number;
+  videoScore?: number;
 }
 
 // 임베딩 검색 - 텍스트(태그)로 유사한 비디오 검색
