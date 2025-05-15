@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getPineconeIndex } from '@/utils/pinecone';
 
+type QueryMatch = {
+  id: string;
+  score?: number;
+  metadata?: {
+    tl_video_id?: string;
+    tl_index_id?: string;
+    scope?: string;
+    [key: string]: unknown;
+  };
+  values?: number[];
+  resultType?: string;
+};
+
 export async function POST(req: Request) {
   try {
     const { videoId, indexId } = await req.json();
@@ -37,7 +50,7 @@ export async function POST(req: Request) {
     }
 
     // Merge and organize results - combine all matches from all results
-    let allResults = [];
+    let allResults: QueryMatch[] = [];
 
     // Process each result in the similarResults array
     for (const result of similarResults) {
