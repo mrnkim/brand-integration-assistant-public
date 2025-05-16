@@ -666,7 +666,7 @@ export default function AdsLibrary() {
         <Sidebar activeMenu="ads-library" />
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col ml-64">
+        <div className="flex-1 flex flex-col ml-54">
           {/* Search area */}
           <div className="p-4 border-b border-gray-200 sticky top-0 z-30 bg-white">
             <SearchBar
@@ -768,7 +768,7 @@ export default function AdsLibrary() {
                           ))}
                         </div>
                       ) : (
-                        <div className="p-4 w-64">
+                        <div className="p-4 w-54">
                           <div className="flex justify-between items-center mb-3">
                             <h3 className="font-medium text-gray-800">
                               {filterCategories.find(c => c.id === selectedFilterCategory)?.label}

@@ -210,7 +210,7 @@ export default function ContextualAnalysis() {
       {/* Sidebar */}
       <Sidebar activeMenu="contextual-analysis" />
 
-      <div className="flex-1 overflow-auto ml-64">
+      <div className="flex-1 overflow-auto ml-54">
         <div className="p-8 max-w-6xl mx-auto">
           {/* Dropdown menu */}
           <div className="mb-6">
