@@ -655,6 +655,12 @@ export default function AdsLibrary() {
     }
   };
 
+  // Clear search handler
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchSubmitted(false);
+  };
+
   const handleUpload = () => {
     console.log('Upload clicked');
     // Implement upload functionality
@@ -697,6 +703,7 @@ export default function AdsLibrary() {
           <div className="p-4 border-b border-gray-200 sticky top-0 z-30 bg-white">
             <SearchBar
               onSearch={handleSearch}
+              onClear={handleClearSearch}
               placeholder="Search videos..."
               defaultValue={searchQuery}
             />

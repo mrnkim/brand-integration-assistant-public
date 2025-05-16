@@ -1,15 +1,17 @@
-import { FC, FormEvent, useRef } from 'react';
+import { FC, FormEvent, useRef, useEffect } from 'react';
 
 type SearchBarProps = {
   onSearch: (query: string) => void;
   placeholder?: string;
   defaultValue?: string;
+  onClear?: () => void;
 };
 
 const SearchBar: FC<SearchBarProps> = ({
   onSearch,
   placeholder = 'What are you looking for?',
-  defaultValue = ''
+  defaultValue = '',
+  onClear
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -19,6 +21,29 @@ const SearchBar: FC<SearchBarProps> = ({
       onSearch(searchInputRef.current.value);
     }
   };
+
+  const handleSearchClear = () => {
+    if (onClear) {
+      onClear();
+    }
+  };
+
+  useEffect(() => {
+    const searchInput = searchInputRef.current;
+    if (searchInput) {
+      searchInput.addEventListener('search', (e) => {
+        if ((e.target as HTMLInputElement).value === '') {
+          handleSearchClear();
+        }
+      });
+    }
+
+    return () => {
+      if (searchInput) {
+        searchInput.removeEventListener('search', () => {});
+      }
+    };
+  }, [onClear]);
 
   return (
     <form onSubmit={handleSubmit} className="relative w-full">
