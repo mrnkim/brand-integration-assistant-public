@@ -91,7 +91,7 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
       .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
       .flatMap(([, value]) => {
         // Split comma-separated values
-        const tagValues = (value as unknown as string).toString().split(',');
+        const tagValues = (value as unknown as string).toString().split(',').map(tag => tag.trim().charAt(0).toUpperCase() + tag.slice(1));
 
         // 각 태그 생성
         return tagValues

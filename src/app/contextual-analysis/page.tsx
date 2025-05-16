@@ -262,7 +262,7 @@ export default function ContextualAnalysis() {
 
                         // 각 태그를 개별적으로 렌더링
                         return tagValues.map((tag: string, idx: number) => {
-                          const trimmedTag = tag.trim();
+                          const trimmedTag = tag.trim().charAt(0).toUpperCase() + tag.slice(1);
                           if (trimmedTag.length === 0) return null;
 
                           return (

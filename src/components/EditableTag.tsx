@@ -133,7 +133,7 @@ const EditableTag: React.FC<EditableTagProps> = ({
     if (!value) return null;
 
     // 쉼표로 구분된 태그를 배열로 변환
-    const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+    const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag !== '').map(tag => tag.charAt(0).toUpperCase() + tag.slice(1));
 
     return tags.map((tag, index) => (
       <span
@@ -194,7 +194,7 @@ const EditableTag: React.FC<EditableTagProps> = ({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-center w-full">
+    <div className="flex flex-col flex-wrap items-center justify-center w-full">
       {renderTags()}
       {renderAddButton()}
       {!value && (
