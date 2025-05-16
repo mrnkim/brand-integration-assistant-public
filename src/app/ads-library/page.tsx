@@ -471,7 +471,7 @@ export default function AdsLibrary() {
           if (item.metadata.topic_category) {
             const topics = item.metadata.topic_category.split(',').map(s => s.trim());
             topics.forEach(topic => {
-              if (topic) options.topic_category.add(topic);
+              if (topic) options.topic_category.add(capitalizeText(topic));
             });
           }
 
@@ -479,7 +479,7 @@ export default function AdsLibrary() {
           if (item.metadata.emotions) {
             const emotions = item.metadata.emotions.split(',').map(e => e.trim());
             emotions.forEach(emotion => {
-              if (emotion) options.emotions.add(emotion);
+              if (emotion) options.emotions.add(capitalizeText(emotion));
             });
           }
 
@@ -487,7 +487,7 @@ export default function AdsLibrary() {
           if (item.metadata.brands) {
             const brands = item.metadata.brands.split(',').map(b => b.trim());
             brands.forEach(brand => {
-              if (brand) options.brands.add(brand);
+              if (brand) options.brands.add(capitalizeText(brand));
             });
           }
 
@@ -495,7 +495,7 @@ export default function AdsLibrary() {
           if (item.metadata.demo_age) {
             const ages = item.metadata.demo_age.split(',').map(a => a.trim());
             ages.forEach(age => {
-              if (age) options.demo_age.add(age);
+              if (age) options.demo_age.add(capitalizeText(age));
             });
           }
 
@@ -503,7 +503,7 @@ export default function AdsLibrary() {
           if (item.metadata.demo_gender) {
             const genders = item.metadata.demo_gender.split(',').map(g => g.trim());
             genders.forEach(gender => {
-              if (gender) options.demo_gender.add(gender);
+              if (gender) options.demo_gender.add(capitalizeText(gender));
             });
           }
 
@@ -511,7 +511,7 @@ export default function AdsLibrary() {
           if (item.metadata.locations) {
             const locations = item.metadata.locations.split(',').map(l => l.trim());
             locations.forEach(location => {
-              if (location) options.location.add(location);
+              if (location) options.location.add(capitalizeText(location));
             });
           }
         }
@@ -621,6 +621,15 @@ export default function AdsLibrary() {
     setSelectedFilterCategory(null);
   };
 
+  // Helper function to properly capitalize text
+  const capitalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   // Check if a filter is active
   const isFilterActive = (category: string, value: string) => {
     return activeFilters[category].includes(value);
@@ -724,10 +733,10 @@ export default function AdsLibrary() {
                             values.length > 0 && (
                               <div key={category} className="flex items-center bg-blue-50 px-2 py-1 rounded-md">
                                 <span className="text-xs font-medium text-blue-800 mr-1">
-                                  {category.charAt(0).toUpperCase() + category.slice(1)}:
+                                  {capitalizeText(category.replace(/_/g, ' '))}:
                                 </span>
                                 <span className="text-xs text-blue-700">
-                                  {values.join(', ')}
+                                  {values.map(value => capitalizeText(value)).join(', ')}
                                 </span>
                                 <button
                                   onClick={() => resetCategoryFilters(category)}
@@ -775,7 +784,7 @@ export default function AdsLibrary() {
                               className="flex items-center justify-between w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               onClick={() => handleFilterCategorySelect(category.id)}
                             >
-                              <span>{category.label}</span>
+                              <span>{capitalizeText(category.label.replace(/_/g, ' '))}</span>
                               {getActiveCategoryFilterCount(category.id) > 0 && (
                                 <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
                                   {getActiveCategoryFilterCount(category.id)}
@@ -788,7 +797,7 @@ export default function AdsLibrary() {
                         <div className="p-4 w-54">
                           <div className="flex justify-between items-center mb-3">
                             <h3 className="font-medium text-gray-800">
-                              {filterCategories.find(c => c.id === selectedFilterCategory)?.label}
+                              {capitalizeText((filterCategories.find(c => c.id === selectedFilterCategory)?.label || '').replace(/_/g, ' '))}
                             </h3>
                             <div className="flex items-center">
                               {getActiveCategoryFilterCount(selectedFilterCategory) > 0 && (
@@ -827,7 +836,7 @@ export default function AdsLibrary() {
                                       htmlFor={`filter-${selectedFilterCategory}-${index}`}
                                       className="ml-2 block text-sm text-gray-700"
                                     >
-                                      {option}
+                                      {capitalizeText(option)}
                                     </label>
                                   </div>
                                 ))}
@@ -858,7 +867,7 @@ export default function AdsLibrary() {
                       className="font-medium text-center text-sm text-gray-600 flex-shrink-0 pr-4"
                       style={{ width: column.width }}
                     >
-                      {column.label}
+                      {capitalizeText(column.label)}
                     </div>
                   ))}
                 </div>

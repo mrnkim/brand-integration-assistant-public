@@ -38,6 +38,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
   const [returnToTime, setReturnToTime] = useState<number | null>(null);
   const [hasPlayedAd, setHasPlayedAd] = useState<boolean>(false);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   // Get global state values
   const { selectedAdId } = useGlobalState();
@@ -67,6 +68,13 @@ const VideoModal: React.FC<VideoModalProps> = ({
       setIsTransitioning(false);
     }
   }, [playbackSequence, returnToTime, isTransitioning]);
+
+  // Initialize isPlaying when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setIsPlaying(true);
+    }
+  }, [isOpen]);
 
   // 시간을 00:00:00 형식으로 변환하는 함수
   const formatTime = (seconds: number): string => {
@@ -152,6 +160,15 @@ const VideoModal: React.FC<VideoModalProps> = ({
     return `${(score * 100).toFixed(0)}`;
   };
 
+  // Helper function to properly capitalize text
+  const capitalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   // Generate explanation text based on search results
   const getExplanationText = (): string => {
     if (!originalSource) return "This content was found in the search results.";
@@ -179,13 +196,15 @@ const VideoModal: React.FC<VideoModalProps> = ({
       case "BOTH":
         explanation = `it shares both visual and thematic elements with the selected ad.`;
         if (commonTags.length > 0) {
-          explanation += ` They share common tags: ${commonTags.slice(0, 3).join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
+          const capitalizedTags = commonTags.slice(0, 3).map(tag => capitalizeText(tag));
+          explanation += ` They share common tags: ${capitalizedTags.join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
         }
         break;
       case "TEXT":
         explanation = `it shares thematic elements and keywords with the selected ad.`;
         if (commonTags.length > 0) {
-          explanation += ` They share common tags: ${commonTags.slice(0, 3).join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
+          const capitalizedTags = commonTags.slice(0, 3).map(tag => capitalizeText(tag));
+          explanation += ` They share common tags: ${capitalizedTags.join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
         }
         break;
       case "VIDEO":
@@ -251,23 +270,27 @@ const VideoModal: React.FC<VideoModalProps> = ({
               <ReactPlayer
                 url={adVideoDetail.hls.video_url}
                 controls
-                playing
+                playing={isPlaying}
                 width="100%"
                 height="100%"
                 style={{ position: 'absolute', top: 0, left: 0 }}
                 onEnded={handleAdEnded}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
               />
             ) : (
               <ReactPlayer
                 ref={playerRef}
                 url={videoUrl}
                 controls
-                playing
+                playing={isPlaying}
                 width="100%"
                 height="100%"
                 style={{ position: 'absolute', top: 0, left: 0 }}
                 onDuration={handleDuration}
                 onProgress={handleProgress}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
                 config={{
                   file: {
                     attributes: {
@@ -281,7 +304,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
           </div>
 
           {/* 챕터 타임라인 바 */}
-          <div className="relative w-full h-28 bg-gray-100 p-4 mt-6 rounded-md">
+          <div className="relative w-full h-28 p-4 mt-6 rounded-md">
             {isChaptersLoading ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <LoadingSpinner />

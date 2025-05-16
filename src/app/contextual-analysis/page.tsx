@@ -28,6 +28,7 @@ export default function ContextualAnalysis() {
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false);
   const { setSelectedAdId } = useGlobalState();
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
@@ -241,6 +242,8 @@ export default function ContextualAnalysis() {
                       indexId={adsIndexId}
                       showTitle={true}
                       videoDetails={undefined}
+                      playing={isPlaying}
+                      onPlay={() => setIsPlaying(true)}
                     />
                   </div>
                 ) : (
@@ -259,7 +262,6 @@ export default function ContextualAnalysis() {
                       .flatMap(([key, value]) => {
                         // 쉼표로 구분된 문자열을 배열로 변환
                         const tagValues = (value as unknown as string).toString().split(',');
-                        console.log("🚀 > ContextualAnalysis > tagValues=", tagValues);
 
                         // 각 태그를 개별적으로 렌더링
                         return tagValues.map((tag: string, idx: number) => {
@@ -273,8 +275,6 @@ export default function ContextualAnalysis() {
                             .split(' ')
                             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                             .join(' ');
-
-                          console.log("🚀 > returntagValues.map > tag=", tag, "trimmed=", trimmedTag, "capitalized=", properlyCapitalized);
 
                           return (
                             <div
