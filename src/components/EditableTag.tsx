@@ -133,7 +133,27 @@ const EditableTag: React.FC<EditableTagProps> = ({
     if (!value) return null;
 
     // 쉼표로 구분된 태그를 배열로 변환
-    const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag !== '').map(tag => tag.charAt(0).toUpperCase() + tag.slice(1));
+    const tagsBefore = value.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '');
+
+
+    const tags = tagsBefore.map(tag => {
+
+      // 1. 전체 태그를 먼저 소문자로 변환
+      const lowerTag = tag.toLowerCase();
+
+      // 2. 각 단어의 첫 글자만 대문자로 변환
+      const capitalized = lowerTag.split(' ')
+        .map(word => {
+          const result = word.charAt(0).toUpperCase() + word.slice(1);
+          return result;
+        })
+        .join(' ');
+
+      return capitalized;
+    });
+
 
     return tags.map((tag, index) => (
       <span

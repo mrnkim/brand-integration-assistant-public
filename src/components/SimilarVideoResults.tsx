@@ -91,11 +91,26 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
       .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
       .flatMap(([, value]) => {
         // Split comma-separated values
-        const tagValues = (value as unknown as string).toString().split(',').map(tag => tag.trim().charAt(0).toUpperCase() + tag.slice(1));
+        const tagValues = (value as unknown as string).toString().split(',');
 
-        // 각 태그 생성
+
+        // 각 태그 생성 - 제대로 된 대문자 처리
         return tagValues
-          .map((tag: string) => tag.trim())
+          .map((tag: string) => {
+            // First trim the tag to remove any leading/trailing spaces
+            const trimmedTag = tag.trim();
+            if (trimmedTag.length === 0) return '';
+
+            // Properly capitalize - first lowercase everything then capitalize first letter of each word
+            const properlyCapitalized = trimmedTag
+              .toLowerCase()
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+
+
+            return properlyCapitalized;
+          })
           .filter((tag: string) => tag !== '');
       });
 
@@ -132,8 +147,8 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
     if (!videoData || !videoData.hls?.video_url) return;
 
     const title = videoData.system_metadata?.filename ||
-                 videoData.system_metadata?.video_title ||
-                 `Video ${videoId}`;
+      videoData.system_metadata?.video_title ||
+      `Video ${videoId}`;
 
     setSelectedVideo({
       id: videoId,

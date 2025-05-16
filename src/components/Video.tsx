@@ -29,8 +29,6 @@ const Video: React.FC<EnhancedVideoProps> = ({
   timeRange,
   disablePlayback = false
 }) => {
-  console.log("🚀 > videoId, indexId, showTitle = true, videoDetails=", videoId, indexId, showTitle, providedVideoDetails)
-
   const { data: videoDetails } = useQuery<VideoDetails, Error>({
     queryKey: ["videoDetails", videoId],
     queryFn: () => {
@@ -41,7 +39,6 @@ const Video: React.FC<EnhancedVideoProps> = ({
     },
     enabled: !!indexId && (!!videoId) && !providedVideoDetails,
   });
-  console.log("🚀 > videoDetails=", videoDetails)
 
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);

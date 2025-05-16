@@ -81,10 +81,47 @@ const ContentItem: FC<ContentItemProps> = ({
           throw new Error(`Unknown category: ${category}`);
       }
 
+      // Normalize the value - convert to lowercase and properly capitalize
+      let normalizedValue = value.trim();
+
+      // Only process if there's actually a value
+      if (normalizedValue) {
+        console.log(`[ContentItem] Before normalization - field: ${field}, value: "${normalizedValue}"`);
+
+        // For comma-separated values, process each part individually
+        if (normalizedValue.includes(',')) {
+          // Split by comma, trim each part, normalize capitalization, then rejoin
+          normalizedValue = normalizedValue
+            .split(',')
+            .map(part => {
+              const trimmedPart = part.trim();
+              if (!trimmedPart) return '';
+
+              // Convert to lowercase first, then capitalize first letter of each word
+              return trimmedPart
+                .toLowerCase()
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            })
+            .filter(part => part) // Remove empty parts
+            .join(', ');
+        } else {
+          // Single value - convert to lowercase then capitalize first letter of each word
+          normalizedValue = normalizedValue
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+
+        console.log(`[ContentItem] After normalization - field: ${field}, value: "${normalizedValue}"`);
+      }
+
       // 로컬 메타데이터 먼저 업데이트하여 UI에 즉시 반영
       const updatedMetadata = {
         ...localMetadata,
-        [field]: value.trim() // 입력값 앞뒤 공백 제거
+        [field]: normalizedValue
       };
 
       // 로컬 상태 업데이트
@@ -188,8 +225,8 @@ const ContentItem: FC<ContentItemProps> = ({
         )}
       </div>
 
-       {/* Target Demo: Gender */}
-       <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
+      {/* Target Demo: Gender */}
+      <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
         {isFieldUpdating('demo_gender') ? renderLoading() : renderEditableMetadata('Target Demo: Gender', 'demo_gender')}
       </div>
 
@@ -205,8 +242,8 @@ const ContentItem: FC<ContentItemProps> = ({
         )}
       </div>
 
-       {/* Source */}
-       <div style={{ width: '200px' }} className="flex-shrink-0 pr-4 flex justify-center items-center">
+      {/* Source */}
+      <div style={{ width: '200px' }} className="flex-shrink-0 pr-4 flex justify-center items-center">
         {isLoadingMetadata && needsMetadata ? renderLoading() : (
           isFieldUpdating('source') ? renderLoading() : renderEditableMetadata('Source', 'source')
         )}

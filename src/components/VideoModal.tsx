@@ -234,10 +234,10 @@ const VideoModal: React.FC<VideoModalProps> = ({
             {searchScore !== undefined && (
               <div className="mt-1 text-xs text-blue-600 flex flex-wrap gap-x-4">
                   {videoScore !== undefined && videoScore > 0 && (
-                  <span>Visual match: <strong>{formatScore(videoScore)}</strong></span>
+                  <span>Video Match: <strong>{formatScore(videoScore)}</strong></span>
                 )}
                 {textScore !== undefined && textScore > 0 && (
-                  <span>Text match: <strong>{formatScore(textScore)}</strong></span>
+                  <span>Keyword Match: <strong>{formatScore(textScore)}</strong></span>
                 )}
 
               </div>

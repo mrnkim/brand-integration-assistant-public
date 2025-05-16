@@ -86,7 +86,7 @@ export default function ContextualAnalysis() {
       try {
         textResults = await textToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
         console.log("=== TEXT-BASED SEARCH RESULTS ===");
-        console.log("🚀 > handleContextualAnalysis > textResults=", textResults)
+        console.log("🚀 > handleContextualAnalysis > textResults=", textResults);
 
         if (textResults.length > 0) {
           textResults.forEach((result, index) => {
@@ -106,7 +106,7 @@ export default function ContextualAnalysis() {
       try {
         videoResults = await videoToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
         console.log("\n=== VIDEO-BASED SEARCH RESULTS ===");
-        console.log("🚀 > handleContextualAnalysis > videoResults=", videoResults)
+        console.log("🚀 > handleContextualAnalysis > videoResults=", videoResults);
 
         if (videoResults.length > 0) {
           videoResults.forEach((result, index) => {
@@ -259,18 +259,29 @@ export default function ContextualAnalysis() {
                       .flatMap(([key, value]) => {
                         // 쉼표로 구분된 문자열을 배열로 변환
                         const tagValues = (value as unknown as string).toString().split(',');
+                        console.log("🚀 > ContextualAnalysis > tagValues=", tagValues);
 
                         // 각 태그를 개별적으로 렌더링
                         return tagValues.map((tag: string, idx: number) => {
-                          const trimmedTag = tag.trim().charAt(0).toUpperCase() + tag.slice(1);
+                          // First trim the tag to remove any leading/trailing spaces
+                          const trimmedTag = tag.trim();
                           if (trimmedTag.length === 0) return null;
+
+                          // Properly capitalize the tag - first lowercase everything, then capitalize first letter of each word
+                          const properlyCapitalized = trimmedTag
+                            .toLowerCase()
+                            .split(' ')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+
+                          console.log("🚀 > returntagValues.map > tag=", tag, "trimmed=", trimmedTag, "capitalized=", properlyCapitalized);
 
                           return (
                             <div
                               key={`${key}-${idx}`}
                               className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm"
                             >
-                              {trimmedTag}
+                              {properlyCapitalized}
                             </div>
                           );
                         }).filter(Boolean); // null 값 제거
@@ -296,7 +307,7 @@ export default function ContextualAnalysis() {
             {/* Display loading spinner when analyzing */}
             {isAnalyzing && (
               <div className="flex justify-center items-center mt-10">
-                <LoadingSpinner size="md"/>
+                <LoadingSpinner size="md" />
                 <span className="ml-3 text-gray-600">Finding contextually aligned content...</span>
               </div>
             )}

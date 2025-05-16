@@ -445,53 +445,80 @@ export const updateVideoMetadata = async (
 export const convertMetadataToTags = (metadata: Record<string, unknown>): { category: string; value: string }[] => {
   if (!metadata) return [];
 
+  console.log('[convertMetadataToTags] Input metadata:', metadata);
+
   const tags: { category: string; value: string }[] = [];
+
+  // Helper function to normalize tag values
+  const normalizeTagValue = (value: string): string => {
+    return value.trim()
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   // Source
   if (metadata.source && typeof metadata.source === 'string') {
-    tags.push({ category: 'Source', value: metadata.source });
+    tags.push({ category: 'Source', value: normalizeTagValue(metadata.source) });
   }
 
   // Demographics - 새로운 필드로 처리
   if (metadata.demographics && typeof metadata.demographics === 'string') {
     // 쉼표로 구분된 값을 개별 태그로 추가
-    metadata.demographics.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
-      tags.push({ category: 'Demographics', value: tag });
-    });
+    metadata.demographics.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '')
+      .forEach(tag => {
+        tags.push({ category: 'Demographics', value: normalizeTagValue(tag) });
+      });
   }
 
   // Sector
   if (metadata.sector && typeof metadata.sector === 'string') {
     // 쉼표로 구분된 값을 개별 태그로 추가
-    metadata.sector.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
-      tags.push({ category: 'Sector', value: tag });
-    });
+    metadata.sector.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '')
+      .forEach(tag => {
+        tags.push({ category: 'Sector', value: normalizeTagValue(tag) });
+      });
   }
 
   // Emotions
   if (metadata.emotions && typeof metadata.emotions === 'string') {
     // 쉼표로 구분된 값을 개별 태그로 추가
-    metadata.emotions.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
-      tags.push({ category: 'Emotions', value: tag });
-    });
+    metadata.emotions.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '')
+      .forEach(tag => {
+        tags.push({ category: 'Emotions', value: normalizeTagValue(tag) });
+      });
   }
 
   // Brands
   if (metadata.brands && typeof metadata.brands === 'string') {
     // 쉼표로 구분된 값을 개별 태그로 추가
-    metadata.brands.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
-      tags.push({ category: 'Brands', value: tag });
-    });
+    metadata.brands.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '')
+      .forEach(tag => {
+        tags.push({ category: 'Brands', value: normalizeTagValue(tag) });
+      });
   }
 
   // Locations
   if (metadata.locations && typeof metadata.locations === 'string') {
     // 쉼표로 구분된 값을 개별 태그로 추가
-    metadata.locations.split(',').map(tag => tag.trim()).filter(tag => tag !== '').forEach(tag => {
-      tags.push({ category: 'Location', value: tag });
-    });
+    metadata.locations.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '')
+      .forEach(tag => {
+        tags.push({ category: 'Location', value: normalizeTagValue(tag) });
+      });
   }
 
+  console.log('[convertMetadataToTags] Generated tags:', tags);
   return tags;
 };
 
