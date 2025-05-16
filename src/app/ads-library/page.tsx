@@ -216,24 +216,41 @@ export default function AdsLibrary() {
       const updatedVideo = await fetchVideoDetails(videoId, adsIndexId);
 
       if (updatedVideo) {
+        console.log(`Received updated video data for ${videoId}:`, updatedVideo);
+
         // Update content items with fresh data
         setAdItems(prevItems => {
           return prevItems.map(item => {
             if (item.id === videoId) {
-              // Create a new content item with the fresh metadata
+              // Create a proper metadata object from user_metadata
+              const updatedMetadata = updatedVideo.user_metadata ? {
+                source: updatedVideo.user_metadata.source || '',
+                topic_category: updatedVideo.user_metadata.sector || '',  // 중요: sector를 topic_category로 매핑
+                emotions: updatedVideo.user_metadata.emotions || '',
+                brands: updatedVideo.user_metadata.brands || '',
+                locations: updatedVideo.user_metadata.locations || '',
+                demo_age: updatedVideo.user_metadata.demographics ?
+                  (updatedVideo.user_metadata.demographics as string).split(',')
+                  .filter(d => d.toLowerCase().includes('age') ||
+                    d.toLowerCase().includes('old') ||
+                    /\d+-\d+/.test(d)).join(', ') : '',
+                demo_gender: updatedVideo.user_metadata.demographics ?
+                  (updatedVideo.user_metadata.demographics as string).split(',')
+                  .filter(d => d.toLowerCase().includes('male') ||
+                    d.toLowerCase().includes('women') ||
+                    d.toLowerCase().includes('men')).join(', ') : '',
+              } : undefined;
+
+              // 태그도 올바르게 업데이트
+              const updatedTags = updatedVideo.user_metadata ? convertMetadataToTags(updatedVideo.user_metadata) : [];
+
+              // 새 아이템 생성
               const updatedItem = {
                 ...item,
-                tags: updatedVideo.user_metadata ? convertMetadataToTags(updatedVideo.user_metadata) : [],
-                metadata: updatedVideo.user_metadata as {
-                  source?: string;
-                  topic_category?: string;
-                  emotions?: string;
-                  brands?: string;
-                  locations?: string;
-                  demo_age?: string;
-                  demo_gender?: string;
-                }
+                tags: updatedTags,
+                metadata: updatedMetadata
               };
+
               console.log(`Updated ads item for ${videoId}:`, updatedItem);
               return updatedItem;
             }

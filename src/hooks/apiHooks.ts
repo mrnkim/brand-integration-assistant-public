@@ -374,11 +374,37 @@ export const updateVideoMetadata = async (
   metadata: Record<string, string>
 ): Promise<boolean> => {
   try {
+    console.log('Called updateVideoMetadata with metadata:', metadata);
+
+    // UI에서 사용하는 필드명을 API에서 사용하는 필드명으로 매핑
+    const apiMetadata: Record<string, string> = {};
+
+    // 직접 매핑되는 필드
+    if ('source' in metadata) apiMetadata.source = metadata.source;
+    if ('emotions' in metadata) apiMetadata.emotions = metadata.emotions;
+    if ('brands' in metadata) apiMetadata.brands = metadata.brands;
+    if ('locations' in metadata) apiMetadata.locations = metadata.locations;
+
+    // 특별히 매핑이 필요한 필드
+    // topic_category는 실제로는 sector 필드로 저장
+    if ('topic_category' in metadata) apiMetadata.sector = metadata.topic_category;
+    if ('sector' in metadata) apiMetadata.sector = metadata.sector;
+
+    // demographics 관련 필드
+    if ('demo_age' in metadata || 'demo_gender' in metadata) {
+      const demographics = [];
+      if (metadata.demo_age) demographics.push(metadata.demo_age);
+      if (metadata.demo_gender) demographics.push(metadata.demo_gender);
+      apiMetadata.demographics = demographics.join(', ');
+    }
+
+    // 로깅
+    console.log('Transformed API metadata:', apiMetadata);
 
     const payload = {
       videoId,
       indexId,
-      metadata
+      metadata: apiMetadata
     };
 
     const response = await fetch('/api/videos/metadata', {

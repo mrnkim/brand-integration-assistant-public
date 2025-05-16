@@ -60,7 +60,7 @@ const ContentItem: FC<ContentItemProps> = ({
           field = 'source';
           break;
         case 'topic category':
-          field = 'topic_category';
+          field = 'sector'; // 중요: Topic Category는 sector 필드로 매핑해야 함
           break;
         case 'emotions':
           field = 'emotions';
@@ -90,20 +90,27 @@ const ContentItem: FC<ContentItemProps> = ({
       // 로컬 상태 업데이트
       setLocalMetadata(updatedMetadata);
 
-      console.log('Updating metadata:', { videoId, indexId, metadata: updatedMetadata });
+      console.log('Updating metadata:', { videoId, indexId, metadata: updatedMetadata, field, value });
 
       // Call API to update metadata
-      await updateVideoMetadata(videoId, indexId, updatedMetadata);
+      const success = await updateVideoMetadata(videoId, indexId, updatedMetadata);
+
+      if (success) {
+        console.log(`Metadata updated successfully for field: ${field}`);
+      } else {
+        console.error(`Failed to update metadata for field: ${field}`);
+        // 업데이트 실패 시 이전 메타데이터로 복원
+        setLocalMetadata(metadata || {});
+      }
 
       // Notify parent component if callback is provided
-      if (onMetadataUpdated) {
+      if (onMetadataUpdated && success) {
         onMetadataUpdated();
       }
     } catch (error) {
       console.error('Failed to save metadata:', error);
       // 에러 발생 시 이전 메타데이터로 복원
       setLocalMetadata(metadata || {});
-      throw error;
     } finally {
       setUpdatingField(null);
     }

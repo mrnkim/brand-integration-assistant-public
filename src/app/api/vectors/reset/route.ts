@@ -32,15 +32,15 @@ export async function POST(req: Request) {
         // Create a filter for the delete operation
         const filter = { tl_video_id: videoId };
 
-        // For a real implementation, you would delete vectors matching this filter
-        // This would be something like: await pineconeIndex.deleteMany({ filter });
-
-        // For demonstration purposes, just log the action
-        console.log(`Would delete vectors with filter:`, filter);
+        // Actually delete vectors matching this filter
+        console.log(`Deleting vectors with filter:`, filter);
+        const deleteResult = await pineconeIndex.deleteMany({ filter });
+        console.log(`Delete result:`, deleteResult);
 
         return NextResponse.json({
           success: true,
-          message: `Reset vectors for video ${videoId}`
+          message: `Reset vectors for video ${videoId}`,
+          result: deleteResult
         });
       } catch (error) {
         console.error(`Error resetting vectors for video ${videoId}:`, error);
