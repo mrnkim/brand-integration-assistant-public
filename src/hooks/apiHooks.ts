@@ -445,7 +445,6 @@ export const updateVideoMetadata = async (
 export const convertMetadataToTags = (metadata: Record<string, unknown>): { category: string; value: string }[] => {
   if (!metadata) return [];
 
-  console.log('[convertMetadataToTags] Input metadata:', metadata);
 
   const tags: { category: string; value: string }[] = [];
 
@@ -518,7 +517,6 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
       });
   }
 
-  console.log('[convertMetadataToTags] Generated tags:', tags);
   return tags;
 };
 

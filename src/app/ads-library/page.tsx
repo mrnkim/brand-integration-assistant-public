@@ -456,13 +456,15 @@ export default function AdsLibrary() {
   // Extract unique filter options from ads items
   useEffect(() => {
     if (adItems.length > 0) {
-      const options: {[key: string]: Set<string>} = {
-        topic_category: new Set<string>(),
-        emotions: new Set<string>(),
-        brands: new Set<string>(),
-        demo_age: new Set<string>(),
-        demo_gender: new Set<string>(),
-        location: new Set<string>()
+      // Use a Map instead of Set to track both lowercase and display versions
+      // The key is the lowercase version (for uniqueness) and the value is the display version
+      const options: {[key: string]: Map<string, string>} = {
+        topic_category: new Map<string, string>(),
+        emotions: new Map<string, string>(),
+        brands: new Map<string, string>(),
+        demo_age: new Map<string, string>(),
+        demo_gender: new Map<string, string>(),
+        location: new Map<string, string>()
       };
 
       adItems.forEach(item => {
@@ -471,7 +473,15 @@ export default function AdsLibrary() {
           if (item.metadata.topic_category) {
             const topics = item.metadata.topic_category.split(',').map(s => s.trim());
             topics.forEach(topic => {
-              if (topic) options.topic_category.add(capitalizeText(topic));
+              if (topic) {
+                // Use lowercase as key for uniqueness, but store display version
+                const lowercaseTopic = topic.toLowerCase();
+                // Prefer capitalized version if we haven't seen this value before,
+                // otherwise keep the existing display version
+                if (!options.topic_category.has(lowercaseTopic)) {
+                  options.topic_category.set(lowercaseTopic, capitalizeText(topic));
+                }
+              }
             });
           }
 
@@ -479,7 +489,12 @@ export default function AdsLibrary() {
           if (item.metadata.emotions) {
             const emotions = item.metadata.emotions.split(',').map(e => e.trim());
             emotions.forEach(emotion => {
-              if (emotion) options.emotions.add(capitalizeText(emotion));
+              if (emotion) {
+                const lowercaseEmotion = emotion.toLowerCase();
+                if (!options.emotions.has(lowercaseEmotion)) {
+                  options.emotions.set(lowercaseEmotion, capitalizeText(emotion));
+                }
+              }
             });
           }
 
@@ -487,7 +502,12 @@ export default function AdsLibrary() {
           if (item.metadata.brands) {
             const brands = item.metadata.brands.split(',').map(b => b.trim());
             brands.forEach(brand => {
-              if (brand) options.brands.add(capitalizeText(brand));
+              if (brand) {
+                const lowercaseBrand = brand.toLowerCase();
+                if (!options.brands.has(lowercaseBrand)) {
+                  options.brands.set(lowercaseBrand, capitalizeText(brand));
+                }
+              }
             });
           }
 
@@ -495,7 +515,12 @@ export default function AdsLibrary() {
           if (item.metadata.demo_age) {
             const ages = item.metadata.demo_age.split(',').map(a => a.trim());
             ages.forEach(age => {
-              if (age) options.demo_age.add(capitalizeText(age));
+              if (age) {
+                const lowercaseAge = age.toLowerCase();
+                if (!options.demo_age.has(lowercaseAge)) {
+                  options.demo_age.set(lowercaseAge, capitalizeText(age));
+                }
+              }
             });
           }
 
@@ -503,7 +528,12 @@ export default function AdsLibrary() {
           if (item.metadata.demo_gender) {
             const genders = item.metadata.demo_gender.split(',').map(g => g.trim());
             genders.forEach(gender => {
-              if (gender) options.demo_gender.add(capitalizeText(gender));
+              if (gender) {
+                const lowercaseGender = gender.toLowerCase();
+                if (!options.demo_gender.has(lowercaseGender)) {
+                  options.demo_gender.set(lowercaseGender, capitalizeText(gender));
+                }
+              }
             });
           }
 
@@ -511,20 +541,35 @@ export default function AdsLibrary() {
           if (item.metadata.locations) {
             const locations = item.metadata.locations.split(',').map(l => l.trim());
             locations.forEach(location => {
-              if (location) options.location.add(capitalizeText(location));
+              if (location) {
+                const lowercaseLocation = location.toLowerCase();
+                if (!options.location.has(lowercaseLocation)) {
+                  options.location.set(lowercaseLocation, capitalizeText(location));
+                }
+              }
             });
           }
         }
       });
 
-      // Convert Sets to arrays
+      // Convert Maps to arrays (only the display values) and sort alphabetically
+      // Also prioritize shorter options within the same alphabetical first letter
+      const sortOptions = (a: string, b: string) => {
+        // First sort by first letter
+        if (a[0].toLowerCase() !== b[0].toLowerCase()) {
+          return a.localeCompare(b);
+        }
+        // Then sort by length
+        return a.length - b.length;
+      };
+
       setFilterOptions({
-        topic_category: Array.from(options.topic_category),
-        emotions: Array.from(options.emotions),
-        brands: Array.from(options.brands),
-        demo_age: Array.from(options.demo_age),
-        demo_gender: Array.from(options.demo_gender),
-        location: Array.from(options.location)
+        topic_category: Array.from(options.topic_category.values()).sort(sortOptions),
+        emotions: Array.from(options.emotions.values()).sort(sortOptions),
+        brands: Array.from(options.brands.values()).sort(sortOptions),
+        demo_age: Array.from(options.demo_age.values()).sort(sortOptions),
+        demo_gender: Array.from(options.demo_gender.values()).sort(sortOptions),
+        location: Array.from(options.location.values()).sort(sortOptions)
       });
     }
   }, [adItems]);
@@ -538,6 +583,8 @@ export default function AdsLibrary() {
       setFilteredItems(adItems);
       return;
     }
+
+    console.log('Active filters:', activeFilters);
 
     const filtered = adItems.filter(item => {
       // Check if the item matches all active filters
@@ -568,11 +615,54 @@ export default function AdsLibrary() {
             break;
         }
 
+        // If the metadata value is empty and filters are active for this category,
+        // this item doesn't match the filter criteria
+        if (metadataValue === '' && filters.length > 0) {
+          console.log(`Filtering out item ${item.id} because ${category} is empty and filters are active:`, filters);
+          return false;
+        }
+
         // Split the metadata value by comma and trim
         const values = metadataValue.split(',').map(v => v.trim());
 
+        // Debug log for this specific category and its values
+        if (filters.length > 0) {
+          console.log(`Checking ${category}:`, {
+            filterValues: filters,
+            itemValues: values
+          });
+        }
+
         // Check if any of the item's values match any of the active filters
-        return filters.some(filter => values.includes(filter));
+        return filters.some(filter =>
+          values.some(value => {
+            // Do case-insensitive comparison
+            const normalizedValue = value.toLowerCase();
+            const normalizedFilter = filter.toLowerCase();
+
+            // Check for exact match (case insensitive)
+            if (normalizedValue === normalizedFilter) {
+              console.log(`Match found for ${category}: '${value}' === '${filter}' (case insensitive)`);
+              return true;
+            }
+
+            // Check for word boundary matches (e.g., "travel" as a separate word in "travel and tourism")
+            // This prevents e.g. "Travel" from matching in "Traveling" but allows it in "Travel and Tourism"
+            const valueWords = normalizedValue.split(/\s+|,|\/|\&/);
+            const filterWords = normalizedFilter.split(/\s+|,|\/|\&/);
+
+            const wordMatch = filterWords.some(filterWord =>
+              valueWords.some(valueWord => valueWord === filterWord)
+            );
+
+            if (wordMatch) {
+              console.log(`Word match found for ${category}: '${normalizedValue}' contains word from '${normalizedFilter}'`);
+              return true;
+            }
+
+            return false;
+          })
+        );
       });
     });
 
@@ -581,6 +671,7 @@ export default function AdsLibrary() {
 
   // Toggle filter selection
   const toggleFilter = (category: string, value: string) => {
+    console.log(`Toggling filter: ${category} = ${value}`);
     setActiveFilters(prev => {
       const current = [...prev[category]];
 
@@ -743,7 +834,7 @@ export default function AdsLibrary() {
                                   {capitalizeText(category.replace(/_/g, ' '))}:
                                 </span>
                                 <span className="text-xs text-blue-700">
-                                  {values.map(value => capitalizeText(value)).join(', ')}
+                                  {values.join(', ')}
                                 </span>
                                 <button
                                   onClick={() => resetCategoryFilters(category)}

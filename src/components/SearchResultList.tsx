@@ -305,11 +305,6 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
           // Use the most common index_id from the results
           const indexId = mostCommonValue(allIndexIds) || defaultIndexId;
 
-          console.log('[DEBUG] Pagination: Index IDs in results:', allIndexIds);
-          console.log('[DEBUG] Pagination: Using most common index_id:', indexId,
-                      'Is ads index?', indexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID,
-                      'Is content index?', indexId === process.env.NEXT_PUBLIC_CONTENT_INDEX_ID);
-
           // Use search query from props instead of URL
           console.log('[DEBUG] Pagination: Using query:', textSearchQuery, 'index_id:', indexId);
 
@@ -322,8 +317,6 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
 
           console.log("[DEBUG] Pagination: Using index_id for video details:", indexId);
 
-          // Fetch details for all video results
-          console.log('[DEBUG] Pagination: Fetching details for', searchResultData.textSearchResults.length, 'initial results');
 
           const detailedResults = await Promise.all(
             searchResultData.textSearchResults.map(async (result, index) => {
@@ -496,7 +489,6 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
           })
         );
 
-        console.log('[DEBUG] Pagination: Processed', newResults.length, 'new results');
 
         // Append new results to existing ones
         setEnhancedResults(prev => {
