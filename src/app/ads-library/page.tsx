@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { useInfiniteQuery, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useInfiniteQuery, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import SearchBar from '@/components/SearchBar';
 import ActionButtons from '@/components/ActionButtons';
@@ -13,6 +13,7 @@ import SearchResults from '@/components/SearchResults';
 // import { ContentItem as AdItemType, VideoData, Tag } from '@/types';
 import {
   fetchVideos,
+  fetchIndex,
   generateMetadata,
   parseHashtags,
   updateVideoMetadata,
@@ -104,6 +105,11 @@ export default function AdsLibrary() {
   // State for filter menu
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string | null>(null);
+
+  const { data: indexData } = useQuery({
+    queryKey: ['index', adsIndexId],
+    queryFn: () => fetchIndex(adsIndexId),
+  });
 
   // Filter states
   const [filterOptions, setFilterOptions] = useState<{[key: string]: string[]}>({
@@ -858,7 +864,7 @@ export default function AdsLibrary() {
                     )}
                   </div>
                   <div className="text-sm text-gray-500">
-                    {isFiltering ? filteredItems.length : adItems.length} videos
+                    {isFiltering ? filteredItems.length : indexData?.video_count? indexData?.video_count : <LoadingSpinner />} videos
                     {processingMetadata && videosInProcessing.length > 0 && (
                       <span className="ml-2 text-blue-500 flex items-center">
                         <span className="mr-2">Processing metadata... ({videosInProcessing.length} videos)</span>

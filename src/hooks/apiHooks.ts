@@ -1,5 +1,9 @@
-import { PaginatedResponse } from '@/types';
-import { EmbeddingResponse } from '@/types/index';
+import { EmbeddingResponse, IndexResponse, PaginatedResponse } from '@/types/index';
+
+export const fetchIndex = async (indexId: string): Promise<IndexResponse> => {
+  const response = await fetch(`/api/indexes/${indexId}`);
+  return response.json();
+};
 
 // 비디오 목록 가져오기
 export const fetchVideos = async (

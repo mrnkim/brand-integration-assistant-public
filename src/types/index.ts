@@ -1,3 +1,26 @@
+export type IndexResponse = {
+    _id: string;
+    index_name: string;
+    created_at: string;
+    updated_at: string;
+    addons: string[];
+    models: [
+      {
+        model_name: string;
+        model_options: string[];
+        finetuned: false
+      },
+      {
+        model_name: 'pegasus1.2',
+        model_options: string[];
+        finetuned: boolean;
+      }
+    ],
+    video_count: number;
+    total_duration: number;
+  }
+
+
 // Tag type for content metadata
 export type Tag = {
   category: string;
