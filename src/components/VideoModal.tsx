@@ -225,7 +225,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+        className="relative rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b flex justify-between items-center">
@@ -322,7 +322,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
                       className={`absolute w-4 h-4 rounded-full -translate-y-1/2 -translate-x-1/2 z-10
                         ${selectedChapter === index
                             ? 'bg-green-500 ring-2 ring-black'
-                            : 'bg-white ring-2 ring-black'}
+                            : 'ring-2 ring-black'}
                         ${playbackSequence === 'ad' || !adVideoDetail?.hls?.video_url
                             ? 'cursor-not-allowed'
                             : 'cursor-pointer hover:scale-110 transition-transform'}`}

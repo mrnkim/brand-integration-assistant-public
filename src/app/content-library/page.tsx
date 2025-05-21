@@ -678,7 +678,7 @@ export default function AdsLibrary() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen bg-white">
+      <div className="flex min-h-screen">
         {/* Sidebar */}
 
         {/* Main content */}

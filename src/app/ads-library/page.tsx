@@ -790,35 +790,27 @@ export default function AdsLibrary() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen bg-white">
+      <div className="flex min-h-screen bg-zinc-100">
         {/* Sidebar */}
         <Sidebar activeMenu="ads-library" />
 
         {/* Main content */}
         <div className="flex-1 flex flex-col ml-54">
-          {/* Search area */}
-          <div className="p-4 border-b border-gray-200 sticky top-0 z-30 bg-white">
-            <SearchBar
-              onSearch={handleSearch}
-              onClear={handleClearSearch}
-              placeholder="What are you looking for?"
-              defaultValue={searchQuery}
-            />
-          </div>
+          {/* Fixed header area - combined all sticky elements */}
+          <div className="fixed top-0 right-0 left-54 z-50">
+            {/* Search area with solid background */}
+            <div className="bg-zinc-100">
+              <div className="p-4">
+                <SearchBar
+                  onSearch={handleSearch}
+                  onClear={handleClearSearch}
+                  placeholder="What are you looking for?"
+                  defaultValue={searchQuery}
+                />
+              </div>
 
-          {/* Content area */}
-          {searchSubmitted ? (
-            <div className="flex-1 overflow-auto px-4">
-              <SearchResults
-                textSearchQuery={searchQuery}
-                textSearchSubmitted={searchSubmitted}
-                indexId={adsIndexId}
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              {/* Action buttons and filter tabs - 고정 영역 */}
-              <div className="p-3 border-b border-gray-200 bg-white sticky top-[45px] z-20">
+              {/* Action buttons and filter tabs */}
+              <div className="px-4 pb-3">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-2">
                     <ActionButtons
@@ -879,13 +871,13 @@ export default function AdsLibrary() {
                 {/* Filter Menu */}
                 {showFilterMenu && (
                   <div className="relative">
-                    <div className="absolute z-40 mt-1 bg-white rounded-md shadow-lg border border-gray-200">
+                    <div className="absolute z-[100] mt-1 bg-white">
                       {selectedFilterCategory === null ? (
-                        <div className="py-1">
+                        <div className="bg-white cursor-pointer">
                           {filterCategories.map((category) => (
                             <button
                               key={category.id}
-                              className="flex items-center justify-between w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              className="flex items-center justify-between w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 cursor-pointer"
                               onClick={() => handleFilterCategorySelect(category.id)}
                             >
                               <span>{capitalizeText(category.label.replace(/_/g, ' '))}</span>
@@ -898,7 +890,7 @@ export default function AdsLibrary() {
                           ))}
                         </div>
                       ) : (
-                        <div className="p-4 w-54">
+                        <div className="p-4 w-54 bg-white">
                           <div className="flex justify-between items-center mb-3">
                             <h3 className="font-medium text-gray-800">
                               {capitalizeText((filterCategories.find(c => c.id === selectedFilterCategory)?.label || '').replace(/_/g, ' '))}
@@ -906,14 +898,14 @@ export default function AdsLibrary() {
                             <div className="flex items-center">
                               {getActiveCategoryFilterCount(selectedFilterCategory) > 0 && (
                                 <button
-                                  className="text-xs text-blue-600 hover:text-blue-800 mr-3"
+                                  className="text-xs text-blue-600 hover:text-blue-800 mr-3 cursor-pointer"
                                   onClick={() => resetCategoryFilters(selectedFilterCategory)}
                                 >
                                   Clear
                                 </button>
                               )}
                               <button
-                                className="text-gray-400 hover:text-gray-500"
+                                className="text-gray-400 hover:text-gray-500 cursor-pointer"
                                 onClick={() => setSelectedFilterCategory(null)}
                               >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -928,17 +920,17 @@ export default function AdsLibrary() {
                             {filterOptions[selectedFilterCategory]?.length > 0 ? (
                               <div className="space-y-2">
                                 {filterOptions[selectedFilterCategory].map((option, index) => (
-                                  <div key={index} className="flex items-center">
+                                  <div key={index} className="flex items-center cursor-pointer hover:bg-gray-200 px-2 py-1 rounded">
                                     <input
                                       id={`filter-${selectedFilterCategory}-${index}`}
                                       type="checkbox"
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                                       checked={isFilterActive(selectedFilterCategory, option)}
                                       onChange={() => toggleFilter(selectedFilterCategory, option)}
                                     />
                                     <label
                                       htmlFor={`filter-${selectedFilterCategory}-${index}`}
-                                      className="ml-2 block text-sm text-gray-700"
+                                      className="ml-2 block text-sm text-gray-700 cursor-pointer"
                                     >
                                       {capitalizeText(option)}
                                     </label>
@@ -955,79 +947,94 @@ export default function AdsLibrary() {
 
                     {/* Backdrop to close menu when clicking outside */}
                     <div
-                      className="fixed inset-0 z-30"
+                      className="fixed inset-0 z-[90]"
                       onClick={closeFilterMenu}
                     ></div>
                   </div>
                 )}
               </div>
-
-              {/* 테이블 헤더 - 확실하게 고정 */}
-              <div className="sticky top-[106px] z-10 bg-gray-100 border-b border-gray-200 shadow-sm">
-                <div className="flex py-2 px-4">
-                  {COLUMNS.map(column => (
-                    <div
-                      key={column.id}
-                      className="font-medium text-center text-sm text-gray-600 flex-shrink-0 pr-4"
-                      style={{ width: column.width }}
-                    >
-                      {capitalizeText(column.label)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 컨텐츠 영역 - 별도의 스크롤 컨테이너 없이 페이지 자연스러운 스크롤 사용 */}
-              {isLoading ? (
-                <div className="flex flex-col justify-center items-center h-40">
-                  <LoadingSpinner />
-                  <p className="mt-4 text-gray-500">Loading videos...</p>
-                </div>
-              ) : isError ? (
-                <div className="flex justify-center items-center h-40 text-red-500">
-                  Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
-                </div>
-              ) : (isFiltering ? filteredItems : adItems).length === 0 ? (
-                <div className="flex justify-center items-center h-40 text-gray-500">
-                  {isFiltering ? 'No videos match the current filters' : 'No videos available'}
-                </div>
-              ) : (
-                <div>
-                  {(isFiltering ? filteredItems : adItems).map(item => (
-                    <ContentItem
-                      key={item.id}
-                      videoId={item.id}
-                      indexId={adsIndexId}
-                      thumbnailUrl={item.thumbnailUrl}
-                      title={item.title}
-                      videoUrl={item.videoUrl}
-                      tags={item.tags}
-                      metadata={item.metadata}
-                      isLoadingMetadata={videosInProcessing.includes(item.id)}
-                      onMetadataUpdated={() => {
-                        // Refresh the content after user updates metadata
-                        console.log('Metadata updated by user, refreshing metadata for video', item.id);
-                        refreshVideoMetadata(item.id);
-                      }}
-                    />
-                  ))}
-
-                  {/* Load more button - only show when not filtering */}
-                  {!isFiltering && hasNextPage && (
-                    <div className="flex justify-center py-4 mb-8">
-                      <button
-                        onClick={handleLoadMore}
-                        disabled={isFetchingNextPage}
-                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-                      >
-                        {isFetchingNextPage ? 'Loading...' : 'Load More'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
-          )}
+
+            {/* Table header with solid background */}
+            <div className="bg-zinc-100">
+              <div className="flex py-2 px-4">
+                {COLUMNS.map(column => (
+                  <div
+                    key={column.id}
+                    className="font-medium text-center text-sm text-gray-600 flex-shrink-0 pr-4"
+                    style={{ width: column.width }}
+                  >
+                    {capitalizeText(column.label)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Content area with padding to account for fixed header */}
+          <div className="pt-[185px]">
+            {searchSubmitted ? (
+              <div className="px-4">
+                <SearchResults
+                  textSearchQuery={searchQuery}
+                  textSearchSubmitted={searchSubmitted}
+                  indexId={adsIndexId}
+                />
+              </div>
+            ) : (
+              <div className="px-4">
+                {/* Video content grid */}
+                {isLoading ? (
+                  <div className="flex flex-col justify-center items-center h-40">
+                    <LoadingSpinner />
+                    <p className="mt-4 text-gray-500">Loading videos...</p>
+                  </div>
+                ) : isError ? (
+                  <div className="flex justify-center items-center h-40 text-red-500">
+                    Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
+                  </div>
+                ) : (isFiltering ? filteredItems : adItems).length === 0 ? (
+                  <div className="flex justify-center items-center h-40 text-gray-500">
+                    {isFiltering ? 'No videos match the current filters' : 'No videos available'}
+                  </div>
+                ) : (
+                  <div>
+                    {(isFiltering ? filteredItems : adItems).map(item => (
+                      <ContentItem
+                        key={item.id}
+                        videoId={item.id}
+                        indexId={adsIndexId}
+                        thumbnailUrl={item.thumbnailUrl}
+                        title={item.title}
+                        videoUrl={item.videoUrl}
+                        tags={item.tags}
+                        metadata={item.metadata}
+                        isLoadingMetadata={videosInProcessing.includes(item.id)}
+                        onMetadataUpdated={() => {
+                          // Refresh the content after user updates metadata
+                          console.log('Metadata updated by user, refreshing metadata for video', item.id);
+                          refreshVideoMetadata(item.id);
+                        }}
+                      />
+                    ))}
+
+                    {/* Load more button - only show when not filtering */}
+                    {!isFiltering && hasNextPage && (
+                      <div className="flex justify-center py-4 mb-8">
+                        <button
+                          onClick={handleLoadMore}
+                          disabled={isFetchingNextPage}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </QueryClientProvider>

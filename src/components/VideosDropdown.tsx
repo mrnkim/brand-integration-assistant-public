@@ -47,7 +47,7 @@ const VideosDropDown: React.FC<VideosDropDownProps> = ({
         value={footageVideoId || ""}
         onChange={handleChange}
         disabled={!!selectedFile || !!taskId}
-        className={clsx('h-9 w-full tablet:w-[200px]', 'bg-white', 'pl-[1px]', 'truncate text-ellipsis')}
+        className={clsx('h-9 w-full tablet:w-[200px]', 'pl-[1px]', 'truncate text-ellipsis')}
         renderValue={(value) => (
           <div className="truncate">
             {videosData?.pages.flatMap((page: { data: VideoData[] }) => page.data).find((video: VideoData) => video._id === value)?.system_metadata?.filename || "Select a video"}

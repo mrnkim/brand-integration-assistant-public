@@ -12,7 +12,7 @@ const FilterTab: FC<FilterTabProps> = ({ label, active = false, onClick }) => {
       onClick={onClick}
       className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
         active
-          ? 'bg-gray-200 text-gray-800'
+          ? 'bg-white text-gray-800 shadow-sm'
           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
       }`}
     >
@@ -42,15 +42,17 @@ const FilterTabs: FC<FilterTabsProps> = ({
   ];
 
   return (
-    <div className="flex space-x-2 overflow-x-auto pb-2">
-      {tabs.map(tab => (
-        <FilterTab
-          key={tab}
-          label={tab}
-          active={activeTab === tab}
-          onClick={() => onTabChange(tab)}
-        />
-      ))}
+    <div className="fixed top-0 left-0 right-0 z-50">
+      <div className="flex space-x-2 overflow-x-auto pb-2 bg-zinc-100 shadow-md px-4">
+        {tabs.map(tab => (
+          <FilterTab
+            key={tab}
+            label={tab}
+            active={activeTab === tab}
+            onClick={() => onTabChange(tab)}
+          />
+        ))}
+      </div>
     </div>
   );
 };

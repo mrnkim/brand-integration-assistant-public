@@ -3,23 +3,21 @@ import Link from 'next/link';
 
 type MenuItemProps = {
   title: string;
-  description: string;
   href: string;
   isActive?: boolean;
 };
 
-const MenuItem: FC<MenuItemProps> = ({ title, description, href, isActive = false }) => {
+const MenuItem: FC<MenuItemProps> = ({ title, href, isActive = false }) => {
   return (
     <Link
       href={href}
       className={`block p-4 rounded-lg mb-2 transition-colors ${
         isActive
-          ? 'bg-white shadow-sm'
-          : 'hover:bg-gray-100'
+          ? 'bg-gray-500'
+          : 'hover:bg-gray-300'
       }`}
     >
-      <div className="font-medium text-gray-800">{title}</div>
-      <div className="text-xs text-gray-500">{description}</div>
+      <div className={`font-medium`}>{title}</div>
     </Link>
   );
 };
@@ -33,20 +31,18 @@ const menuConfig = [
   {
     id: 'ads-library',
     title: 'Ads Library',
-    description: 'Filter / search ads',
     href: '/ads-library'
   },
   {
     id: 'contextual-analysis',
     title: 'Contextual Alignment Analysis',
-    description: 'Get automated content recommendations',
     href: '/contextual-analysis'
   }
 ];
 
 const Sidebar: FC<SidebarProps> = ({ activeMenu }) => {
   return (
-    <div className="w-54 bg-gray-200 h-screen fixed left-0 top-0 p-4 flex flex-col">
+    <div className="w-54 bg-zinc-100 h-screen fixed left-0 top-0 p-4 flex flex-col">
       <div className="text-xl font-bold mb-6 pl-2">Brand Integration Assistant and Ad Break Finder</div>
 
       <nav className="flex-1">
@@ -54,7 +50,6 @@ const Sidebar: FC<SidebarProps> = ({ activeMenu }) => {
           <MenuItem
             key={item.id}
             title={item.title}
-            description={item.description}
             href={item.href}
             isActive={activeMenu === item.id}
           />

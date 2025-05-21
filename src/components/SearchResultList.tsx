@@ -580,7 +580,7 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
           {enhancedResults.map((result, index) => (
             <div
               key={`${result.video_id}-${index}`}
-              className="rounded-lg overflow-hidden shadow-md bg-white hover:shadow-lg transition-shadow cursor-pointer"
+              className="rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => handleThumbnailClick(result)}
             >
               <div className="relative">
@@ -647,7 +647,7 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
           />
 
           {/* Modal content */}
-          <div className="relative z-50 w-[90%] max-w-[800px] bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="relative z-50 w-[90%] max-w-[800px] rounded-lg shadow-xl overflow-hidden">
             {/* Modal header */}
             <div className="flex justify-between items-center p-4 border-b">
               <h3 className="text-lg font-semibold truncate">

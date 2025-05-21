@@ -1,7 +1,7 @@
-const grey = {
+const zinc = {
   50: "#F9FAF9",
-  100: "#F4F4F3",
-  200: "#E5E6E4",
+  100: "#F4F3F3",
+  200: "#ECECEC",
   300: "#D4D5D2",
   400: "#C5C7C3",
   500: "#B7B9B4",
@@ -106,7 +106,7 @@ const purple = {
 };
 
 export default {
-  grey,
+  zinc,
   green,
   mossGreen,
   turquoise,

@@ -207,7 +207,7 @@ export default function ContextualAnalysis() {
   } : { pages: [], pageParams: [] as number[] };
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen bg-zinc-100">
       {/* Sidebar */}
       <Sidebar activeMenu="contextual-analysis" />
 
