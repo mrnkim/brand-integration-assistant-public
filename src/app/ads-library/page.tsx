@@ -801,7 +801,7 @@ export default function AdsLibrary() {
             <SearchBar
               onSearch={handleSearch}
               onClear={handleClearSearch}
-              placeholder="Search videos..."
+              placeholder="What are you looking for?"
               defaultValue={searchQuery}
             />
           </div>
