@@ -4,6 +4,7 @@ import Video from './Video';
 import LoadingSpinner from './LoadingSpinner';
 import EditableTag from './EditableTag';
 import { updateVideoMetadata } from '@/hooks/apiHooks';
+import VideoModalSimple from './VideoModalSimple';
 
 type ContentItemProps = {
   videoUrl: string;
@@ -28,11 +29,10 @@ type ContentItemProps = {
 };
 
 const ContentItem: FC<ContentItemProps> = ({
-  // videoUrl은 현재 직접 사용하지 않지만 타입 호환성을 위해 남겨둠
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   videoUrl,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   tags,
+  title,
   videoId,
   indexId,
   metadata,
@@ -40,8 +40,17 @@ const ContentItem: FC<ContentItemProps> = ({
   onMetadataUpdated
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [updatingField, setUpdatingField] = useState<string | null>(null);
   const [localMetadata, setLocalMetadata] = useState(metadata || {});
+
+  // Close modal when unmounting
+  useEffect(() => {
+    return () => {
+      setIsModalOpen(false);
+      setIsPlaying(false);
+    };
+  }, []);
 
   // metadata prop이 변경되면 로컬 상태 업데이트
   useEffect(() => {
@@ -177,7 +186,8 @@ const ContentItem: FC<ContentItemProps> = ({
   );
 
   const handlePlay = () => {
-    setIsPlaying(true);
+    setIsModalOpen(true);
+    setIsPlaying(false); // Keep the background video paused
   };
 
   // 로딩 중인지 확인하고 메타데이터 필드가 비어있는 경우 로딩 스피너 표시
@@ -193,63 +203,74 @@ const ContentItem: FC<ContentItemProps> = ({
   const isFieldUpdating = (field: string) => updatingField === field.toLowerCase();
 
   return (
-    <div className="flex items-center border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors">
-      {/* Video */}
-      <div style={{ width: '300px' }} className="flex-shrink-0 pr-4">
-        <Video
-          videoId={videoId}
-          indexId={indexId}
-          playing={isPlaying}
-          onPlay={handlePlay}
-        />
+    <>
+      <div className="flex items-center border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors">
+        {/* Video */}
+        <div style={{ width: '320px' }} className="flex-shrink-0 pr-4">
+          <Video
+            videoId={videoId}
+            indexId={indexId}
+            playing={isPlaying}
+            onPlay={handlePlay}
+          />
+        </div>
+
+        {/* Topic Category */}
+        <div style={{ width: '130px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-0.5 justify-center items-center">
+          {isLoadingMetadata && (!localMetadata.topic_category) ? renderLoading() : (
+            isFieldUpdating('topic_category') ? renderLoading() : renderEditableMetadata('Topic Category', 'topic_category')
+          )}
+        </div>
+
+        {/* Emotions */}
+        <div style={{ width: '130px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-0.5 justify-center items-center">
+          {isLoadingMetadata && (!localMetadata.emotions) ? renderLoading() : (
+            isFieldUpdating('emotions') ? renderLoading() : renderEditableMetadata('Emotions', 'emotions')
+          )}
+        </div>
+
+        {/* Brands */}
+        <div style={{ width: '130px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-0.5 justify-center items-center">
+          {isLoadingMetadata && (!localMetadata.brands) ? renderLoading() : (
+            isFieldUpdating('brands') ? renderLoading() : renderEditableMetadata('Brands', 'brands')
+          )}
+        </div>
+
+        {/* Target Demo: Gender */}
+        <div style={{ width: '130px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-0.5 justify-center items-center">
+          {isFieldUpdating('demo_gender') ? renderLoading() : renderEditableMetadata('Target Demo: Gender', 'demo_gender')}
+        </div>
+
+        {/* Target Demo: Age */}
+        <div style={{ width: '130px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-0.5 justify-center items-center">
+          {isFieldUpdating('demo_age') ? renderLoading() : renderEditableMetadata('Target Demo: Age', 'demo_age')}
+        </div>
+
+        {/* Location */}
+        <div style={{ width: '130px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-0.5 justify-center items-center">
+          {isLoadingMetadata && (!localMetadata.locations) ? renderLoading() : (
+            isFieldUpdating('locations') ? renderLoading() : renderEditableMetadata('Location', 'locations')
+          )}
+        </div>
+
+        {/* Source */}
+        <div style={{ width: '200px' }} className="flex-shrink-0 pr-4 flex justify-center items-center">
+          {isLoadingMetadata && needsMetadata ? renderLoading() : (
+            isFieldUpdating('source') ? renderLoading() : renderEditableMetadata('Source', 'source')
+          )}
+        </div>
+
       </div>
 
-      {/* Topic Category */}
-      <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
-        {isLoadingMetadata && (!localMetadata.topic_category) ? renderLoading() : (
-          isFieldUpdating('topic_category') ? renderLoading() : renderEditableMetadata('Topic Category', 'topic_category')
-        )}
-      </div>
-
-      {/* Emotions */}
-      <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
-        {isLoadingMetadata && (!localMetadata.emotions) ? renderLoading() : (
-          isFieldUpdating('emotions') ? renderLoading() : renderEditableMetadata('Emotions', 'emotions')
-        )}
-      </div>
-
-      {/* Brands */}
-      <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
-        {isLoadingMetadata && (!localMetadata.brands) ? renderLoading() : (
-          isFieldUpdating('brands') ? renderLoading() : renderEditableMetadata('Brands', 'brands')
-        )}
-      </div>
-
-      {/* Target Demo: Gender */}
-      <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
-        {isFieldUpdating('demo_gender') ? renderLoading() : renderEditableMetadata('Target Demo: Gender', 'demo_gender')}
-      </div>
-
-      {/* Target Demo: Age */}
-      <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
-        {isFieldUpdating('demo_age') ? renderLoading() : renderEditableMetadata('Target Demo: Age', 'demo_age')}
-      </div>
-
-      {/* Location */}
-      <div style={{ width: '120px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-1 justify-center items-center">
-        {isLoadingMetadata && (!localMetadata.locations) ? renderLoading() : (
-          isFieldUpdating('locations') ? renderLoading() : renderEditableMetadata('Location', 'locations')
-        )}
-      </div>
-
-      {/* Source */}
-      <div style={{ width: '200px' }} className="flex-shrink-0 pr-4 flex justify-center items-center">
-        {isLoadingMetadata && needsMetadata ? renderLoading() : (
-          isFieldUpdating('source') ? renderLoading() : renderEditableMetadata('Source', 'source')
-        )}
-      </div>
-
-    </div>
+      {/* Video Modal */}
+      <VideoModalSimple
+        videoUrl={videoUrl}
+        videoId={videoId}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={title}
+      />
+    </>
   );
 };
 

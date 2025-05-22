@@ -98,10 +98,6 @@ const Video: React.FC<EnhancedVideoProps> = ({
             )}
           </div>
 
-
-
-
-
           {/* Time range or duration indicator */}
           {timeRange ? (
             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
@@ -129,7 +125,7 @@ const Video: React.FC<EnhancedVideoProps> = ({
         </div>
             {showTitle && (
               <div className="self-stretch px-2 pb-2 inline-flex justify-center items-start gap-1">
-                <div className="flex-1 text-center justify-start text-stone-900 text-xs font-normal leading-tight">
+                <div className="flex-1 justify-start text-stone-900 text-sm font-normal leading-tight">
                   {finalVideoDetails?.system_metadata?.filename || finalVideoDetails?.system_metadata?.video_title}
                 </div>
               </div>

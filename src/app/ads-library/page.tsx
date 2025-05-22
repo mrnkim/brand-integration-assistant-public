@@ -961,7 +961,7 @@ export default function AdsLibrary() {
                 {COLUMNS.map(column => (
                   <div
                     key={column.id}
-                    className="font-medium text-center text-sm text-gray-600 flex-shrink-0 pr-4"
+                    className="font-medium text-center text-sm text-gray-600 flex-shrink-0"
                     style={{ width: column.width }}
                   >
                     {capitalizeText(column.label)}
