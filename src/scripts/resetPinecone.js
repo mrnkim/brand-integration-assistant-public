@@ -37,3 +37,5 @@ async function resetPineconeIndex() {
 
 // 스크립트 실행
 resetPineconeIndex().catch(console.error);
+
+//cd /Users/Miranda/twelveLabs/brand-integration-assistant && node src/scripts/resetPinecone.js

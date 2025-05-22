@@ -4,7 +4,6 @@ import React, { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "./ErrorFallback";
-import clsx from "clsx";
 import ReactPlayer from "react-player";
 import { fetchVideoDetails } from "@/hooks/apiHooks";
 import LoadingSpinner from "./LoadingSpinner";
@@ -12,7 +11,6 @@ import { VideoProps, VideoDetails } from "@/types";
 
 interface EnhancedVideoProps extends VideoProps {
   confidenceLabel?: string;
-  confidenceColor?: 'green' | 'yellow' | 'red';
   timeRange?: { start: string; end: string };
   disablePlayback?: boolean;
 }
@@ -25,7 +23,6 @@ const Video: React.FC<EnhancedVideoProps> = ({
   playing = false,
   onPlay,
   confidenceLabel,
-  confidenceColor = 'green',
   timeRange,
   disablePlayback = false
 }) => {
@@ -40,6 +37,8 @@ const Video: React.FC<EnhancedVideoProps> = ({
     enabled: !!indexId && (!!videoId) && !providedVideoDetails,
   });
 
+  const finalVideoDetails = providedVideoDetails || videoDetails;
+
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -52,118 +51,89 @@ const Video: React.FC<EnhancedVideoProps> = ({
     ].join(":");
   };
 
-  const finalVideoDetails = providedVideoDetails || videoDetails;
-
-  // Get confidence label background color
-  const getConfidenceBgColor = () => {
-    switch (confidenceColor) {
-      case 'green': return 'bg-green-500';
-      case 'yellow': return 'bg-yellow-500';
-      case 'red': return 'bg-red-500';
-      default: return 'bg-green-500';
-    }
-  };
-
-  // 비디오 플레이 방지 핸들러
-  const preventPlayback = (e: React.MouseEvent) => {
-    if (disablePlayback) {
-      // Only prevent default behavior, but allow click event to propagate to parent
-      e.preventDefault();
-      // Don't call e.stopPropagation() so the click reaches the parent handler
-    }
-  };
-
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <Suspense fallback={<LoadingSpinner />}>
-        <div className="flex flex-col w-full max-w-sm h-full">
-          <div className="relative">
-            <div
-              className="w-full h-0 pb-[56.25%] relative overflow-hidden rounded cursor-pointer"
-              onClick={disablePlayback ? preventPlayback : onPlay}
-            >
-              {disablePlayback ? (
-                <div className="absolute inset-0">
-                  <img
-                    src={
-                      finalVideoDetails?.hls?.thumbnail_urls?.[0] ||
-                      '/videoFallback.jpg'
-                    }
-                    className="object-cover w-full h-full"
-                    alt="thumbnail"
-                  />
-                </div>
-              ) : (
-                <ReactPlayer
-                  url={finalVideoDetails?.hls?.video_url}
-                  controls={!disablePlayback}
-                  width="100%"
-                  height="100%"
-                  style={{ position: 'absolute', top: 0, left: 0 }}
-                  light={
-                    <img
-                      src={
-                        finalVideoDetails?.hls?.thumbnail_urls?.[0] ||
-                        '/videoFallback.jpg'
-                      }
-                      className="object-cover w-full h-full"
-                      alt="thumbnail"
-                    />
-                  }
-                  playing={playing}
-                  config={{
-                    file: {
-                      attributes: {
-                        preload: "auto",
-                      },
+        <div
+          className="w-72 h-40 relative rounded-[45.60px] inline-flex flex-col justify-between items-start overflow-hidden"
+          onClick={!disablePlayback ? onPlay : undefined}
+          style={{ cursor: !disablePlayback ? 'pointer' : 'default' }}
+        >
+          <div className="absolute inset-0">
+            {!disablePlayback && playing ? (
+              <ReactPlayer
+                url={finalVideoDetails?.hls?.video_url}
+                controls={!disablePlayback}
+                width="100%"
+                height="100%"
+                style={{ position: 'absolute', top: 0, left: 0 }}
+                playing={playing}
+                config={{
+                  file: {
+                    attributes: {
+                      preload: "auto",
                     },
-                  }}
-                  progressInterval={100}
-                  onPlay={() => onPlay && onPlay()}
-                />
-              )}
-
-              {/* Confidence Label (top-left) */}
-              {confidenceLabel && (
-                <div className="absolute top-2 left-2 z-[1]">
-                  <div className={`${getConfidenceBgColor()} px-3 py-1 rounded-md`}>
-                    <p className="text-white text-xs font-medium uppercase">
-                      {confidenceLabel}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Timestamp/Duration (bottom-center) - only show when not playing */}
-              {timeRange ? (
-                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
-                  <div className="bg-black/60 px-3 py-1 rounded-md">
-                    <p className="text-white text-xs font-medium">
-                      {timeRange.start} - {timeRange.end}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                !playing && (
-                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
-                    <div className="bg-black/60 px-3 py-1 rounded-md">
-                      <p className="text-white text-xs font-medium">
-                        {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
-                      </p>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
+                  },
+                }}
+                progressInterval={100}
+                onPlay={() => onPlay && onPlay()}
+              />
+            ) : (
+              <img
+                src={finalVideoDetails?.hls?.thumbnail_urls?.[0] || '/videoFallback.jpg'}
+                className="object-cover w-full h-full"
+                alt="thumbnail"
+              />
+            )}
           </div>
-          {showTitle && (
-            <div className="mt-2 mb-0">
-              <p className={clsx("text-body3", "truncate", "text-grey-700")}>
-                {finalVideoDetails?.system_metadata?.filename || finalVideoDetails?.system_metadata?.video_title}
-              </p>
+
+          {/* Top section with confidence label */}
+          <div className="relative self-stretch flex-1 p-5 flex flex-col justify-start items-start gap-2 z-10">
+            {confidenceLabel && (
+              <div className="p-1 bg-stone-900 rounded inline-flex justify-start items-center gap-2">
+                <div className="justify-start text-zinc-100 text-xs font-normal font-['Milling_Trial'] uppercase leading-tight tracking-tight">
+                  {confidenceLabel}
+                </div>
+              </div>
+            )}
+          </div>
+
+
+
+
+
+          {/* Time range or duration indicator */}
+          {timeRange ? (
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
+              <div className="bg-black/60 px-3 py-1 rounded-md">
+                <p className="text-white text-xs font-medium">
+                  {timeRange.start} - {timeRange.end}
+                </p>
+              </div>
             </div>
+          ) : (
+            !playing && (
+              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
+                {/* <div className="bg-black/60 px-3 py-1 rounded-md">
+                  <p className="text-white text-xs font-medium">
+                    {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
+                  </p>
+                </div> */}
+                <div className="p-1 rounded outline outline-1 outline-offset-[-1px] outline-zinc-100 inline-flex justify-start items-center gap-2">
+    <div className="justify-start text-zinc-100 text-xs font-semibold uppercase leading-tight tracking-tight">{formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
+    </div>
+</div>
+              </div>
+            )
           )}
         </div>
+            {showTitle && (
+              <div className="self-stretch px-2 pb-2 inline-flex justify-center items-start gap-1">
+                <div className="flex-1 text-center justify-start text-stone-900 text-xs font-normal leading-tight">
+                  {finalVideoDetails?.system_metadata?.filename || finalVideoDetails?.system_metadata?.video_title}
+                </div>
+              </div>
+            )}
       </Suspense>
     </ErrorBoundary>
   );

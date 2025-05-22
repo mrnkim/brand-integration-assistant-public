@@ -608,7 +608,7 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
               {/* Video title */}
               <div className="p-2">
                 <h3 className="text-sm font-medium truncate">
-                  {result.videoDetail?.system_metadata?.video_title || result.video_title || 'Untitled'}
+                  {result.video_title || result.videoDetail?.system_metadata?.video_title || result.videoDetail?.system_metadata?.filename || 'Untitled'}
                 </h3>
               </div>
             </div>
@@ -651,7 +651,7 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
             {/* Modal header */}
             <div className="flex justify-between items-center p-4 border-b">
               <h3 className="text-lg font-semibold truncate">
-                {selectedResult.videoDetail?.system_metadata?.video_title || selectedResult.video_title || 'Untitled'}
+                {selectedResult.video_title || selectedResult.videoDetail?.system_metadata?.video_title || selectedResult.videoDetail?.system_metadata?.filename || 'Untitled'}
               </h3>
               <button
                 onClick={closeModal}

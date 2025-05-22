@@ -119,8 +119,8 @@ export async function POST(request: Request) {
     // Determine vector ID base by sanitizing the title
     const vectorIdBase = sanitizeVectorId(videoTitle.replace(/\.[^/.]+$/, '')); // Remove file extension if present
 
-    // Determine the category based on the index ID
-    const category = indexId.toLowerCase().includes('ad') ? 'ad' : 'content';
+    // Determine category based on the index ID
+    const category = indexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID ? 'ad' : 'content';
 
     console.log(`🚀 FILENAME DEBUG - FINAL DECISION:
 - Video title: "${videoTitle}"

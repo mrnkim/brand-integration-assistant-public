@@ -55,12 +55,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔍 > Search API > Using index ID:', indexId,
-                'Is ads index?', indexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID,
-                'Is content index?', indexId === process.env.NEXT_PUBLIC_CONTENT_INDEX_ID,
-                'NEXT_PUBLIC_ADS_INDEX_ID:', process.env.NEXT_PUBLIC_ADS_INDEX_ID,
-                'NEXT_PUBLIC_CONTENT_INDEX_ID:', process.env.NEXT_PUBLIC_CONTENT_INDEX_ID);
-
     const searchDataForm = new FormData();
     searchDataForm.append("search_options", "visual");
     searchDataForm.append("search_options", "audio");
@@ -77,10 +71,6 @@ export async function POST(request: NextRequest) {
 
     const url = "https://api.twelvelabs.io/v1.3/search"; // API 버전 업데이트
 
-    console.log('🔍 > POST > Searching for:', textSearchQuery);
-    console.log('🔍 > POST > Index ID:', indexId);
-    console.log('🔍 > POST > Pagination params being sent:', { page, page_size, offset });
-
     try {
       const response = await axios.post(url, searchDataForm, {
         headers: {
@@ -90,23 +80,13 @@ export async function POST(request: NextRequest) {
       });
 
       const responseData = response.data;
-      console.log("🚀 > POST > Response status:", response.status);
+      console.log("🚀 > POST > responseData=", responseData)
 
       if (!responseData) {
-        console.log('🔍 > Search API > Empty response data');
         return NextResponse.json(
           { error: "Error getting response from the API" },
           { status: 500 }
         );
-      }
-
-      console.log('🔍 > POST > Search results count:', responseData.data?.length || 0);
-      console.log('🔍 > POST > Pagination info:', responseData.page_info || 'No pagination info');
-
-      // Log first few video IDs to check for duplicates
-      if (responseData.data && responseData.data.length > 0) {
-        const videoIds = responseData.data.slice(0, 3).map((item: SearchResult) => item.video_id);
-        console.log('🔍 > POST > Sample video IDs in results:', videoIds);
       }
 
       // Add index_id to each result if not already present
@@ -123,11 +103,6 @@ export async function POST(request: NextRequest) {
         },
         textSearchResults: resultsWithIndexId,
       };
-
-      console.log('🔍 > POST > Final response payload:', {
-        pageInfo: responsePayload.pageInfo,
-        resultCount: responsePayload.textSearchResults.length
-      });
 
       return NextResponse.json(responsePayload);
     } catch (axiosError: unknown) {

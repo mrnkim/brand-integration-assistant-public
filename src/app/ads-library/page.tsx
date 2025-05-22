@@ -39,13 +39,13 @@ const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || 'default-ads-index';
 
 // Column definitions
 const COLUMNS = [
-  { id: 'video', label: 'Video', width: '300px' },
-  { id: 'topic_category', label: 'Topic Category', width: '120px' },
-  { id: 'emotions', label: 'Emotions', width: '120px' },
-  { id: 'brands', label: 'Brands', width: '120px' },
-  { id: 'demo_gender', label: 'Target Demo: Gender', width: '120px' },
-  { id: 'demo_age', label: 'Target Demo: Age', width: '120px' },
-  { id: 'location', label: 'Location', width: '120px' },
+  { id: 'video', label: 'Video', width: '320px' },
+  { id: 'topic_category', label: 'Topic Category', width: '130px' },
+  { id: 'emotions', label: 'Emotions', width: '130px' },
+  { id: 'brands', label: 'Brands', width: '130px' },
+  { id: 'demo_gender', label: 'Target Demo: Gender', width: '130px' },
+  { id: 'demo_age', label: 'Target Demo: Age', width: '130px' },
+  { id: 'location', label: 'Location', width: '130px' },
   { id: 'source', label: 'Source', width: '200px' },
 ];
 
