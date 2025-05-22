@@ -13,7 +13,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
     <div className="flex space-x-5">
       <button
         onClick={onUpload}
-        className="flex items-center justify-center p-2 rounded-md border border-gray-300 hover:bg-gray-100 transition-colors"
+        className="flex items-center justify-center p-2 rounded-md border hover:bg-gray-100 transition-colors"
         aria-label="Upload"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -23,7 +23,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 
       <button
         onClick={onFilter}
-        className="flex items-center justify-center p-2 rounded-md border border-gray-300 hover:bg-gray-100 transition-colors"
+        className="flex items-center justify-center p-2 rounded-md border hover:bg-gray-100 transition-colors"
         aria-label="Filter"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">

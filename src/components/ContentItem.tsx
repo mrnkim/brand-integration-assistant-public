@@ -204,7 +204,7 @@ const ContentItem: FC<ContentItemProps> = ({
 
   return (
     <>
-      <div className="flex items-center border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors">
+      <div className="flex items-center border-b border-gray-200 py-4 px-4 transition-colors">
         {/* Video */}
         <div style={{ width: '320px' }} className="flex-shrink-0 pr-4">
           <Video

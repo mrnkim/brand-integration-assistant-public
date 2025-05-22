@@ -159,7 +159,7 @@ const EditableTag: React.FC<EditableTagProps> = ({
       <span
         key={index}
         onClick={handleClick}
-        className={`px-2 py-1 bg-gray-100 rounded-full text-xs inline-block mr-1 mb-1 cursor-pointer hover:bg-gray-200 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+        className={`px-2 py-1 border bg-gray-100 rounded-full text-sm inline-block mr-1 mb-1 cursor-pointer hover:bg-gray-200 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         title={disabled ? "Can't edit while metadata is processing" : "Click to edit"}
       >
         {tag}
@@ -172,7 +172,7 @@ const EditableTag: React.FC<EditableTagProps> = ({
   const renderAddButton = () => (
     <span
       onClick={handleAddNewClick}
-      className={`px-2 py-1 rounded-full text-xs text-gray-300 inline-block cursor-pointer hover:bg-gray-200 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+      className={`px-2 py-1 rounded-full text-sm text-gray-300 inline-block cursor-pointer hover:bg-gray-200 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
       title={disabled ? "Can't add tags while metadata is processing" : "Add new tag"}
     >
       +
