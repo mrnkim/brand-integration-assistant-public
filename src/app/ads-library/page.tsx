@@ -795,12 +795,12 @@ export default function AdsLibrary() {
         <Sidebar activeMenu="ads-library" />
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col ml-54 bg-zinc-100">
+        <div className="flex-1 flex flex-col ml-20 bg-zinc-100">
           <div className="mx-auto w-4/5">
             {/* Fixed header area - combined all sticky elements */}
-            <div className="fixed top-0 ml-5 z-50 bg-zinc-100">
+            <div className="fixed top-0 ml-5 z-50 bg-zinc-100 w-[calc(80%-5rem)]">
               {/* Search area with solid background */}
-              <div className="bg-zinc-100 -mx-4">
+              <div className="bg-zinc-100 -mx-4 w-full">
                 <div className="p-4">
                   <SearchBar
                     onSearch={handleSearch}
@@ -960,8 +960,8 @@ export default function AdsLibrary() {
 
               {/* Table header with solid background - hide when search results are shown */}
               {!searchSubmitted && (
-                <div className="bg-zinc-100 -mx-4">
-                  <div className="flex border-b pb-3 px-4">
+                <div className="bg-zinc-100 w-full">
+                  <div className="flex border-b pb-3 w-full">
                     {COLUMNS.map(column => (
                       <div
                         key={column.id}
@@ -982,9 +982,9 @@ export default function AdsLibrary() {
             </div>
 
             {/* Content area with padding to account for fixed header */}
-            <div className={`${searchSubmitted ? 'pt-[90px]' : 'pt-[185px]'}`}>
+            <div className={`${searchSubmitted ? 'pt-[90px]' : 'pt-[185px]'} w-full`}>
               {searchSubmitted ? (
-                <div className="px-4">
+                <div className="px-4 w-full">
                   <SearchResults
                     textSearchQuery={searchQuery}
                     textSearchSubmitted={searchSubmitted}
@@ -1008,7 +1008,7 @@ export default function AdsLibrary() {
                       {isFiltering ? 'No videos match the current filters' : 'No videos available'}
                     </div>
                   ) : (
-                    <div className="mt-3">
+                    <div className="mt-3 ml-2">
                       {(isFiltering ? filteredItems : adItems).map(item => (
                         <ContentItem
                           key={item.id}

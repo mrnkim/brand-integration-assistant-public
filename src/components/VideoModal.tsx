@@ -64,6 +64,8 @@ const VideoModal: React.FC<VideoModalProps> = ({
       setIsTransitioning(true);
       if (playerRef.current) {
         playerRef.current.seekTo(returnToTime, 'seconds');
+        // 광고 종료 후 원래 콘텐츠 비디오가 자동 재생되도록 설정
+        setIsPlaying(true);
       }
       setIsTransitioning(false);
     }
@@ -142,6 +144,8 @@ const VideoModal: React.FC<VideoModalProps> = ({
     const chapter = chaptersData.chapters[selectedChapter];
     setPlaybackSequence('video');
     setReturnToTime(chapter.end);
+    // 광고가 끝나면 isPlaying 상태를 true로 설정
+    setIsPlaying(true);
   };
 
   // 비디오 로드 완료 핸들러
