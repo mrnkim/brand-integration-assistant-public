@@ -68,7 +68,7 @@ const SearchBar: FC<SearchBarProps> = ({
               <button
                 type="button"
                 onClick={handleSearchClear}
-                className="absolute right-0 flex items-center justify-center w-8 h-8"
+                className="absolute right-0 flex items-center justify-center w-8 h-8 cursor-pointer"
               >
                 <svg
                   className="w-5 h-5 text-stone-900" // 검정색으로 변경

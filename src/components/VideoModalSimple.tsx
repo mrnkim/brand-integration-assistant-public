@@ -1,8 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactPlayer from 'react-player';
-import { useQuery } from '@tanstack/react-query';
-import { generateChapters, fetchVideoDetails } from '@/hooks/apiHooks';
-import { useGlobalState } from '@/providers/ReactQueryProvider';
 import { VideoData } from '@/types';
 
 interface VideoModalProps {

@@ -100,7 +100,7 @@ const Video: React.FC<EnhancedVideoProps> = ({
 
           {/* Time range or duration indicator */}
           {timeRange ? (
-            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1] bg-black/5 rounded">
               <div className="bg-black/60 px-3 py-1 rounded-md">
                 <p className="text-white text-xs font-medium">
                   {timeRange.start} - {timeRange.end}
@@ -109,13 +109,13 @@ const Video: React.FC<EnhancedVideoProps> = ({
             </div>
           ) : (
             !playing && (
-              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
+              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1] bg-black/5 rounded">
                 {/* <div className="bg-black/60 px-3 py-1 rounded-md">
                   <p className="text-white text-xs font-medium">
                     {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
                   </p>
                 </div> */}
-                <div className="p-1 rounded outline outline-1 outline-offset-[-1px] outline-zinc-100 inline-flex justify-start items-center gap-2">
+                <div className="p-1 rounded outline outline-1 outline-offset-[-1px] outline-zinc-100 justify-start items-center gap-2">
     <div className="justify-start text-zinc-100 text-xs font-semibold uppercase leading-tight tracking-tight">{formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
     </div>
 </div>

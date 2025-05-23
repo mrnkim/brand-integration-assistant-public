@@ -68,8 +68,8 @@ const SearchResultItem: React.FC<SearchResultItemProps> = ({
         )}
 
         {/* Time segment indicator (bottom-center) */}
-        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1]">
-          <div className="p-1 rounded outline outline-1 outline-zinc-100 inline-flex justify-start items-center gap-2">
+        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1] bg-black/5 rounded">
+          <div className="p-1 rounded outline outline-1 outline-zinc-100 justify-start items-center gap-2">
             <div className="justify-start text-zinc-100 text-xs font-semibold uppercase leading-tight tracking-tight">
               {formatTime(startTime)} - {formatTime(endTime)}
             </div>

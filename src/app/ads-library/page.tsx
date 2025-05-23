@@ -43,8 +43,8 @@ const COLUMNS = [
   { id: 'topic_category', label: 'Topic Category', width: '130px' },
   { id: 'emotions', label: 'Emotions', width: '130px' },
   { id: 'brands', label: 'Brands', width: '130px' },
-  { id: 'demo_gender', label: 'Target Demo: Gender', width: '130px' },
-  { id: 'demo_age', label: 'Target Demo: Age', width: '130px' },
+  { id: 'demo_gender', label: 'Target Demo:\nGender', width: '130px' },
+  { id: 'demo_age', label: 'Target Demo:\nAge', width: '130px' },
   { id: 'location', label: 'Location', width: '130px' },
   { id: 'source', label: 'Source', width: '200px' },
 ];
@@ -968,7 +968,12 @@ export default function AdsLibrary() {
                         className="font-medium text-center text-md flex-shrink-0"
                         style={{ width: column.width }}
                       >
-                        {capitalizeText(column.label)}
+                        {column.label.includes('\n')
+                          ? column.label.split('\n').map((part, i) => (
+                              <div key={i}>{capitalizeText(part)}</div>
+                            ))
+                          : capitalizeText(column.label)
+                        }
                       </div>
                     ))}
                   </div>
