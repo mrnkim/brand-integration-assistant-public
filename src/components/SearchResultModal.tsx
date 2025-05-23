@@ -196,7 +196,7 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
       />
 
       {/* Modal content */}
-      <div className="p-3 relative z-50 w-[90%] max-w-[950px] rounded-[45.60px] shadow-xl overflow-hidden bg-white">
+      <div className="p-5 relative z-50 w-[90%] max-w-[950px] rounded-[45.60px] shadow-xl overflow-hidden bg-white">
         {/* Modal header */}
         <div className="flex flex-col p-4">
           <div className="flex justify-between items-center">
@@ -214,7 +214,7 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
           </div>
 
           {/* Confidence label and time range */}
-          <div className="flex items-center mt-5 gap-3">
+          <div className="flex items-center mt-5 gap-5">
             {selectedResult.confidence && (
               <div
                 className="text-white text-xs px-1 py-0.5 rounded uppercase font-semibold"
@@ -225,7 +225,7 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
             )}
             <div className="flex items-center">
               <button
-                className="border border-gray-300 rounded px-1 py-0.5 text-xs cursor-pointer"
+                className="border rounded px-1 py-0.5 text-xs cursor-pointer"
                 onClick={handleReplaySegment}
               >
                 {formattedTimeRange}
@@ -235,9 +235,9 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
         </div>
 
         {/* Modal body */}
-        <div className="flex flex-col md:flex-row">
+        <div className="flex flex-col md:flex-row gap-3">
           {/* Video Player */}
-          <div className="w-full md:w-3/5 p-4">
+          <div className="w-full md:w-3/5">
             <div className="relative aspect-video rounded-[45.60px] overflow-hidden">
               {selectedResult.videoDetail?.hls?.video_url ? (
                 <ReactPlayer
@@ -309,7 +309,7 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
           </div>
 
           {/* Video Details */}
-          <div className="mt-3 w-full md:w-2/5 p-5 overflow-y-auto rounded-[45.60px] bg-gray-100" style={{ height: '29.5vh' }}>
+          <div className="w-full md:w-2/5 p-5 overflow-y-auto rounded-[45.60px] bg-zinc-100" style={{ height: '302.88px' }}>
             <h4 className="text-lg mb-4">Video Details</h4>
 
             {selectedResult.videoDetail?.user_metadata && (
