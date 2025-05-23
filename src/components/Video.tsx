@@ -11,6 +11,7 @@ import { VideoProps, VideoDetails } from "@/types";
 
 interface EnhancedVideoProps extends VideoProps {
   confidenceLabel?: string;
+  confidenceColor?: 'green' | 'yellow' | 'red';
   timeRange?: { start: string; end: string };
   disablePlayback?: boolean;
 }
@@ -23,6 +24,7 @@ const Video: React.FC<EnhancedVideoProps> = ({
   playing = false,
   onPlay,
   confidenceLabel,
+  confidenceColor,
   timeRange,
   disablePlayback = false
 }) => {
@@ -90,8 +92,8 @@ const Video: React.FC<EnhancedVideoProps> = ({
           {/* Top section with confidence label */}
           <div className="relative self-stretch flex-1 p-5 flex flex-col justify-start items-start gap-2 z-10">
             {confidenceLabel && (
-              <div className="p-1 bg-stone-900 rounded inline-flex justify-start items-center gap-2">
-                <div className="justify-start text-zinc-100 text-xs font-normal font-['Milling_Trial'] uppercase leading-tight tracking-tight">
+              <div className={`p-1 ${confidenceColor ? `bg-${confidenceColor}` : 'bg-stone-900'} rounded inline-flex justify-start items-center gap-2`}>
+                <div className="justify-start text-zinc-100 text-xs font-normal uppercase leading-tight tracking-tight">
                   {confidenceLabel}
                 </div>
               </div>
