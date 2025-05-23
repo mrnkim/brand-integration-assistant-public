@@ -4,6 +4,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import { fetchVideoDetails, VideoDetailResponse } from "@/hooks/apiHooks";
 import { convertMetadataToTags } from "@/hooks/apiHooks";
 import ReactPlayer from "react-player";
+import SearchResultItem from "./SearchResultItem";
 
 // Default content index ID from environment variables - rename to generic name
 const defaultIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
@@ -578,40 +579,17 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
         {/* Grid of search results */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {enhancedResults.map((result, index) => (
-            <div
+            <SearchResultItem
               key={`${result.video_id}-${index}`}
-              className="rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+              videoId={result.video_id}
+              thumbnailUrl={result.thumbnail_url || (result.videoDetail?.hls?.thumbnail_urls?.[0] || 'https://placehold.co/600x400')}
+              videoTitle={result.video_title || result.videoDetail?.system_metadata?.video_title || result.videoDetail?.system_metadata?.filename || 'Untitled'}
+              confidence={result.confidence}
+              startTime={result.start || result.segments?.[0]?.start || 0}
+              endTime={result.end || result.segments?.[0]?.end || 0}
               onClick={() => handleThumbnailClick(result)}
-            >
-              <div className="relative">
-                {/* Thumbnail */}
-                <div className="w-full h-40 relative">
-                  <img
-                    src={result.thumbnail_url || (result.videoDetail?.hls?.thumbnail_urls?.[0] || 'https://placehold.co/600x400')}
-                    alt="Video thumbnail"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                {/* Video segment information badge */}
-                <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                  {Math.floor(result.start || result.segments?.[0]?.start || 0)}s -
-                  {Math.floor(result.end || result.segments?.[0]?.end || 0)}s
-                </div>
-
-                {/* Confidence badge */}
-                <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                  {result.confidence}
-                </div>
-              </div>
-
-              {/* Video title */}
-              <div className="p-2">
-                <h3 className="text-sm font-medium truncate">
-                  {result.video_title || result.videoDetail?.system_metadata?.video_title || result.videoDetail?.system_metadata?.filename || 'Untitled'}
-                </h3>
-              </div>
-            </div>
+              videoDetail={result.videoDetail}
+            />
           ))}
 
           {/* Loading element for infinite scroll */}
