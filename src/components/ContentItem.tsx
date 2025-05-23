@@ -254,7 +254,7 @@ const ContentItem: FC<ContentItemProps> = ({
         </div>
 
         {/* Source */}
-        <div style={{ width: '200px' }} className="flex-shrink-0 pr-4 flex justify-center items-center">
+        <div style={{ width: '300px' }} className="flex-shrink-0 pr-4 flex flex-wrap gap-0.5 justify-center items-center">
           {isLoadingMetadata && needsMetadata ? renderLoading() : (
             isFieldUpdating('source') ? renderLoading() : renderEditableMetadata('Source', 'source')
           )}

@@ -46,7 +46,7 @@ const COLUMNS = [
   { id: 'demo_gender', label: 'Target Demo:\nGender', width: '130px' },
   { id: 'demo_age', label: 'Target Demo:\nAge', width: '130px' },
   { id: 'location', label: 'Location', width: '130px' },
-  { id: 'source', label: 'Source', width: '200px' },
+  { id: 'source', label: 'Source', width: '300px' },
 ];
 
 // Limit for concurrent metadata processing
@@ -795,10 +795,10 @@ export default function AdsLibrary() {
         <Sidebar activeMenu="ads-library" />
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col ml-54">
+        <div className="flex-1 flex flex-col ml-54 bg-zinc-100">
           <div className="mx-auto w-4/5">
             {/* Fixed header area - combined all sticky elements */}
-            <div className="fixed top-0 right-[10%] left-[calc(216px+10%)] z-50">
+            <div className="fixed top-0 ml-5 z-50 bg-zinc-100">
               {/* Search area with solid background */}
               <div className="bg-zinc-100 -mx-4">
                 <div className="p-4">
@@ -961,7 +961,7 @@ export default function AdsLibrary() {
               {/* Table header with solid background - hide when search results are shown */}
               {!searchSubmitted && (
                 <div className="bg-zinc-100 -mx-4">
-                  <div className="flex border-b pb-1 px-4">
+                  <div className="flex border-b pb-3 px-4">
                     {COLUMNS.map(column => (
                       <div
                         key={column.id}
@@ -1008,7 +1008,7 @@ export default function AdsLibrary() {
                       {isFiltering ? 'No videos match the current filters' : 'No videos available'}
                     </div>
                   ) : (
-                    <div>
+                    <div className="mt-3">
                       {(isFiltering ? filteredItems : adItems).map(item => (
                         <ContentItem
                           key={item.id}

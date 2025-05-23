@@ -225,7 +225,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+        className="relative rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden bg-white"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b flex justify-between items-center">
