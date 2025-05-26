@@ -10,6 +10,8 @@ import { VideoData, PaginatedResponse, VideoPage } from '@/types';
 import Sidebar from '@/components/Sidebar';
 import { useGlobalState } from '@/providers/ReactQueryProvider';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import VideoModalSimple from '@/components/VideoModalSimple';
+
 
 // VideoPage adapter for the API response
 const adaptToPaginatedResponse = (response: PaginatedResponse): VideoPage => ({
@@ -26,9 +28,12 @@ const adaptToPaginatedResponse = (response: PaginatedResponse): VideoPage => ({
 export default function ContextualAnalysis() {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
+  console.log("🚀 > ContextualAnalysis > selectedVideo=", selectedVideo)
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const { setSelectedAdId } = useGlobalState();
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
@@ -50,6 +55,21 @@ export default function ContextualAnalysis() {
     },
     enabled: !!adsIndexId,
   });
+
+
+  // Close modal when unmounting
+  useEffect(() => {
+    console.log("🚀 > ContextualAnalysis > adaptedVideosData=", adaptedVideosData)
+    return () => {
+      setIsModalOpen(false);
+      setIsPlaying(false);
+    };
+  }, []);
+
+  const handlePlay = () => {
+    setIsModalOpen(true);
+    setIsPlaying(false); // Keep the background video paused
+  };
 
   // Auto-select the first video when data is loaded
   useEffect(() => {
@@ -106,8 +126,6 @@ export default function ContextualAnalysis() {
 
       try {
         videoResults = await videoToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
-        console.log("\n=== VIDEO-BASED SEARCH RESULTS ===");
-        console.log("🚀 > handleContextualAnalysis > videoResults=", videoResults);
 
         if (videoResults.length > 0) {
           videoResults.forEach((result, index) => {
@@ -234,21 +252,19 @@ export default function ContextualAnalysis() {
             {/* Video and tags section with adjusted layout - no gap between elements */}
             <div className="flex justify-center items-start">
               {/* Video component */}
-              <div className="flex justify-center">
+              <div className="flex flex-col items-center space-y-4">
                 {selectedVideoId ? (
-                  <div>
-                    <Video
-                      videoId={selectedVideoId}
-                      indexId={adsIndexId}
-                      showTitle={true}
-                      videoDetails={undefined}
-                      playing={isPlaying}
-                      onPlay={() => setIsPlaying(true)}
+                  <Video
+                    videoId={selectedVideoId}
+                    indexId={adsIndexId}
+                    showTitle={true}
+                    videoDetails={undefined}
+                    playing={isPlaying}
+                    onPlay={handlePlay}
                     />
-                  </div>
                 ) : (
                   <div className="border rounded-md bg-gray-50 p-8 flex items-center justify-center h-64 w-[320px]">
-                    <p className="text-gray-500">Select an ad from the dropdown</p>
+                    <p>Select an ad from the dropdown</p>
                   </div>
                 )}
               </div>
@@ -279,7 +295,7 @@ export default function ContextualAnalysis() {
                           return (
                             <div
                               key={`${key}-${idx}`}
-                              className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm"
+                              className="inline-block border border-black rounded-full px-3 py-1 text-sm"
                             >
                               {properlyCapitalized}
                             </div>
@@ -288,7 +304,7 @@ export default function ContextualAnalysis() {
                       })}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm">No tags available</p>
+                  <p className="text-sm">No tags available</p>
                 )}
               </div>
             </div>
@@ -308,7 +324,7 @@ export default function ContextualAnalysis() {
             {isAnalyzing && (
               <div className="flex justify-center items-center mt-10">
                 <LoadingSpinner size="md" />
-                <span className="ml-3 text-gray-600">Finding contextually aligned content...</span>
+                <span className="ml-3">Finding contextually aligned content...</span>
               </div>
             )}
 
@@ -319,6 +335,14 @@ export default function ContextualAnalysis() {
                 indexId={contentIndexId}
               />
             )}
+
+            <VideoModalSimple
+              videoUrl={selectedVideo?.hls?.video_url || ''}
+              videoId={selectedVideoId || ''}
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              title={selectedVideo?.system_metadata?.filename}
+            />
           </div>
         </div>
       </div>
