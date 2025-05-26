@@ -822,23 +822,20 @@ export default function AdsLibrary() {
                         {/* Active filter indicators */}
                         {getTotalActiveFilterCount() > 0 && (
                           <div className="flex items-center">
-                            <span className="text-sm text-gray-600 ml-3">
-                              Filters: {getTotalActiveFilterCount()}
-                            </span>
                             {/* Active filters display */}
                             <div className="ml-3 flex flex-wrap items-center gap-2">
                               {Object.entries(activeFilters).map(([category, values]) =>
                                 values.length > 0 && (
-                                  <div key={category} className="flex items-center bg-blue-50 px-2 py-1 rounded-md">
-                                    <span className="text-xs font-medium text-blue-800 mr-1">
+                                  <div key={category} className="flex items-center bg-light-purple px-2 py-1 rounded-md">
+                                    <span className="text-sm font-medium text-gray-800 mr-1">
                                       {capitalizeText(category.replace(/_/g, ' '))}:
                                     </span>
-                                    <span className="text-xs text-blue-700">
+                                    <span className="text-sm">
                                       {values.join(', ')}
                                     </span>
                                     <button
                                       onClick={() => resetCategoryFilters(category)}
-                                      className="ml-1 text-blue-500 hover:text-blue-700"
+                                      className="ml-1 text-gray-600 hover:text-gray-700 cursor-pointer"
                                     >
                                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -850,18 +847,18 @@ export default function AdsLibrary() {
                             </div>
                             <button
                               onClick={resetAllFilters}
-                              className="ml-2 text-xs text-blue-600 hover:text-blue-800"
+                              className="ml-2 text-sm hover:text-red cursor-pointer"
                             >
-                              Clear all
+                              Clear All
                             </button>
                           </div>
                         )}
                       </div>
                       <div className="text-sm">
-                        {isFiltering ? filteredItems.length : indexData?.video_count? indexData?.video_count : <LoadingSpinner />} videos
+                        {isFiltering ? filteredItems.length : indexData?.video_count? indexData?.video_count : <LoadingSpinner />} Videos
                         {processingMetadata && videosInProcessing.length > 0 && (
                           <span className="ml-2 text-blue-500 flex items-center">
-                            <span className="mr-2">Processing metadata... ({videosInProcessing.length} videos)</span>
+                            <span className="mr-2">Processing metadata... ({videosInProcessing.length} Videos)</span>
                             <div className="w-4 h-4">
                               <LoadingSpinner />
                             </div>
@@ -873,18 +870,18 @@ export default function AdsLibrary() {
                     {/* Filter Menu */}
                     {showFilterMenu && (
                       <div className="relative">
-                        <div className="absolute z-[100] mt-1 bg-white">
+                        <div className="absolute z-[100] mt-1 bg-white rounded-[45.60px] overflow-hidden p-3">
                           {selectedFilterCategory === null ? (
                             <div className="bg-white cursor-pointer">
                               {filterCategories.map((category) => (
                                 <button
                                   key={category.id}
-                                  className="flex items-center justify-between w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 cursor-pointer"
+                                  className="flex items-center justify-between w-full text-left px-4 py-2 text-md hover:bg-gray-200 cursor-pointer"
                                   onClick={() => handleFilterCategorySelect(category.id)}
                                 >
                                   <span>{capitalizeText(category.label.replace(/_/g, ' '))}</span>
                                   {getActiveCategoryFilterCount(category.id) > 0 && (
-                                    <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                                    <span className="ml-2 bg-light-purple text-xs font-medium px-2 py-0.5 rounded-full">
                                       {getActiveCategoryFilterCount(category.id)}
                                     </span>
                                   )}
@@ -892,22 +889,22 @@ export default function AdsLibrary() {
                               ))}
                             </div>
                           ) : (
-                            <div className="p-4 w-54 bg-white">
+                            <div className="p-4 w-54 bg-white rounded-[45.60px]">
                               <div className="flex justify-between items-center mb-3">
-                                <h3 className="font-medium text-gray-800">
+                                <h3 className="font-medium text-md">
                                   {capitalizeText((filterCategories.find(c => c.id === selectedFilterCategory)?.label || '').replace(/_/g, ' '))}
                                 </h3>
                                 <div className="flex items-center">
                                   {getActiveCategoryFilterCount(selectedFilterCategory) > 0 && (
                                     <button
-                                      className="text-xs text-blue-600 hover:text-blue-800 mr-3 cursor-pointer"
+                                      className="text-sm hover:text-red mr-3 cursor-pointer"
                                       onClick={() => resetCategoryFilters(selectedFilterCategory)}
                                     >
                                       Clear
                                     </button>
                                   )}
                                   <button
-                                    className="text-gray-400 hover:text-gray-500 cursor-pointer"
+                                    className="hover:text-gray-500 cursor-pointer"
                                     onClick={() => setSelectedFilterCategory(null)}
                                   >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -932,7 +929,7 @@ export default function AdsLibrary() {
                                         />
                                         <label
                                           htmlFor={`filter-${selectedFilterCategory}-${index}`}
-                                          className="ml-2 block text-sm text-gray-700 cursor-pointer"
+                                          className="ml-2 block text-md cursor-pointer"
                                         >
                                           {capitalizeText(option)}
                                         </label>
