@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useInfiniteQuery, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { useInView } from 'react-intersection-observer';
 import Sidebar from '@/components/Sidebar';
 import SearchBar from '@/components/SearchBar';
 import ActionButtons from '@/components/ActionButtons';
@@ -779,14 +780,20 @@ export default function AdsLibrary() {
     setSelectedFilterCategory(null);
   };
 
-  // Load more data
-  const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      // Make sure metadata processing is enabled when loading more videos
+  // 무한 스크롤을 위한 Intersection Observer 설정
+  const { ref: observerRef, inView } = useInView({
+    threshold: 0.1,
+    triggerOnce: false,
+  });
+
+  // 화면에 관찰 요소가 보일 때 다음 페이지 로드
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage && !isFiltering) {
+      console.log('무한 스크롤: 다음 페이지 로드');
       setSkipMetadataProcessing(false);
       fetchNextPage();
     }
-  };
+  }, [inView, hasNextPage, isFetchingNextPage, isFiltering, fetchNextPage]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -1027,14 +1034,18 @@ export default function AdsLibrary() {
 
                       {/* Load more button - only show when not filtering */}
                       {!isFiltering && hasNextPage && (
-                        <div className="flex justify-center py-4 mb-8">
-                          <button
-                            onClick={handleLoadMore}
-                            disabled={isFetchingNextPage}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-                          >
-                            {isFetchingNextPage ? 'Loading...' : 'Load More'}
-                          </button>
+                        <div
+                          className="flex justify-center py-4 mb-8"
+                          ref={observerRef}
+                        >
+                          {isFetchingNextPage ? (
+                            <div className="flex items-center space-x-2">
+                              <LoadingSpinner />
+                              <span className="text-gray-500">Loading more videos...</span>
+                            </div>
+                          ) : (
+                            <div className="h-10 w-full" />
+                          )}
                         </div>
                       )}
                     </div>
