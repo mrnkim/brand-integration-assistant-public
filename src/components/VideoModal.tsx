@@ -6,6 +6,13 @@ import LoadingSpinner from './LoadingSpinner';
 import { useGlobalState } from '@/providers/ReactQueryProvider';
 import { VideoData } from '@/types';
 
+// 확장된 Chapter 인터페이스
+interface ChapterWithMetadata extends Chapter {
+  chapter_title?: string;
+  chapter_summary?: string;
+  chapter_number?: number;
+}
+
 interface VideoModalProps {
   videoUrl: string;
   videoId: string;
@@ -39,6 +46,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
   const [hasPlayedAd, setHasPlayedAd] = useState<boolean>(false);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [showChapterInfo, setShowChapterInfo] = useState<boolean>(false);
 
   // Get global state values
   const { selectedAdId } = useGlobalState();
@@ -57,6 +65,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
     queryFn: () => generateChapters(videoId),
     enabled: isOpen && !!videoId,
   });
+  console.log("🚀 > chaptersData=", chaptersData)
 
   // Effect to handle returning to video at the right timestamp after ad
   useEffect(() => {
@@ -129,6 +138,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
     setSelectedChapter(index);
     setHasPlayedAd(false);
     setPlaybackSequence('video');
+    setShowChapterInfo(true);
 
     if (playerRef.current) {
       // Start 3 seconds before the chapter end time
@@ -201,7 +211,13 @@ const VideoModal: React.FC<VideoModalProps> = ({
         explanation = `it shares both visual and thematic elements with the selected ad.`;
         if (commonTags.length > 0) {
           const capitalizedTags = commonTags.slice(0, 3).map(tag => capitalizeText(tag));
-          explanation += ` They share common tags: ${capitalizedTags.join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
+          explanation += ` They share common tags: `;
+          explanation += capitalizedTags.map(tag =>
+            `<span class="inline-block bg-gray-100 border rounded-full px-2 py-0.5 text-xs mx-0.5">${tag}</span>`
+          ).join("");
+          if (commonTags.length > 3) {
+            explanation += '...';
+          }
         }
         break;
       case "TEXT":
@@ -229,13 +245,13 @@ const VideoModal: React.FC<VideoModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden bg-white"
+        className="p-5 relative z-50 w-[90%] max-w-[950px] rounded-[45.60px] shadow-xl overflow-hidden bg-white"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 border-b flex justify-between items-center">
-          <h3 className="text-xl font-medium truncate pr-4">
-            {playbackSequence === 'ad' ? adTitle : (title || 'Video Player')}
-            {playbackSequence === 'ad' && <span className="ml-2 text-red-500 text-sm">(Ad)</span>}
+        <div className="p-4 flex justify-between items-center">
+        <h3 className="text-2xl font-medium">
+        {playbackSequence === 'ad' ? adTitle : (title || 'Video Player')}
+            {playbackSequence === 'ad' && <span className="ml-2 text-red text-sm font-bold">(Ad)</span>}
           </h3>
           <button
             onClick={onClose}
@@ -249,28 +265,29 @@ const VideoModal: React.FC<VideoModalProps> = ({
 
         {/* Contextual alignment explanation */}
         {originalSource && (
-          <div className="px-6 py-3 bg-blue-50 text-blue-700 border-b border-blue-100">
-            <p className="text-sm font-medium">
-              <span className="mr-1">This content was recommended as</span>
-              {getExplanationText()}
-            </p>
+          <div className="px-6 bg-gray-100 rounded-[45.60px] py-2">
             {searchScore !== undefined && (
-              <div className="mt-1 text-xs text-blue-600 flex flex-wrap gap-x-4">
+              <div className="mt-1 text-md flex flex-wrap gap-x-4">
                   {videoScore !== undefined && videoScore > 0 && (
-                  <span>Video Match: <strong>{formatScore(videoScore)}</strong></span>
+                  <span>Video Match: {formatScore(videoScore)}</span>
                 )}
                 {textScore !== undefined && textScore > 0 && (
-                  <span>Keyword Match: <strong>{formatScore(textScore)}</strong></span>
+                  <span>Keyword Match: {formatScore(textScore)}</span>
                 )}
 
               </div>
             )}
+            <p className="text-md font-medium">
+              <span className="mr-1">This content was recommended as</span>
+              <span dangerouslySetInnerHTML={{ __html: getExplanationText() }} />
+            </p>
+
           </div>
         )}
 
         <div className="relative w-full px-6 pt-6 pb-2 overflow-auto flex-grow">
-          <div className="relative w-full overflow-hidden" style={{ paddingTop: '56.25%' }}> {/* 16:9 Aspect Ratio */}
-            {playbackSequence === 'ad' && adVideoDetail?.hls?.video_url ? (
+        <div className="relative aspect-video rounded-[45.60px] overflow-hidden">
+        {playbackSequence === 'ad' && adVideoDetail?.hls?.video_url ? (
               <ReactPlayer
                 url={adVideoDetail.hls.video_url}
                 controls
@@ -307,6 +324,41 @@ const VideoModal: React.FC<VideoModalProps> = ({
             )}
           </div>
 
+          {/* 챕터 정보 표시 섹션 */}
+          {showChapterInfo && selectedChapter !== null && chaptersData?.chapters && (
+            <div className="mt-4 mb-4 bg-gray-100 rounded-[45.60px] p-4 relative">
+              <button
+                onClick={() => setShowChapterInfo(false)}
+                className="absolute top-2 right-4 text-gray-400 hover:text-gray-700 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <div className="flex items-center mb-2">
+                <div className="inline-block bg-gray-50 border border-gray-300 rounded-full px-2.5 py-0.5 text-xs font-medium text-gray-800 mr-2">
+                  {formatTime(chaptersData.chapters[selectedChapter].end)}
+                </div>
+                <h4 className="text-lg font-semibold">
+                  {(chaptersData.chapters[selectedChapter] as ChapterWithMetadata).chapter_title || `Chapter ${selectedChapter + 1}`}
+                </h4>
+              </div>
+              <p className="text-sm leading-relaxed pl-5">
+                <span className="font-light">
+                {(() => {
+                  const summary = (chaptersData.chapters[selectedChapter] as ChapterWithMetadata).chapter_summary ||
+                                 chaptersData.chapters[selectedChapter].text ||
+                                 "No summary available";
+
+                  // 마지막 문장만 추출 (마침표, 느낌표, 물음표로 끝나는 문장 기준)
+                  const sentences = summary.match(/[^.!?]+[.!?]+/g) || [summary];
+                  return sentences[sentences.length - 1].trim();
+                })()}
+                </span>
+              </p>
+            </div>
+          )}
+
           {/* 챕터 타임라인 바 */}
           <div className="relative w-full h-28 p-4 mt-6 rounded-md">
             {isChaptersLoading ? (
@@ -335,6 +387,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
                         top: '33%'
                       }}
                       onClick={() => handleChapterClick(index)}
+                      title={(chapter as ChapterWithMetadata).chapter_title || `Chapter ${index + 1}`}
                     >
                       <div className="absolute top-6 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap">
                         {formatTime(chapter.end)}

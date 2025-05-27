@@ -23,7 +23,7 @@ export async function GET(req: Request) {
               "Content-Type": "application/json",
               "x-api-key": `${API_KEY}`,
             },
-            body: JSON.stringify({type: "chapter", video_id: videoId, prompt: "Provide only three chapters. Ensure that no audio or key narrative elements are interrupted."})
+            body: JSON.stringify({type: "chapter", video_id: videoId, prompt: "Chapterize this video into 3 chapters. For every chapter, describe why it is a strategically appropriate point for placing an advertisement. Do not mention what type of advertisement would be suitable, as the ad content has already been determined. "})
         };
 
       try {
