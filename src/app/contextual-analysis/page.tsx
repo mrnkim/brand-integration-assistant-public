@@ -225,14 +225,14 @@ export default function ContextualAnalysis() {
   } : { pages: [], pageParams: [] as number[] };
 
   return (
-    <div className="flex min-h-screen bg-zinc-100">
+    <div className="flex mt-5 min-h-screen bg-zinc-100">
       {/* Sidebar */}
       <Sidebar activeMenu="contextual-analysis" />
 
       <div className="flex-1 overflow-auto ml-54">
         <div className="p-8 max-w-6xl mx-auto">
           {/* Dropdown menu */}
-          <div className="mb-6">
+          <div className="mb-10">
             <VideosDropDown
               onVideoChange={handleVideoChange}
               videosData={adaptedVideosData}

@@ -255,7 +255,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            className="text-gray-500 hover:text-gray-700 focus:outline-none cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -265,27 +265,27 @@ const VideoModal: React.FC<VideoModalProps> = ({
 
         {/* Contextual alignment explanation */}
         {originalSource && (
-          <div className="px-6 bg-gray-100 rounded-[45.60px] py-2">
-            {searchScore !== undefined && (
-              <div className="mt-1 text-md flex flex-wrap gap-x-4">
-                  {videoScore !== undefined && videoScore > 0 && (
-                  <span>Video Match: {formatScore(videoScore)}</span>
-                )}
-                {textScore !== undefined && textScore > 0 && (
-                  <span>Keyword Match: {formatScore(textScore)}</span>
-                )}
-
-              </div>
-            )}
-            <p className="text-md font-medium">
-              <span className="mr-1">This content was recommended as</span>
-              <span dangerouslySetInnerHTML={{ __html: getExplanationText() }} />
-            </p>
-
+          <div className="flex justify-center w-full mb-4">
+            <div className="bg-gray-100 rounded-[45.60px] py-2 px-6 w-full max-w-[95%]">
+              {searchScore !== undefined && (
+                <div className="mt-1 text-md flex flex-wrap gap-x-4">
+                    {videoScore !== undefined && videoScore > 0 && (
+                    <span>Video Match: {formatScore(videoScore)}</span>
+                  )}
+                  {textScore !== undefined && textScore > 0 && (
+                    <span>Keyword Match: {formatScore(textScore)}</span>
+                  )}
+                </div>
+              )}
+              <p className="text-md font-medium">
+                <span className="mr-1">This content was recommended as</span>
+                <span dangerouslySetInnerHTML={{ __html: getExplanationText() }} />
+              </p>
+            </div>
           </div>
         )}
 
-        <div className="relative w-full px-6 pt-6 pb-2 overflow-auto flex-grow">
+        <div className="relative w-full px-6 pt-2 pb-1 overflow-auto flex-grow">
         <div className="relative aspect-video rounded-[45.60px] overflow-hidden">
         {playbackSequence === 'ad' && adVideoDetail?.hls?.video_url ? (
               <ReactPlayer
@@ -326,17 +326,17 @@ const VideoModal: React.FC<VideoModalProps> = ({
 
           {/* 챕터 정보 표시 섹션 */}
           {showChapterInfo && selectedChapter !== null && chaptersData?.chapters && (
-            <div className="mt-4 mb-4 bg-gray-100 rounded-[45.60px] p-4 relative">
+            <div className="mt-4 mb-4 rounded-[45.60px] p-4 relative" style={{ backgroundColor: "#FDE3AE" }}>
               <button
                 onClick={() => setShowChapterInfo(false)}
-                className="absolute top-2 right-4 text-gray-400 hover:text-gray-700 cursor-pointer"
+                className="absolute top-2 right-4 text-gray-400 hover:text-gray-700 cursor-pointer p-2 cursor-pointer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
               <div className="flex items-center mb-2">
-                <div className="inline-block bg-gray-50 border border-gray-300 rounded-full px-2.5 py-0.5 text-xs font-medium text-gray-800 mr-2">
+                <div className="inline-block border rounded-full px-2.5 py-0.5 text-xs font-medium mr-2">
                   {formatTime(chaptersData.chapters[selectedChapter].end)}
                 </div>
                 <h4 className="text-lg font-semibold">
@@ -360,14 +360,14 @@ const VideoModal: React.FC<VideoModalProps> = ({
           )}
 
           {/* 챕터 타임라인 바 */}
-          <div className="relative w-full h-28 p-4 mt-6 rounded-md">
+          <div className="relative w-full h-28 p-4 rounded-md">
             {isChaptersLoading ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <LoadingSpinner />
               </div>
             ) : (
               <>
-                <div className="absolute w-[96%] h-1 bg-black top-1/3 left-[2%] -translate-y-1/2 z-0"></div>
+                <div className="absolute w-[96%] h-2 bg-black top-1/3 left-[2%] -translate-y-1/2 z-10"></div>
                 {chaptersData?.chapters?.map((chapter: Chapter, index: number) => {
                   // Adjust position to ensure dots stay within the visible area
                   const position = Math.max(2, Math.min(98, (chapter.end / (duration || 1)) * 96 + 2));
@@ -375,16 +375,17 @@ const VideoModal: React.FC<VideoModalProps> = ({
                   return (
                     <div
                       key={`timeline-${index}`}
-                      className={`absolute w-4 h-4 rounded-full -translate-y-1/2 -translate-x-1/2 z-10
+                      className={`absolute w-4 h-4 rounded-full -translate-y-1/2 -translate-x-1/2 z-20
                         ${selectedChapter === index
-                            ? 'bg-green-500 ring-2 ring-black'
-                            : 'ring-2 ring-black'}
+                            ? 'ring-2 ring-black'
+                            : 'bg-white ring-2 ring-black'}
                         ${playbackSequence === 'ad' || !adVideoDetail?.hls?.video_url
                             ? 'cursor-not-allowed'
                             : 'cursor-pointer hover:scale-110 transition-transform'}`}
                       style={{
                         left: `${position}%`,
-                        top: '33%'
+                        top: '33%',
+                        backgroundColor: selectedChapter === index ? '#F4A680' : 'white'
                       }}
                       onClick={() => handleChapterClick(index)}
                       title={(chapter as ChapterWithMetadata).chapter_title || `Chapter ${index + 1}`}

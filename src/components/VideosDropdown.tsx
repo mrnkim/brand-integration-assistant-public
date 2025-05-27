@@ -1,9 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { VideoData, VideosDropDownProps } from '@/types';
-import { MenuItem, Select, Skeleton, SelectChangeEvent } from '@mui/material'
-import clsx from 'clsx';
 import LoadingSpinner from './LoadingSpinner';
-
 
 const VideosDropDown: React.FC<VideosDropDownProps> = ({
   onVideoChange,
@@ -16,15 +13,14 @@ const VideosDropDown: React.FC<VideosDropDownProps> = ({
   taskId,
   footageVideoId
 }) => {
-  const ITEM_HEIGHT = 48;
-  const MENU_MAX_HEIGHT = 5 * ITEM_HEIGHT;
+  const [isOpen, setIsOpen] = useState(false);
 
-  const handleChange = (event: SelectChangeEvent<string>) => {
-    const newVideoId = event.target.value;
-    onVideoChange(newVideoId);
+  const handleChange = (videoId: string) => {
+    onVideoChange(videoId);
+    setIsOpen(false);
   };
 
-  const handleScroll = (event: React.UIEvent<HTMLUListElement>) => {
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = event.currentTarget;
     if (scrollHeight - scrollTop <= clientHeight * 1.5) {
       if (hasNextPage && !isFetchingNextPage) {
@@ -32,6 +28,12 @@ const VideosDropDown: React.FC<VideosDropDownProps> = ({
       }
     }
   };
+
+  // Find the selected video name
+  const selectedVideo = videosData?.pages.flatMap((page: { data: VideoData[] }) => page.data)
+    .find((video: VideoData) => video._id === footageVideoId);
+
+  const selectedVideoName = selectedVideo?.system_metadata?.filename || "Select a video";
 
   if (isLoading) {
     return (
@@ -42,69 +44,56 @@ const VideosDropDown: React.FC<VideosDropDownProps> = ({
   }
 
   return (
-    <div className="relative">
-      <Select
-        value={footageVideoId || ""}
-        onChange={handleChange}
+    <div className="relative w-full max-w-lg mx-auto border rounded-lg">
+      {/* Dropdown button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
         disabled={!!selectedFile || !!taskId}
-        className={clsx('h-9 w-full tablet:w-[200px]', 'pl-[1px]', 'truncate text-ellipsis')}
-        renderValue={(value) => (
-          <div className="truncate">
-            {videosData?.pages.flatMap((page: { data: VideoData[] }) => page.data).find((video: VideoData) => video._id === value)?.system_metadata?.filename || "Select a video"}
-          </div>
-        )}
-        MenuProps={{
-          PaperProps: {
-            style: {
-              maxHeight: MENU_MAX_HEIGHT,
-            },
-          },
-          MenuListProps: {
-            sx: {
-              padding: 0,
-              maxHeight: MENU_MAX_HEIGHT,
-              overflowY: 'auto',
-              overflowX: 'hidden'
-            },
-            onScroll: handleScroll
-          },
-          anchorOrigin: {
-            vertical: 'bottom',
-            horizontal: 'left',
-          },
-          transformOrigin: {
-            vertical: 'top',
-            horizontal: 'left',
-          },
-          variant: "menu"
-        }}
+        className="w-full text-left bg-gray-100 rounded-3xl py-3 px-5 font-sans text-black text-lg relative"
       >
-        {videosData?.pages.flatMap((page: { data: VideoData[] }, pageIndex: number) =>
-          page.data.map((video: VideoData) => (
-            <MenuItem
-              key={`${pageIndex}-${video._id}`}
-              value={video._id}
-              sx={{
-                paddingX: 1.5,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '100%',
-                display: 'block',
-                width: '100%'
-              }}
-            >
-              {video.system_metadata?.filename}
-            </MenuItem>
-          ))
-        )}
-        {isFetchingNextPage && (
-          <MenuItem disabled sx={{ alignItems: 'flex-start', flexDirection: 'column', paddingX: 1.5 }}>
-            <Skeleton variant="text" width={60} />
-            <Skeleton variant="text" width={180} sx={{ mt: 0.5 }} />
-          </MenuItem>
-        )}
-      </Select>
+        <div className="flex justify-between items-center">
+          <div className="truncate pr-8">
+            {selectedVideoName}
+          </div>
+          <div className="text-lg transform transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+            &#x2303;
+          </div>
+        </div>
+      </button>
+
+      {/* Dropdown content */}
+      {isOpen && (
+        <div
+          className="absolute left-0 right-0 mt-1 max-h-[40vh] overflow-y-auto bg-white border border-gray-200 rounded-xl z-50 p-2"
+          onScroll={handleScroll}
+          style={{
+            width: '100%',
+            top: '100%'
+          }}
+        >
+          {videosData?.pages.map((page: { data: VideoData[] }, pageIndex: number) => (
+            <div key={`page-${pageIndex}`} className="flex flex-col gap-1">
+              {page.data.map((video: VideoData) => (
+                <button
+                  key={`${pageIndex}-${video._id}`}
+                  className={`rounded-2xl text-left py-2 px-4 hover:bg-gray-100 last:border-0 font-sans w-full ${video._id === footageVideoId ? 'bg-gray-200' : ''}`}
+                  onClick={() => handleChange(video._id)}
+                >
+                  <div className="text-md truncate">
+                    {video.system_metadata?.filename}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ))}
+
+          {isFetchingNextPage && (
+            <div className="flex justify-center items-center p-4">
+              <LoadingSpinner size="sm" />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

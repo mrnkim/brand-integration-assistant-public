@@ -801,7 +801,7 @@ export default function AdsLibrary() {
             <div className="fixed top-0 ml-5 z-50 bg-zinc-100 w-[calc(80%-5rem)]">
               {/* Search area with solid background */}
               <div className="bg-zinc-100 -mx-4 w-full">
-                <div className="p-4">
+                <div className="p-4 mt-2">
                   <SearchBar
                     onSearch={handleSearch}
                     onClear={handleClearSearch}
