@@ -14,6 +14,9 @@
   --color-light-purple: #FBDFFF;
   --color-light-pink: #FFDFEB;
   --color-red: #e22e22;
+  --color-confidence-high: #30710e;
+  --color-confidence-medium: #846617;
+  --color-confidence-low: #1d1c1c;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);

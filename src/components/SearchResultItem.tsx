@@ -32,13 +32,13 @@ const SearchResultItem: React.FC<SearchResultItemProps> = ({
 
   // Get confidence color class based on label
   const getConfidenceColorClass = (): string => {
-    if (!confidence) return "bg-[#30710e]";
+    if (!confidence) return "bg-confidence-high";
 
     const confidenceLower = confidence.toLowerCase();
-    if (confidenceLower === "high") return "bg-[#30710e]";
-    if (confidenceLower === "medium") return "bg-[#846617]";
-    if (confidenceLower === "low") return "bg-[#1d1c1c]";
-    return "bg-[#30710e]";
+    if (confidenceLower === "high") return "bg-confidence-high";
+    if (confidenceLower === "medium") return "bg-confidence-medium";
+    if (confidenceLower === "low") return "bg-confidence-low";
+    return "bg-confidence-high";
   };
 
   return (

@@ -90,11 +90,18 @@ const Video: React.FC<EnhancedVideoProps> = ({
           </div>
 
           {/* Top section with confidence label */}
-          <div className="relative self-stretch flex-1 p-5 flex flex-col justify-start items-start gap-2 z-10">
+          <div className="relative self-stretch flex-1 p-5 flex flex-col justify-start items-start gap-2 z-10 cursor-pointer">
             {confidenceLabel && (
-              <div className={`p-1 ${confidenceColor ? `bg-${confidenceColor}` : 'bg-stone-900'} rounded inline-flex justify-start items-center gap-2`}>
-                <div className="justify-start text-zinc-100 text-xs font-normal uppercase leading-tight tracking-tight">
-                  {confidenceLabel}
+              <div className="absolute top-3 left-7 z-[1]">
+                <div className={`${
+                  confidenceColor === 'green' ? 'bg-confidence-high' :
+                  confidenceColor === 'yellow' ? 'bg-confidence-medium' :
+                  confidenceColor === 'red' ? 'bg-confidence-low' :
+                  'bg-confidence-high'
+                } px-1 rounded-sm border-1 border-white`}>
+                  <p className="text-white text-xs font-medium uppercase">
+                    {confidenceLabel}
+                  </p>
                 </div>
               </div>
             )}
@@ -103,31 +110,27 @@ const Video: React.FC<EnhancedVideoProps> = ({
           {/* Time range or duration indicator */}
           {timeRange ? (
             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1] bg-black/5 rounded">
-              <div className="bg-black/60 px-3 py-1 rounded-md">
-                <p className="text-white text-xs font-medium">
+              <div className="p-1 rounded outline outline-1 outline-zinc-100 justify-start items-center gap-2">
+                <div className="justify-start text-zinc-100 text-xs font-semibold uppercase leading-tight tracking-tight">
                   {timeRange.start} - {timeRange.end}
-                </p>
+                </div>
               </div>
             </div>
           ) : (
             !playing && (
               <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[1] bg-black/5 rounded">
-                {/* <div className="bg-black/60 px-3 py-1 rounded-md">
-                  <p className="text-white text-xs font-medium">
+                <div className="p-1 rounded outline outline-1 outline-zinc-100 justify-start items-center gap-2">
+                  <div className="justify-start text-zinc-100 text-xs font-semibold uppercase leading-tight tracking-tight">
                     {formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
-                  </p>
-                </div> */}
-                <div className="p-1 rounded outline outline-1 outline-offset-[-1px] outline-zinc-100 justify-start items-center gap-2">
-    <div className="justify-start text-zinc-100 text-xs font-semibold uppercase leading-tight tracking-tight">{formatDuration(finalVideoDetails?.system_metadata?.duration ?? 0)}
-    </div>
-</div>
+                  </div>
+                </div>
               </div>
             )
           )}
         </div>
             {showTitle && (
-              <div className="self-stretch px-2 pb-2 inline-flex justify-center items-start gap-1">
-                <div className="flex-1 justify-start text-stone-900 text-sm font-normal leading-tight">
+              <div className="self-stretch px-2 pb-2 inline-flex justify-center items-start gap-1 w-full">
+                <div className="flex-1 justify-start text-stone-900 text-sm font-normal leading-tight truncate max-w-full whitespace-nowrap overflow-hidden text-ellipsis">
                   {finalVideoDetails?.system_metadata?.filename || finalVideoDetails?.system_metadata?.video_title}
                 </div>
               </div>

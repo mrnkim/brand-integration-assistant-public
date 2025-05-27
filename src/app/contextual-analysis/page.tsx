@@ -312,11 +312,18 @@ export default function ContextualAnalysis() {
             {/* Button for contextual alignment analysis */}
             <div className="mt-6 flex justify-center">
               <button
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow-sm disabled:opacity-50"
+                className="self-stretch p-3 bg-stone-900 rounded-xl inline-flex justify-center items-center overflow-hidden w-full max-w-xs cursor-pointer"
                 disabled={!selectedVideoId || isAnalyzing}
                 onClick={handleContextualAnalysis}
               >
-                {isAnalyzing ? 'Analyzing...' : 'Contextual Alignment Analysis'}
+                <div className="justify-start text-zinc-100 text-base font-normal leading-normal tracking-tight">
+                  {isAnalyzing ? 'Analyzing...' : 'Contextual Alignment Analysis'}
+                </div>
+                {!isAnalyzing && (
+                  <div className="w-2 h-2 p-[3px] flex justify-center items-center flex-wrap content-center">
+                    <div className="flex-1 self-stretch bg-stone-900" />
+                  </div>
+                )}
               </button>
             </div>
 
@@ -324,7 +331,6 @@ export default function ContextualAnalysis() {
             {isAnalyzing && (
               <div className="flex justify-center items-center mt-10">
                 <LoadingSpinner size="md" />
-                <span className="ml-3">Finding contextually aligned content...</span>
               </div>
             )}
 

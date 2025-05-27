@@ -124,7 +124,7 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
           {allTags.map((tag, idx) => (
             <div
               key={idx}
-              className="inline-block flex-shrink-0 bg-gray-100 rounded-full px-3 py-1 text-xs whitespace-nowrap"
+              className="inline-block flex-shrink-0 bg-gray-100 border rounded-full px-3 py-1 text-xs whitespace-nowrap"
             >
               {tag}
             </div>
