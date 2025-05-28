@@ -52,15 +52,16 @@ export async function GET(
     );
   }
 
-  console.log(`Fetching video details for videoId: ${videoId}, indexId: ${indexId}, embed: ${requestEmbeddings}`);
+  console.log(`🔍 Fetching video details for videoId: ${videoId}, indexId: ${indexId}, embed: ${requestEmbeddings}`);
 
   // Base URL
   let url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
 
-  // Append correct query parameters if embeddings are requested
+  // Always include embedding query parameters if requested
   if (requestEmbeddings) {
-    // Append each embedding option as a separate parameter
-    url += `?embedding_option=visual-text&embedding_option=audio`;
+    // Include all available embedding options to ensure we get complete data
+    url += `?embedding_option=visual-text&embedding_option=audio&embedding_option=text&embedding_option=visual`;
+    console.log(`📢 Requesting all embedding options: visual-text, audio, text, visual`);
   }
 
   const options = {
@@ -72,19 +73,44 @@ export async function GET(
   };
 
   try {
-    console.log(`Making API request to: ${url}`);
+    console.log(`🌐 Making API request to: ${url}`);
     const response = await fetch(url, options);
 
     if (!response.ok) {
-      console.error(`API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ API error: ${response.status} ${response.statusText}`);
+      console.error(`❌ Error details: ${errorText}`);
+
+      // If video is not found, provide a more helpful error message
+      if (response.status === 404) {
+        console.error(`❌ Video ${videoId} not found in index ${indexId}. It might still be processing.`);
+      }
+
       return NextResponse.json(
-        { error: `Failed to fetch video data: ${response.statusText}` },
+        { error: `Failed to fetch video data: ${response.statusText}`, details: errorText },
         { status: response.status }
       );
     }
 
     // Use unknown type and a type guard for safer handling
     const videoData: unknown = await response.json();
+
+    // Debug the raw response structure
+    console.log(`✅ Received video data with keys:`, videoData ? Object.keys(videoData as object) : 'null');
+
+    if (requestEmbeddings) {
+      console.log(`📊 Embedding data present:`, 'embedding' in (videoData as any));
+      if ('embedding' in (videoData as any)) {
+        const embedding = (videoData as any).embedding;
+        console.log(`📊 Embedding structure:`, {
+          hasVideoEmbedding: !!embedding?.video_embedding,
+          hasSegments: !!embedding?.video_embedding?.segments,
+          segmentsCount: embedding?.video_embedding?.segments?.length || 0
+        });
+      } else {
+        console.warn(`⚠️ No embedding data found in response for video ${videoId}`);
+      }
+    }
 
     // Validate the received data structure
     if (!isValidVideoData(videoData)) {
@@ -118,12 +144,17 @@ export async function GET(
     // Check if the 'embedding' field exists in the response from TwelveLabs
     if ('embedding' in videoData && videoData.embedding) {
       responseData.embedding = videoData.embedding as Record<string, unknown>;
+      console.log(`✅ Successfully included embedding data in response with ${
+        (videoData.embedding as any)?.video_embedding?.segments?.length || 0
+      } segments`);
+    } else if (requestEmbeddings) {
+      console.warn(`⚠️ Embedding was requested but not found in API response!`);
     }
 
     return NextResponse.json(responseData);
 
   } catch (e) {
-    console.error('Error fetching video details:', e);
+    console.error('❌ Error fetching video details:', e);
     return NextResponse.json(
       { error: `Failed to fetch or process video data: ${e instanceof Error ? e.message : 'Unknown error'}` },
       { status: 500 }

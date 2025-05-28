@@ -12,9 +12,29 @@ function sanitizeVectorId(str: string) {
 
 export async function POST(request: Request) {
   try {
-    const { videoId, videoName, embedding, indexId } = await request.json();
+    // Log Pinecone environment variables without revealing full values
+    const pineconeApiKey = process.env.PINECONE_API_KEY || '';
+    const pineconeIndex = process.env.PINECONE_INDEX || '';
+    console.log(`🔑 PINECONE CONFIG CHECK:
+- API Key present: ${pineconeApiKey.length > 0 ? 'Yes' : 'No'} (${pineconeApiKey.slice(0, 10)}...)
+- Index name: ${pineconeIndex || 'NOT SET'}`);
 
-    console.log(`🚀 FILENAME DEBUG - Request received with:
+    // Parse request body
+    let requestBody;
+    try {
+      requestBody = await request.json();
+      console.log(`📥 Received request body`);
+    } catch (parseError) {
+      console.error(`❌ Failed to parse request body:`, parseError);
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const { videoId, videoName, embedding, indexId } = requestBody;
+
+    console.log(`🚀 VECTOR STORE - Request received with:
 - videoId: ${videoId}
 - videoName: ${videoName || 'not provided'}
 - indexId: ${indexId}
@@ -22,6 +42,7 @@ export async function POST(request: Request) {
 - system_metadata available: ${Boolean(embedding?.system_metadata)}`);
 
     if (!videoId || !embedding) {
+      console.error(`❌ Missing required parameters: videoId or embedding`);
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
@@ -30,6 +51,8 @@ export async function POST(request: Request) {
 
     // First check if embedding has valid segments
     if (!embedding.video_embedding || !embedding.video_embedding.segments || embedding.video_embedding.segments.length === 0) {
+      console.error(`❌ Invalid embedding structure - no segments found`);
+      console.log(`📊 Embedding structure:`, JSON.stringify(embedding, null, 2).slice(0, 500) + '...');
       return NextResponse.json(
         { error: 'Invalid embedding structure - missing segments' },
         { status: 400 }
@@ -159,7 +182,11 @@ export async function POST(request: Request) {
 
       // Log first vector for debugging
       if (index === 0) {
-        console.log(`🚀 FILENAME DEBUG - First vector: ${JSON.stringify(vector, null, 2)}`);
+        console.log(`🚀 FILENAME DEBUG - First vector: ${JSON.stringify({
+          id: vector.id,
+          metadata: vector.metadata,
+          valuesDimension: vector.values.length
+        }, null, 2)}`);
       }
 
       return vector;
@@ -168,41 +195,60 @@ export async function POST(request: Request) {
     console.log(`🚀 FILENAME DEBUG - Processing ${vectors.length} vectors for video ${videoId}`);
 
     try {
-      console.log('Initializing Pinecone client...');
+      console.log('🔄 Initializing Pinecone client...');
       const index = getPineconeIndex();
 
       // Upload vectors in batches
       const batchSize = 100;
       const totalBatches = Math.ceil(vectors.length / batchSize);
 
-      console.log(`🚀 FILENAME DEBUG - Starting vector upload...`);
+      console.log(`🚀 FILENAME DEBUG - Starting vector upload with ${totalBatches} batches...`);
 
       for (let i = 0; i < vectors.length; i += batchSize) {
         const batch = vectors.slice(i, i + batchSize);
         const batchNumber = Math.floor(i / batchSize) + 1;
 
-        console.log(`Upserting batch ${batchNumber}/${totalBatches} with ${batch.length} vectors`);
+        console.log(`📤 Upserting batch ${batchNumber}/${totalBatches} with ${batch.length} vectors`);
 
         try {
+          // Test Pinecone connection before upserting
+          try {
+            console.log(`🧪 Testing Pinecone connection before batch ${batchNumber}...`);
+            const describeIndexStats = await index.describeIndexStats();
+            console.log(`✅ Pinecone connection test successful. Index stats:`,
+              JSON.stringify(describeIndexStats).slice(0, 200) + '...');
+          } catch (statsError) {
+            console.error(`❌ Pinecone connection test failed:`, statsError);
+            throw new Error(`Failed to connect to Pinecone: ${statsError instanceof Error ? statsError.message : 'Unknown error'}`);
+          }
+
+          // Perform the actual upsert
           await index.upsert(batch);
+          console.log(`✅ Successfully upserted batch ${batchNumber}/${totalBatches}`);
         } catch (error) {
-          console.error(`Error in batch ${batchNumber}:`, error);
+          console.error(`❌ Error in batch ${batchNumber}:`, error);
           throw error;
         }
       }
 
-      console.log(`🚀 FILENAME DEBUG - Successfully uploaded all vectors`);
+      console.log(`✅ Successfully uploaded all ${vectors.length} vectors for video ${videoId}`);
 
       return NextResponse.json({
         success: true,
         message: `Successfully stored ${vectors.length} vectors for video ${videoId}`
       });
     } catch (error) {
-      console.error('Error in Pinecone operation:', error);
-      throw error;
+      console.error('❌ Error in Pinecone operation:', error);
+      return NextResponse.json(
+        {
+          error: 'Failed to store embeddings in Pinecone',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        },
+        { status: 500 }
+      );
     }
   } catch (error) {
-    console.error('Error storing embeddings:', error);
+    console.error('❌ Error storing embeddings:', error);
     return NextResponse.json(
       {
         error: 'Failed to store embeddings',

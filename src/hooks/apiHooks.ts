@@ -50,6 +50,38 @@ export interface VideoDetailResponse {
   user_metadata?: Record<string, string>;
 }
 
+// 비디오 상세 정보 타입 정의 - 임베딩 포함 버전
+interface VideoDetailWithEmbedding {
+  _id: string;
+  index_id?: string;
+  hls?: {
+    video_url?: string;
+    thumbnail_urls?: string[];
+    status?: string;
+    updated_at?: string;
+  };
+  system_metadata?: {
+    filename?: string;
+    video_title?: string;
+    duration?: number;
+    fps?: number;
+    height?: number;
+    width?: number;
+    size?: number;
+  };
+  user_metadata?: Record<string, string>;
+  embedding: {
+    video_embedding: {
+      segments: Array<{
+        start_offset_sec: number;
+        end_offset_sec: number;
+        embedding_scope: string;
+        float: number[];
+      }>;
+    };
+  };
+}
+
 // 비디오 상세 정보 가져오기
 export const fetchVideoDetails = async (videoId: string, indexId: string, embed: boolean = false) => {
   try {
@@ -155,15 +187,93 @@ export const checkVectorExists = async (videoId: string, indexId?: string): Prom
 
 export const getAndStoreEmbeddings = async (indexId: string, videoId: string) => {
   try {
-    console.log(`Getting embeddings for video ${videoId} in index ${indexId}`);
-    const videoDetails = await fetchVideoDetails(videoId, indexId, true);
+    console.log(`🔄 Getting embeddings for video ${videoId} in index ${indexId}`);
+    console.log(`🧪 Environment check: Pinecone API key exists: ${!!process.env.PINECONE_API_KEY}, Pinecone index: ${process.env.PINECONE_INDEX}`);
+
+    // First check if we already have embeddings stored for this video
+    try {
+      const existsResponse = await fetch(`/api/vectors/exists?video_id=${videoId}&index_id=${indexId}`);
+      if (existsResponse.ok) {
+        const existsData = await existsResponse.json();
+        if (existsData.exists) {
+          console.log(`✅ Embeddings already exist for video ${videoId}, skipping generation`);
+          return { success: true, message: 'Embeddings already exist' };
+        }
+      }
+    } catch (checkError) {
+      console.warn(`⚠️ Error checking if embeddings exist, will proceed with generation:`, checkError);
+    }
+
+    // Add delay to ensure video data is ready at Twelve Labs
+    console.log(`⏱️ Waiting for video data to be ready...`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Fetch video details with embedding
+    console.log(`🔍 Fetching video details with embedding for ${videoId}`);
+    const response = await fetch(`/api/videos/${videoId}?indexId=${indexId}&embed=true`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Failed to fetch video details with embedding: ${errorText}`);
+
+      // If we get a 404 or 400, the video might not be fully processed yet, wait longer
+      if (response.status === 404 || response.status === 400) {
+        console.log(`⚠️ Video ${videoId} may not be fully processed yet, will retry after delay`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+
+        // Try again after waiting
+        console.log(`🔄 Retrying fetch after delay...`);
+        const retryResponse = await fetch(`/api/videos/${videoId}?indexId=${indexId}&embed=true`);
+        if (!retryResponse.ok) {
+          const retryErrorText = await retryResponse.text();
+          console.error(`❌ Retry failed to fetch video details: ${retryErrorText}`);
+          return { success: false, message: `API error on retry: ${retryResponse.status} - ${retryErrorText}` };
+        }
+
+        const videoDetails = await retryResponse.json();
+        if (!videoDetails || !videoDetails.embedding) {
+          console.error(`❌ No embedding data found for video ${videoId} after retry`);
+          return { success: false, message: 'No embedding data found after retry' };
+        }
+
+        // Continue with the retry response data
+        return await processAndStoreEmbedding(videoDetails, videoId, indexId);
+      }
+
+      return { success: false, message: `API error: ${response.status} - ${errorText}` };
+    }
+
+    const videoDetails = await response.json();
+
+    // Debugging: Check what we got back from the API
+    console.log(`ℹ️ Video details structure:`, {
+      hasEmbedding: !!videoDetails.embedding,
+      embeddingKeys: videoDetails.embedding ? Object.keys(videoDetails.embedding) : [],
+      hasVideoEmbedding: !!(videoDetails.embedding && videoDetails.embedding.video_embedding),
+      hasSegments: !!(videoDetails.embedding && videoDetails.embedding.video_embedding && videoDetails.embedding.video_embedding.segments),
+      segmentsLength: videoDetails.embedding && videoDetails.embedding.video_embedding && videoDetails.embedding.video_embedding.segments
+        ? videoDetails.embedding.video_embedding.segments.length : 0
+    });
 
     // Check specifically if the embedding property exists and is not null/undefined
     if (!videoDetails || !videoDetails.embedding) {
-      console.error(`No embedding data found for video ${videoId}`);
+      console.error(`❌ No embedding data found for video ${videoId}`);
       return { success: false, message: 'No embedding data found' };
     }
 
+    return await processAndStoreEmbedding(videoDetails, videoId, indexId);
+  } catch (error) {
+    console.error(`❌ Error in getAndStoreEmbeddings for video ${videoId}:`, error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+// Helper function to process and store embedding data
+const processAndStoreEmbedding = async (videoDetails: VideoDetailWithEmbedding, videoId: string, indexId: string) => {
+  try {
     const embedding = videoDetails.embedding;
 
     // Check if the embedding has segments
@@ -171,6 +281,8 @@ export const getAndStoreEmbeddings = async (indexId: string, videoId: string) =>
       console.error(`Invalid embedding structure for video ${videoId} - missing segments`);
       return { success: false, message: 'Invalid embedding structure - missing segments' };
     }
+
+    console.log(`Embedding found for video ${videoId} with ${embedding.video_embedding.segments.length} segments`);
 
     // Get proper filename and title from system_metadata
     let filename = '';
@@ -202,9 +314,26 @@ export const getAndStoreEmbeddings = async (indexId: string, videoId: string) =>
     console.log(`Storing embedding for video ${videoId}`);
     console.log(`- Title: ${videoTitle}`);
     console.log(`- Filename: ${filename}`);
+    console.log(`- Segments: ${embedding.video_embedding.segments.length}`);
+
+    // Test Pinecone connection before attempting to store
+    try {
+      const pineconeTestResponse = await fetch('/api/vectors/test-connection', {
+        method: 'GET'
+      });
+
+      if (!pineconeTestResponse.ok) {
+        console.error(`❌ Pinecone connection test failed. Status: ${pineconeTestResponse.status}`);
+        return { success: false, message: 'Pinecone connection test failed' };
+      }
+
+      console.log(`✅ Pinecone connection test passed`);
+    } catch (connectionError) {
+      console.error(`❌ Error testing Pinecone connection:`, connectionError);
+    }
 
     // Store the embeddings in Pinecone
-    const response = await fetch('/api/vectors/store', {
+    const storeResponse = await fetch('/api/vectors/store', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -225,17 +354,17 @@ export const getAndStoreEmbeddings = async (indexId: string, videoId: string) =>
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to store embedding. Status: ${response.status}. Error: ${errorText}`);
-      return { success: false, message: `Failed to store embedding: ${response.statusText}` };
+    if (!storeResponse.ok) {
+      const errorText = await storeResponse.text();
+      console.error(`Failed to store embedding. Status: ${storeResponse.status}. Error: ${errorText}`);
+      return { success: false, message: `Failed to store embedding: ${storeResponse.statusText}` };
     }
 
-    const result = await response.json();
-    console.log(`Successfully stored embeddings for video ${videoId}`);
+    const result = await storeResponse.json();
+    console.log(`Successfully stored embeddings for video ${videoId} in Pinecone`);
     return { success: true, ...result };
   } catch (error) {
-    console.error(`Error in getAndStoreEmbeddings for video ${videoId}:`, error);
+    console.error(`Error in processAndStoreEmbedding for video ${videoId}:`, error);
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -906,9 +1035,29 @@ export const fetchIndexingTasks = async (indexId: string): Promise<IndexingTask[
     }
 
     const data = await response.json();
+
+    // Pre-load thumbnails for completed videos to speed up display
+    const completedTasks = (data.tasks || []).filter((task: IndexingTask) => task.status === 'ready');
+    if (completedTasks.length > 0) {
+      console.log(`Preloading thumbnails for ${completedTasks.length} completed videos`);
+      preloadThumbnails(completedTasks);
+    }
+
     return data.tasks || [];
   } catch (error) {
     console.error('Error fetching indexing tasks:', error);
     return [];
   }
+};
+
+// Helper function to preload thumbnails for faster display
+const preloadThumbnails = (tasks: IndexingTask[]) => {
+  tasks.forEach(task => {
+    if (task.hls?.thumbnail_urls && task.hls.thumbnail_urls.length > 0) {
+      // Create a new image element to preload the thumbnail
+      const img = new Image();
+      img.src = task.hls.thumbnail_urls[0];
+      // No need to append to DOM, just setting the src will trigger the preload
+    }
+  });
 };

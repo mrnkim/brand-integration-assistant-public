@@ -123,9 +123,11 @@ export default function AdsLibrary() {
     duration?: string;
   }[]>([]);
 
-  const { data: indexData } = useQuery({
+  const { data: indexData, refetch: refetchIndex } = useQuery({
     queryKey: ['index', adsIndexId],
     queryFn: () => fetchIndex(adsIndexId),
+    staleTime: 0, // Always get fresh data
+    refetchInterval: 5000, // Refetch every 5 seconds to keep count updated
   });
 
   // Filter states
@@ -829,6 +831,8 @@ export default function AdsLibrary() {
       const tasks = await fetchIndexingTasks(adsIndexId);
       if (tasks && tasks.length > 0) {
         console.log('Recent indexing tasks:', tasks);
+
+        // Filter for videos still in indexing (not ready)
         const newIndexingItems = tasks
           .filter((task: IndexingTask) => task.status !== 'ready')
           .map((task: IndexingTask) => ({
@@ -840,11 +844,36 @@ export default function AdsLibrary() {
           }));
 
         setRecentUploads(newIndexingItems);
+
+        // If any video just completed indexing, trigger a refetch of all videos
+        const justCompleted = tasks.filter((task: IndexingTask) => task.status === 'ready');
+        if (justCompleted.length > 0) {
+          console.log(`${justCompleted.length} videos just completed indexing, refreshing all videos`);
+
+          // Get any video IDs that were previously indexing but now are complete
+          const completedVideoIds = justCompleted.map(task => task.video_id).filter(Boolean);
+
+          // Force immediate refresh if we have videos that just completed
+          if (completedVideoIds.length > 0 && refetch) {
+            refetch();
+
+            // Also update any existing items in adItems to show they're no longer indexing
+            setAdItems(prev => prev.map(item => {
+              if (completedVideoIds.includes(item.id)) {
+                return {
+                  ...item,
+                  isIndexing: false
+                };
+              }
+              return item;
+            }));
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching indexing tasks:', error);
     }
-  }, [adsIndexId]);
+  }, [adsIndexId, refetch]);
 
   // Format duration in seconds to MM:SS format
   const formatDuration = (seconds: number): string => {
@@ -860,10 +889,12 @@ export default function AdsLibrary() {
     // Poll for updates every 10 seconds to check indexing status
     const intervalId = setInterval(() => {
       fetchRecentTasks();
+      // Also refetch index data to update video count
+      refetchIndex();
     }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [fetchRecentTasks]);
+  }, [fetchRecentTasks, refetchIndex]);
 
   // Combine indexing videos with regular videos for display
   const combinedItems = useMemo(() => {
@@ -898,6 +929,49 @@ export default function AdsLibrary() {
     }
     return combinedItems;
   }, [isFiltering, filteredItems, combinedItems]);
+
+  // Add this helper function to the component
+  function getIndexingStatusText(status?: string): string {
+    if (!status || status === 'unknown') {
+      return 'Starting up indexing...';
+    }
+
+    switch (status.toLowerCase()) {
+      case 'validating':
+        return 'Validating video...';
+      case 'pending':
+        return 'Pending processing...';
+      case 'queued':
+        return 'Queued for indexing...';
+      case 'indexing':
+        return 'Indexing in progress...';
+      case 'failed':
+        return 'Indexing failed';
+      default:
+        return `${status.charAt(0).toUpperCase() + status.slice(1)}...`;
+    }
+  }
+
+  // Total video count calculation based on different sources
+  const totalVideoCount = useMemo(() => {
+    // If we're filtering, use the filtered count
+    if (isFiltering) {
+      return filteredItems.length;
+    }
+
+    // If we have index data, use that count
+    if (indexData?.video_count) {
+      return indexData.video_count;
+    }
+
+    // Fallback to the count of loaded videos
+    if (adItems.length > 0) {
+      return adItems.length;
+    }
+
+    // Otherwise use 0 as default
+    return 0;
+  }, [isFiltering, filteredItems.length, indexData?.video_count, adItems.length]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -966,7 +1040,7 @@ export default function AdsLibrary() {
                         )}
                       </div>
                       <div className="text-sm">
-                        {isFiltering ? filteredItems.length : indexData?.video_count ? indexData?.video_count : <LoadingSpinner />} Videos
+                        {isFiltering ? filteredItems.length : totalVideoCount} Videos
                         {processingMetadata && videosInProcessing.length > 0 && (
                           <span className="ml-2 text-blue-500 flex items-center">
                             <span className="mr-2">Processing metadata... ({videosInProcessing.length} Videos)</span>
@@ -1129,7 +1203,7 @@ export default function AdsLibrary() {
                                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                                   </div>
                                   <div className="text-white text-sm font-medium text-center">
-                                    Starting up indexing
+                                    {getIndexingStatusText(item.indexingStatus)}
                                   </div>
                                 </div>
                               </div>
@@ -1141,11 +1215,15 @@ export default function AdsLibrary() {
                             {COLUMNS.slice(1).map(column => (
                               <div
                                 key={`${item.id}-${column.id}`}
-                                className="flex-shrink-0 text-center"
+                                className="flex-shrink-0 text-center flex items-center justify-center"
                                 style={{ width: column.width }}
                               >
                                 {column.id === 'video' ? null : (
-                                  <div className="text-gray-400 text-sm italic">Indexing...</div>
+                                  <div className="flex items-center justify-center">
+                                    <div className="w-5 h-5">
+                                      <LoadingSpinner />
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             ))}
