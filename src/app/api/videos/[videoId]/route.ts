@@ -59,9 +59,9 @@ export async function GET(
 
   // Always include embedding query parameters if requested
   if (requestEmbeddings) {
-    // Include all available embedding options to ensure we get complete data
-    url += `?embedding_option=visual-text&embedding_option=audio&embedding_option=text&embedding_option=visual`;
-    console.log(`📢 Requesting all embedding options: visual-text, audio, text, visual`);
+    // Include only supported embedding options
+    url += `?embedding_option=visual-text&embedding_option=audio`;
+    console.log(`📢 Requesting supported embedding options: visual-text, audio`);
   }
 
   const options = {

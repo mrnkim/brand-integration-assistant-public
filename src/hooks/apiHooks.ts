@@ -1,4 +1,5 @@
 import { EmbeddingResponse, IndexResponse, PaginatedResponse } from '@/types/index';
+import { VideoData } from '@/types';
 
 export const fetchIndex = async (indexId: string): Promise<IndexResponse> => {
   const response = await fetch(`/api/indexes/${indexId}`);
@@ -1060,4 +1061,127 @@ const preloadThumbnails = (tasks: IndexingTask[]) => {
       // No need to append to DOM, just setting the src will trigger the preload
     }
   });
+};
+
+// Function to check and ensure embeddings exist for videos
+export interface EmbeddingCheckResult {
+  success: boolean;
+  message: string;
+  adEmbeddingExists: boolean;
+  contentEmbeddingsExist: boolean;
+  processedCount: number;
+  totalCount: number;
+}
+
+// Check and ensure embeddings for both ad and content videos
+export const checkAndEnsureEmbeddings = async (
+  adVideoId: string,
+  adIndexId: string,
+  contentIndexId: string,
+  contentVideos?: VideoData[]
+): Promise<EmbeddingCheckResult> => {
+  try {
+    console.log(`🔄 Checking embeddings for ad video ${adVideoId} and content videos`);
+
+    // Start with initial result state
+    const result: EmbeddingCheckResult = {
+      success: false,
+      message: "Processing embeddings...",
+      adEmbeddingExists: false,
+      contentEmbeddingsExist: false,
+      processedCount: 0,
+      totalCount: contentVideos ? contentVideos.length + 1 : 1 // +1 for the ad video
+    };
+
+    // Step 1: Check if ad video embedding exists
+    console.log(`🔍 Checking if ad video ${adVideoId} embedding exists...`);
+    const adEmbeddingExists = await checkVectorExists(adVideoId, adIndexId);
+    result.adEmbeddingExists = adEmbeddingExists;
+
+    // Step 2: If ad embedding doesn't exist, generate and store it
+    if (!adEmbeddingExists) {
+      console.log(`⚠️ Ad video ${adVideoId} embedding does not exist, generating...`);
+      const adEmbeddingResult = await getAndStoreEmbeddings(adIndexId, adVideoId);
+
+      if (!adEmbeddingResult.success) {
+        console.error(`❌ Failed to generate ad video embedding: ${adEmbeddingResult.message}`);
+        return {
+          ...result,
+          success: false,
+          message: `Failed to generate ad video embedding: ${adEmbeddingResult.message}`
+        };
+      }
+
+      console.log(`✅ Successfully generated ad video embedding`);
+      result.adEmbeddingExists = true;
+    } else {
+      console.log(`✅ Ad video ${adVideoId} embedding already exists`);
+    }
+
+    result.processedCount += 1;
+
+    // Step 3: If content videos are provided, check and generate their embeddings if needed
+    if (contentVideos && contentVideos.length > 0) {
+      console.log(`🔍 Checking ${contentVideos.length} content videos for embeddings...`);
+
+      // Track content videos with missing embeddings
+      const missingEmbeddings: string[] = [];
+      const existingEmbeddings: string[] = [];
+
+      // First check which content videos need embeddings
+      for (const video of contentVideos) {
+        const videoId = video._id;
+        const hasEmbedding = await checkVectorExists(videoId, contentIndexId);
+
+        if (hasEmbedding) {
+          existingEmbeddings.push(videoId);
+        } else {
+          missingEmbeddings.push(videoId);
+        }
+      }
+
+      console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
+      console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
+
+      // Generate embeddings for videos that need them
+      if (missingEmbeddings.length > 0) {
+        for (const videoId of missingEmbeddings) {
+          console.log(`🔄 Generating embedding for content video ${videoId}...`);
+          const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
+
+          if (embedResult.success) {
+            console.log(`✅ Successfully generated embedding for content video ${videoId}`);
+          } else {
+            console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
+          }
+
+          result.processedCount += 1;
+        }
+      }
+
+      // Update result with content embedding status
+      result.contentEmbeddingsExist = missingEmbeddings.length === 0 || result.processedCount >= result.totalCount;
+    } else {
+      // If no content videos provided, mark as complete
+      result.contentEmbeddingsExist = true;
+    }
+
+    // Final success determination
+    result.success = result.adEmbeddingExists && result.contentEmbeddingsExist;
+    result.message = result.success
+      ? "All embeddings successfully processed"
+      : `Processed ${result.processedCount}/${result.totalCount} videos`;
+
+    return result;
+  } catch (error) {
+    console.error(`❌ Error in checkAndEnsureEmbeddings:`, error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+      adEmbeddingExists: false,
+      contentEmbeddingsExist: false,
+      processedCount: 0,
+      totalCount: contentVideos ? contentVideos.length + 1 : 1
+    };
+  }
 };

@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { fetchVideos, textToVideoEmbeddingSearch, videoToVideoEmbeddingSearch, EmbeddingSearchResult } from '@/hooks/apiHooks';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchVideos,
+  textToVideoEmbeddingSearch,
+  videoToVideoEmbeddingSearch,
+  EmbeddingSearchResult,
+  checkAndEnsureEmbeddings
+} from '@/hooks/apiHooks';
 import VideosDropDown from '@/components/VideosDropdown';
 import Video from '@/components/Video';
 import SimilarVideoResults from '@/components/SimilarVideoResults';
@@ -34,9 +40,33 @@ export default function ContextualAnalysis() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // New states for tracking embedding loading
+  const [isLoadingEmbeddings, setIsLoadingEmbeddings] = useState(false);
+  const [contentVideos, setContentVideos] = useState<VideoData[]>([]);
+  const [embeddingsReady, setEmbeddingsReady] = useState(false);
+
   const { setSelectedAdId } = useGlobalState();
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
+
+  // Add Query Client for cache operations
+  const queryClient = useQueryClient();
+
+  // Query to cache embedding check results
+  useQuery({
+    queryKey: ['embeddingStatus', selectedVideoId],
+    queryFn: async () => {
+      // This query doesn't actually fetch data, it just stores the status
+      return { checked: false, ready: false };
+    },
+    // Don't refetch this query automatically - we'll manage it manually
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: Infinity,
+    enabled: !!selectedVideoId,
+    // Initialize with a default value to prevent undefined issues
+    initialData: { checked: false, ready: false },
+  });
 
   const {
     data: videosData,
@@ -56,13 +86,32 @@ export default function ContextualAnalysis() {
     enabled: !!adsIndexId,
   });
 
+  // Fetch content videos when component mounts
+  useEffect(() => {
+    async function fetchContentVideos() {
+      if (!contentIndexId) return;
+
+      try {
+        // We'll just fetch the first page to get some content videos
+        const contentResponse = await fetchVideos(1, contentIndexId);
+        if (contentResponse && contentResponse.data) {
+          setContentVideos(contentResponse.data);
+          console.log(`📚 Loaded ${contentResponse.data.length} content videos`);
+        }
+      } catch (error) {
+        console.error("Error fetching content videos:", error);
+      }
+    }
+
+    fetchContentVideos();
+  }, [contentIndexId]);
 
   // Close modal when unmounting
   useEffect(() => {
     console.log("🚀 > ContextualAnalysis > adaptedVideosData=", adaptedVideosData)
     return () => {
       setIsModalOpen(false);
-      setIsPlaying(false);
+      setIsPlaying(false); // Keep the background video paused
     };
   }, []);
 
@@ -79,7 +128,40 @@ export default function ContextualAnalysis() {
     }
   }, [videosData]);
 
-  const handleVideoChange = (videoId: string) => {
+  // Automatically check embeddings whenever a video is selected (including auto-selection)
+  useEffect(() => {
+    if (selectedVideoId && !isLoadingEmbeddings) {
+      // Check if this video has already been processed by checking the cache
+      const cachedStatus = queryClient.getQueryData(['embeddingStatus', selectedVideoId]) as
+        { checked: boolean, ready: boolean } | undefined;
+
+      if (!cachedStatus?.checked) {
+        console.log(`Auto-triggering embedding check for video ${selectedVideoId} (not previously checked)`);
+
+        // Set loading state
+        setIsLoadingEmbeddings(true);
+
+        // Start embedding check process
+        ensureEmbeddings().then(success => {
+          // Cache the result so we don't check this video again
+          queryClient.setQueryData(['embeddingStatus', selectedVideoId], {
+            checked: true,
+            ready: success
+          });
+
+          // Update UI state
+          setEmbeddingsReady(success);
+          setIsLoadingEmbeddings(false);
+        });
+      } else {
+        console.log(`Video ${selectedVideoId} already checked for embeddings, status: ${cachedStatus.ready ? 'ready' : 'not ready'}`);
+        // Update UI to match cached state
+        setEmbeddingsReady(cachedStatus.ready);
+      }
+    }
+  }, [selectedVideoId, isLoadingEmbeddings, queryClient]);
+
+  const handleVideoChange = async (videoId: string) => {
     setSelectedVideoId(videoId);
     const allVideos = videosData?.pages.flatMap((page: PaginatedResponse) => page.data) || [];
     const video = allVideos.find((v: VideoData) => v._id === videoId);
@@ -90,11 +172,48 @@ export default function ContextualAnalysis() {
     setSelectedAdId(videoId);
   };
 
+  // Function to check and ensure embeddings exist
+  const ensureEmbeddings = async () => {
+    if (!selectedVideoId) return false;
+
+    try {
+      const result = await checkAndEnsureEmbeddings(
+        selectedVideoId,
+        adsIndexId,
+        contentIndexId,
+        contentVideos
+      );
+
+      return result.success;
+    } catch (error) {
+      console.error("Error ensuring embeddings:", error);
+      return false;
+    }
+  };
+
   const handleContextualAnalysis = async () => {
     if (!selectedVideoId) return;
 
     try {
       setIsAnalyzing(true);
+
+      // 임베딩이 아직 준비되지 않았거나 확인 중이라면 준비
+      if (!embeddingsReady && !isLoadingEmbeddings) {
+        console.log(`Checking embeddings before running contextual alignment analysis`);
+
+        const embeddingsExist = await ensureEmbeddings();
+        if (!embeddingsExist) {
+          console.error("Failed to ensure embeddings exist, cannot run analysis");
+          setIsAnalyzing(false);
+          return;
+        }
+      } else if (isLoadingEmbeddings) {
+        // 이미 로딩 중이라면 완료될 때까지 대기
+        console.log("Embeddings are already being loaded, waiting...");
+        setIsAnalyzing(false);
+        return;
+      }
+
       console.log(`Running contextual alignment analysis for video ${selectedVideoId}`);
 
       // Clear previous results
@@ -312,14 +431,43 @@ export default function ContextualAnalysis() {
             {/* Button for contextual alignment analysis */}
             <div className="mt-6 flex justify-center">
               <button
-                className="self-stretch p-3 bg-stone-900 rounded-xl inline-flex justify-center items-center overflow-hidden w-full max-w-xs cursor-pointer"
-                disabled={!selectedVideoId || isAnalyzing}
+                className={`self-stretch p-3 cursor-pointer ${
+                  isLoadingEmbeddings
+                    ? 'bg-gray-500'
+                    : embeddingsReady
+                      ? isAnalyzing
+                        ? 'bg-gray-500'
+                        : 'bg-black'
+                      : isAnalyzing
+                        ? 'bg-gray-500'
+                        : 'bg-stone-900 hover:bg-stone-800'
+                } rounded-xl inline-flex justify-center items-center overflow-hidden w-full max-w-xs`}
+                disabled={!selectedVideoId || isLoadingEmbeddings || isAnalyzing}
                 onClick={handleContextualAnalysis}
               >
-                <div className="justify-start text-zinc-100 text-base font-normal leading-normal tracking-tight">
-                  {isAnalyzing ? 'Analyzing...' : 'Contextual Alignment Analysis'}
+                {(isLoadingEmbeddings || isAnalyzing) && (
+                  <div className="mr-3">
+                    <LoadingSpinner size="sm" />
+                  </div>
+                )}
+                <div className={`justify-start ${
+                  isLoadingEmbeddings
+                    ? ''
+                    : isAnalyzing
+                      ? 'text-black'
+                      : 'text-white'
+                } text-base font-normal leading-normal tracking-tight`}>
+                  {isLoadingEmbeddings
+                    ? `Checking/Preparing Embeddings`
+                    : embeddingsReady
+                      ? isAnalyzing
+                        ? 'Running Contextual Analysis'
+                        : 'Run Contextual Analysis'
+                      : isAnalyzing
+                        ? 'Running Contextual Analysis'
+                        : 'Contextual Alignment Analysis'}
                 </div>
-                {!isAnalyzing && (
+                {!isLoadingEmbeddings && !isAnalyzing && (
                   <div className="w-2 h-2 p-[3px] flex justify-center items-center flex-wrap content-center">
                     <div className="flex-1 self-stretch bg-stone-900" />
                   </div>
@@ -327,15 +475,17 @@ export default function ContextualAnalysis() {
               </button>
             </div>
 
-            {/* Display loading spinner when analyzing */}
-            {isAnalyzing && (
-              <div className="flex justify-center items-center mt-10">
-                <LoadingSpinner size="md" />
+            {/* Remove the separate loading spinner section since it's now in the button */}
+            {isAnalyzing && !isLoadingEmbeddings && similarResults.length === 0 && (
+              <div className="flex flex-col justify-center items-center mt-10">
+                <p className="text-gray-600">
+                  Searching for contextually relevant content...
+                </p>
               </div>
             )}
 
             {/* Display analysis results as videos */}
-            {similarResults.length > 0 && !isAnalyzing && (
+            {similarResults.length > 0 && !isAnalyzing && !isLoadingEmbeddings && (
               <SimilarVideoResults
                 results={similarResults}
                 indexId={contentIndexId}
