@@ -872,3 +872,43 @@ export const generateChapters = async (videoId: string): Promise<ChaptersData> =
     throw error;
   }
 };
+
+// Fetch recent indexing tasks
+export interface IndexingTask {
+  _id: string;
+  created_at?: string;
+  updated_at?: string;
+  index_id?: string;
+  status?: string;
+  video_id?: string;
+  hls?: {
+    thumbnail_urls?: string[];
+    video_url?: string;
+    status?: string;
+  };
+  system_metadata?: {
+    filename?: string;
+    video_title?: string;
+    duration?: number;
+    width?: number;
+    height?: number;
+  };
+}
+
+export const fetchIndexingTasks = async (indexId: string): Promise<IndexingTask[]> => {
+  try {
+    // Fetch tasks from our API proxy to Twelve Labs
+    const response = await fetch(`/api/videos/indexing-tasks?indexId=${indexId}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch indexing tasks: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.tasks || [];
+  } catch (error) {
+    console.error('Error fetching indexing tasks:', error);
+    return [];
+  }
+};

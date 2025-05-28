@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useInfiniteQuery, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
 import Sidebar from '@/components/Sidebar';
@@ -10,6 +10,7 @@ import ActionButtons from '@/components/ActionButtons';
 // import FilterTabs from '@/components/FilterTabs';
 import ContentItem from '@/components/ContentItem';
 import SearchResults from '@/components/SearchResults';
+import VideoUploader from '@/components/VideoUploader';
 // 타입 충돌을 해결하기 위해 로컬 타입 정의만 사용
 // import { ContentItem as AdItemType, VideoData, Tag } from '@/types';
 import {
@@ -19,7 +20,9 @@ import {
   parseHashtags,
   updateVideoMetadata,
   convertMetadataToTags,
-  fetchVideoDetails
+  fetchVideoDetails,
+  fetchIndexingTasks,
+  IndexingTask
 } from '@/hooks/apiHooks';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -74,6 +77,9 @@ interface AdItemType {
     demo_age?: string;
     demo_gender?: string;
   };
+  isIndexing?: boolean;
+  indexingStatus?: string;
+  taskId?: string;
 }
 
 interface VideoData {
@@ -106,6 +112,16 @@ export default function AdsLibrary() {
   // State for filter menu
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string | null>(null);
+  // State for video uploader
+  const [showUploader, setShowUploader] = useState(false);
+  const [recentUploads, setRecentUploads] = useState<{
+    id: string;
+    taskId: string;
+    title: string;
+    status: string;
+    thumbnailUrl?: string;
+    duration?: string;
+  }[]>([]);
 
   const { data: indexData } = useQuery({
     queryKey: ['index', adsIndexId],
@@ -761,7 +777,19 @@ export default function AdsLibrary() {
 
   const handleUpload = () => {
     console.log('Upload clicked');
-    // Implement upload functionality
+    setShowUploader(true);
+  };
+
+  const handleUploadComplete = () => {
+    // Refresh video list after upload is complete
+    console.log('Upload complete, refreshing videos');
+    fetchRecentTasks(); // Fetch the recently uploaded videos' status
+
+    if (refetch) {
+      refetch();
+    }
+    // Close the uploader
+    setShowUploader(false);
   };
 
   const handleFilter = () => {
@@ -794,6 +822,82 @@ export default function AdsLibrary() {
       fetchNextPage();
     }
   }, [inView, hasNextPage, isFetchingNextPage, isFiltering, fetchNextPage]);
+
+  // Fetch recent indexing tasks
+  const fetchRecentTasks = useCallback(async () => {
+    try {
+      const tasks = await fetchIndexingTasks(adsIndexId);
+      if (tasks && tasks.length > 0) {
+        console.log('Recent indexing tasks:', tasks);
+        const newIndexingItems = tasks
+          .filter((task: IndexingTask) => task.status !== 'ready')
+          .map((task: IndexingTask) => ({
+            id: task.video_id || '',
+            taskId: task._id,
+            title: task.system_metadata?.filename || task.video_id || 'Untitled Video',
+            status: task.status || 'unknown',
+            duration: task.system_metadata?.duration ? formatDuration(task.system_metadata.duration) : undefined
+          }));
+
+        setRecentUploads(newIndexingItems);
+      }
+    } catch (error) {
+      console.error('Error fetching indexing tasks:', error);
+    }
+  }, [adsIndexId]);
+
+  // Format duration in seconds to MM:SS format
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Call fetchRecentTasks when component mounts and after upload completes
+  useEffect(() => {
+    fetchRecentTasks();
+
+    // Poll for updates every 10 seconds to check indexing status
+    const intervalId = setInterval(() => {
+      fetchRecentTasks();
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchRecentTasks]);
+
+  // Combine indexing videos with regular videos for display
+  const combinedItems = useMemo(() => {
+    // Create a Map with video IDs as keys to avoid duplicates
+    const itemsMap = new Map(
+      adItems.map(item => [item.id, item])
+    );
+
+    // Add indexing videos from recentUploads
+    recentUploads.forEach(video => {
+      if (!itemsMap.has(video.id) && video.id) {
+        itemsMap.set(video.id, {
+          id: video.id,
+          title: video.title,
+          thumbnailUrl: video.thumbnailUrl || '',
+          videoUrl: '',
+          tags: [],
+          isIndexing: true,
+          indexingStatus: video.status,
+          taskId: video.taskId
+        });
+      }
+    });
+
+    return Array.from(itemsMap.values());
+  }, [adItems, recentUploads]);
+
+  // Filter combined items when using search filters
+  const displayItems = useMemo(() => {
+    if (isFiltering) {
+      return filteredItems;
+    }
+    return combinedItems;
+  }, [isFiltering, filteredItems, combinedItems]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -862,7 +966,7 @@ export default function AdsLibrary() {
                         )}
                       </div>
                       <div className="text-sm">
-                        {isFiltering ? filteredItems.length : indexData?.video_count? indexData?.video_count : <LoadingSpinner />} Videos
+                        {isFiltering ? filteredItems.length : indexData?.video_count ? indexData?.video_count : <LoadingSpinner />} Videos
                         {processingMetadata && videosInProcessing.length > 0 && (
                           <span className="ml-2 text-blue-500 flex items-center">
                             <span className="mr-2">Processing metadata... ({videosInProcessing.length} Videos)</span>
@@ -1007,29 +1111,64 @@ export default function AdsLibrary() {
                     <div className="flex justify-center items-center h-40 text-red-500">
                       Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
                     </div>
-                  ) : (isFiltering ? filteredItems : adItems).length === 0 ? (
+                  ) : displayItems.length === 0 ? (
                     <div className="flex justify-center items-center h-40 text-gray-500">
                       {isFiltering ? 'No videos match the current filters' : 'No videos available'}
                     </div>
                   ) : (
                     <div className="mt-3 ml-2">
-                      {(isFiltering ? filteredItems : adItems).map(item => (
-                        <ContentItem
-                          key={item.id}
-                          videoId={item.id}
-                          indexId={adsIndexId}
-                          thumbnailUrl={item.thumbnailUrl}
-                          title={item.title}
-                          videoUrl={item.videoUrl}
-                          tags={item.tags}
-                          metadata={item.metadata}
-                          isLoadingMetadata={videosInProcessing.includes(item.id)}
-                          onMetadataUpdated={() => {
-                            // Refresh the content after user updates metadata
-                            console.log('Metadata updated by user, refreshing metadata for video', item.id);
-                            refreshVideoMetadata(item.id);
-                          }}
-                        />
+                      {displayItems.map(item => (
+                        item.isIndexing ? (
+                          // Special rendering for indexing videos
+                          <div key={item.id} className="flex w-full mb-4">
+                            <div className="w-[320px] flex-shrink-0 mr-4">
+                              <div className="relative aspect-video bg-black rounded-md overflow-hidden">
+                                {/* Black background for indexing videos */}
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                                  <div className="w-10 h-10 mb-2 rounded-full bg-black bg-opacity-40 flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                  </div>
+                                  <div className="text-white text-sm font-medium text-center">
+                                    Starting up indexing
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-2">
+                                <p className="text-sm font-medium truncate">{item.title}</p>
+                              </div>
+                            </div>
+                            {/* Empty columns for consistency with ContentItem layout */}
+                            {COLUMNS.slice(1).map(column => (
+                              <div
+                                key={`${item.id}-${column.id}`}
+                                className="flex-shrink-0 text-center"
+                                style={{ width: column.width }}
+                              >
+                                {column.id === 'video' ? null : (
+                                  <div className="text-gray-400 text-sm italic">Indexing...</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          // Regular ContentItem for indexed videos
+                          <ContentItem
+                            key={item.id}
+                            videoId={item.id}
+                            indexId={adsIndexId}
+                            thumbnailUrl={item.thumbnailUrl}
+                            title={item.title}
+                            videoUrl={item.videoUrl}
+                            tags={item.tags}
+                            metadata={item.metadata}
+                            isLoadingMetadata={videosInProcessing.includes(item.id)}
+                            onMetadataUpdated={() => {
+                              // Refresh the content after user updates metadata
+                              console.log('Metadata updated by user, refreshing metadata for video', item.id);
+                              refreshVideoMetadata(item.id);
+                            }}
+                          />
+                        )
                       ))}
 
                       {/* Load more button - only show when not filtering */}
@@ -1056,6 +1195,15 @@ export default function AdsLibrary() {
           </div>
         </div>
       </div>
+
+      {/* Video Uploader Modal */}
+      {showUploader && (
+        <VideoUploader
+          indexId={adsIndexId}
+          onUploadComplete={handleUploadComplete}
+          onClose={() => setShowUploader(false)}
+        />
+      )}
     </QueryClientProvider>
   );
 }
