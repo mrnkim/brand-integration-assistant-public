@@ -1078,10 +1078,11 @@ export const checkAndEnsureEmbeddings = async (
   adVideoId: string,
   adIndexId: string,
   contentIndexId: string,
-  contentVideos?: VideoData[]
+  contentVideos?: VideoData[],
+  processContentVideos: boolean = true
 ): Promise<EmbeddingCheckResult> => {
   try {
-    console.log(`🔄 Checking embeddings for ad video ${adVideoId} and content videos`);
+    console.log(`🔄 Checking embeddings for ad video ${adVideoId}${processContentVideos ? ' and content videos' : ''}`);
 
     // Start with initial result state
     const result: EmbeddingCheckResult = {
@@ -1090,7 +1091,7 @@ export const checkAndEnsureEmbeddings = async (
       adEmbeddingExists: false,
       contentEmbeddingsExist: false,
       processedCount: 0,
-      totalCount: contentVideos ? contentVideos.length + 1 : 1 // +1 for the ad video
+      totalCount: (processContentVideos && contentVideos) ? contentVideos.length + 1 : 1 // +1 for the ad video
     };
 
     // Step 1: Check if ad video embedding exists
@@ -1120,8 +1121,8 @@ export const checkAndEnsureEmbeddings = async (
 
     result.processedCount += 1;
 
-    // Step 3: If content videos are provided, check and generate their embeddings if needed
-    if (contentVideos && contentVideos.length > 0) {
+    // Step 3: If content videos are provided AND we should process them, check and generate their embeddings if needed
+    if (processContentVideos && contentVideos && contentVideos.length > 0) {
       console.log(`🔍 Checking ${contentVideos.length} content videos for embeddings...`);
 
       // Track content videos with missing embeddings
@@ -1162,7 +1163,7 @@ export const checkAndEnsureEmbeddings = async (
       // Update result with content embedding status
       result.contentEmbeddingsExist = missingEmbeddings.length === 0 || result.processedCount >= result.totalCount;
     } else {
-      // If no content videos provided, mark as complete
+      // If we're not processing content videos, mark as complete
       result.contentEmbeddingsExist = true;
     }
 

@@ -92,20 +92,158 @@ export default function ContextualAnalysis() {
     enabled: !!adsIndexId,
   });
 
-  // Fetch content videos when component mounts
+  // Fetch content videos when component mounts and process their embeddings once
   useEffect(() => {
+    // Define a local async function to process content videos
+    async function processContentVideosOnFirstLoad(videos: VideoData[]) {
+      if (!videos || videos.length === 0 || !contentIndexId) return;
+
+      setIsProcessingContentEmbeddings(true);
+      setContentEmbeddingsProgress({ processed: 0, total: videos.length });
+
+      try {
+        // Track content videos with missing embeddings
+        const missingEmbeddings: string[] = [];
+        const existingEmbeddings: string[] = [];
+        const processedVideoIds = new Set<string>();
+
+        // First check which content videos need embeddings
+        for (const video of videos) {
+          const videoId = video._id;
+
+          // Check if this video has already been processed by checking the cache
+          const cacheKey = ['videoEmbedding', contentIndexId, videoId];
+          const cachedStatus = queryClient.getQueryData(cacheKey) as { exists: boolean } | undefined;
+
+          if (cachedStatus) {
+            console.log(`Video ${videoId} embedding status already in cache: ${cachedStatus.exists ? 'exists' : 'missing'}`);
+
+            if (cachedStatus.exists) {
+              existingEmbeddings.push(videoId);
+              processedVideoIds.add(videoId);
+            } else {
+              missingEmbeddings.push(videoId);
+            }
+          } else {
+            // Not in cache, check from API
+            const hasEmbedding = await checkVectorExists(videoId, contentIndexId);
+
+            // Cache the result
+            queryClient.setQueryData(cacheKey, { exists: hasEmbedding });
+
+            if (hasEmbedding) {
+              existingEmbeddings.push(videoId);
+              processedVideoIds.add(videoId);
+            } else {
+              missingEmbeddings.push(videoId);
+            }
+          }
+
+          // Update progress
+          setContentEmbeddingsProgress(prev => ({
+            ...prev,
+            processed: prev.processed + 1
+          }));
+        }
+
+        console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
+        console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
+
+        // Generate embeddings for videos that need them
+        if (missingEmbeddings.length > 0) {
+          setContentEmbeddingsProgress({ processed: 0, total: missingEmbeddings.length });
+
+          for (const videoId of missingEmbeddings) {
+            console.log(`🔄 Generating embedding for content video ${videoId}...`);
+            const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
+
+            if (embedResult.success) {
+              console.log(`✅ Successfully generated embedding for content video ${videoId}`);
+              // Update cache to indicate embedding now exists
+              queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: true });
+              processedVideoIds.add(videoId);
+            } else {
+              console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
+              // Mark as checked but failed
+              queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: false, failed: true });
+            }
+
+            // Update progress
+            setContentEmbeddingsProgress(prev => ({
+              ...prev,
+              processed: prev.processed + 1
+            }));
+          }
+        }
+
+        // Update the overall content embeddings status in cache
+        queryClient.setQueryData(['contentEmbeddingsStatus', contentIndexId], {
+          processed: true,
+          total: videos.length,
+          videoIds: videos.map(v => v._id),
+          processedVideoIds: Array.from(processedVideoIds),
+          needsProcessing: false,
+          lastProcessed: new Date().toISOString()
+        });
+
+      } catch (error) {
+        console.error("Error processing content embeddings:", error);
+      } finally {
+        setIsProcessingContentEmbeddings(false);
+      }
+    }
+
+    // Main content video fetching function
     async function fetchContentVideos() {
       if (!contentIndexId) return;
 
       try {
-        // We'll just fetch the first page to get some content videos
-        const contentResponse = await fetchVideos(1, contentIndexId);
-        if (contentResponse && contentResponse.data) {
-          setContentVideos(contentResponse.data);
-          console.log(`📚 Loaded ${contentResponse.data.length} content videos`);
+        // 모든 content video를 가져오기 위해 pagination 처리
+        let currentPage = 1;
+        let hasMorePages = true;
+        const allContentVideos: VideoData[] = [];
 
-          // Automatically check/ensure embeddings for all content videos
-          processAllContentEmbeddings(contentResponse.data);
+        // 모든 페이지 가져오기
+        while (hasMorePages) {
+          console.log(`📄 Fetching content videos page ${currentPage}`);
+          const contentResponse = await fetchVideos(currentPage, contentIndexId);
+
+          if (contentResponse && contentResponse.data && contentResponse.data.length > 0) {
+            allContentVideos.push(...contentResponse.data);
+            console.log(`📚 Loaded ${contentResponse.data.length} content videos from page ${currentPage}`);
+
+            // 다음 페이지가 있는지 확인
+            const totalPages = contentResponse.page_info.total_page;
+            currentPage++;
+
+            if (currentPage > totalPages) {
+              hasMorePages = false;
+              console.log(`📚 Reached last page. Total pages: ${totalPages}`);
+            }
+          } else {
+            // 더 이상 데이터가 없으면 루프 종료
+            hasMorePages = false;
+          }
+        }
+
+        console.log(`📚 Total loaded content videos: ${allContentVideos.length}`);
+
+        if (allContentVideos.length > 0) {
+          setContentVideos(allContentVideos);
+
+          // Set a flag in the query client to indicate content videos have been processed
+          const contentProcessingStatusKey = ['contentProcessingCompleted', contentIndexId];
+          const alreadyProcessed = queryClient.getQueryData(contentProcessingStatusKey);
+
+          if (!alreadyProcessed) {
+            console.log('First page load - processing all content video embeddings');
+            // Process all content embeddings on initial page load using the local function
+            await processContentVideosOnFirstLoad(allContentVideos);
+            // Mark as processed for future reference
+            queryClient.setQueryData(contentProcessingStatusKey, { completed: true, timestamp: new Date().toISOString() });
+          } else {
+            console.log('Content videos already processed in a previous session');
+          }
         }
       } catch (error) {
         console.error("Error fetching content videos:", error);
@@ -113,7 +251,7 @@ export default function ContextualAnalysis() {
     }
 
     fetchContentVideos();
-  }, [contentIndexId]);
+  }, [contentIndexId, queryClient]);
 
   // Close modal when unmounting
   useEffect(() => {
@@ -137,7 +275,7 @@ export default function ContextualAnalysis() {
     }
   }, [videosData]);
 
-  // Automatically check embeddings whenever a video is selected (including auto-selection)
+  // Automatically check ONLY the ad video embedding when a video is selected
   useEffect(() => {
     if (selectedVideoId && !isLoadingEmbeddings) {
       // Check if this video has already been processed by checking the cache
@@ -145,12 +283,12 @@ export default function ContextualAnalysis() {
         { checked: boolean, ready: boolean } | undefined;
 
       if (!cachedStatus?.checked) {
-        console.log(`Auto-triggering embedding check for video ${selectedVideoId} (not previously checked)`);
+        console.log(`Auto-triggering embedding check for ad video ${selectedVideoId} (not previously checked)`);
 
         // Set loading state
         setIsLoadingEmbeddings(true);
 
-        // Start embedding check process
+        // Start embedding check process - ONLY for the ad video (not content videos)
         ensureEmbeddings().then(success => {
           // Cache the result so we don't check this video again
           queryClient.setQueryData(['embeddingStatus', selectedVideoId], {
@@ -186,80 +324,19 @@ export default function ContextualAnalysis() {
     if (!selectedVideoId) return false;
 
     try {
+      // Only process the ad video (set processContentVideos to false)
       const result = await checkAndEnsureEmbeddings(
         selectedVideoId,
         adsIndexId,
         contentIndexId,
-        contentVideos
+        contentVideos,
+        false // Don't process content videos when checking individual ad videos
       );
 
       return result.success;
     } catch (error) {
       console.error("Error ensuring embeddings:", error);
       return false;
-    }
-  };
-
-  // Function to check and process all content video embeddings
-  const processAllContentEmbeddings = async (videos: VideoData[]) => {
-    if (!videos || videos.length === 0 || !contentIndexId) return;
-
-    setIsProcessingContentEmbeddings(true);
-    setContentEmbeddingsProgress({ processed: 0, total: videos.length });
-
-    console.log(`🔄 Starting to check embeddings for ${videos.length} content videos`);
-
-    try {
-      // Track content videos with missing embeddings
-      const missingEmbeddings: string[] = [];
-      const existingEmbeddings: string[] = [];
-
-      // First check which content videos need embeddings
-      for (const video of videos) {
-        const videoId = video._id;
-        const hasEmbedding = await checkVectorExists(videoId, contentIndexId);
-
-        if (hasEmbedding) {
-          existingEmbeddings.push(videoId);
-        } else {
-          missingEmbeddings.push(videoId);
-        }
-
-        // Update progress
-        setContentEmbeddingsProgress(prev => ({
-          ...prev,
-          processed: prev.processed + 1
-        }));
-      }
-
-      console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
-      console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
-
-      // Generate embeddings for videos that need them
-      if (missingEmbeddings.length > 0) {
-        setContentEmbeddingsProgress({ processed: 0, total: missingEmbeddings.length });
-
-        for (const videoId of missingEmbeddings) {
-          console.log(`🔄 Generating embedding for content video ${videoId}...`);
-          const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
-
-          if (embedResult.success) {
-            console.log(`✅ Successfully generated embedding for content video ${videoId}`);
-          } else {
-            console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
-          }
-
-          // Update progress
-          setContentEmbeddingsProgress(prev => ({
-            ...prev,
-            processed: prev.processed + 1
-          }));
-        }
-      }
-    } catch (error) {
-      console.error("Error processing content embeddings:", error);
-    } finally {
-      setIsProcessingContentEmbeddings(false);
     }
   };
 
@@ -428,7 +505,7 @@ export default function ContextualAnalysis() {
               <div className="flex items-center space-x-2">
                 <LoadingSpinner size="sm" />
                 <span className="text-sm">
-                Do not close this page. Processing content video embeddings ({contentEmbeddingsProgress.processed} videos processed).
+                Do not close this page. Processing content video embeddings ({contentEmbeddingsProgress.processed} videos processed out of {contentVideos.length} videos).
                 </span>
               </div>
             </div>
