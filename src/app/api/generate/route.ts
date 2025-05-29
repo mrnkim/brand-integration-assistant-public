@@ -66,11 +66,10 @@ Mentioned Brands: any mentioned brands in the input`
     // 개발/테스트 환경에서는 API 호출 없이 샘플 응답을 반환
     if (!API_KEY || !TWELVELABS_API_BASE_URL) {
       console.error('Missing API key or base URL in environment variables');
-      return NextResponse.json({
-        id: 'sample-id',
-        data: "#male #fashion #exciting #newyork #adidas",
-        usage: { output_tokens: 20 }
-      });
+      return NextResponse.json(
+        { error: "Missing API key or base URL in environment variables" },
+        { status: 500 }
+      );
     }
 
     const url = `${TWELVELABS_API_BASE_URL}/generate`;
@@ -95,18 +94,11 @@ Mentioned Brands: any mentioned brands in the input`
         const errorText = await response.text();
         console.error(`TwelveLabs API error (${response.status}): ${errorText}`);
 
-        // Check if it's a 400 Bad Request specifically
-        if (response.status === 400) {
-          // For 400 errors, return a mock response instead of failing
-          console.log("Returning mock hashtags due to 400 error");
-          return NextResponse.json({
-            id: 'mock-id',
-            data: "#male #fashion #exciting #newyork #adidas",
-            usage: { output_tokens: 20 }
-          }, { status: 200 });
-        }
-
-        throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+        // Return the actual error from the API
+        return NextResponse.json(
+          { error: `TwelveLabs API error (${response.status}): ${errorText}` },
+          { status: response.status }
+        );
       }
 
       const responseText = await response.text();

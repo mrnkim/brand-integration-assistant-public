@@ -80,6 +80,7 @@ interface AdItemType {
   isIndexing?: boolean;
   indexingStatus?: string;
   taskId?: string;
+  status?: string;
 }
 
 interface VideoData {
@@ -187,8 +188,19 @@ export default function AdsLibrary() {
   const convertToAdItem = (video: VideoData): AdItemType => {
     let tags: Tag[] = [];
 
+    // Check if the video is still indexing by comparing with recentUploads
+    const indexingVideo = recentUploads.find(uploadingVideo =>
+      uploadingVideo.id === video._id && uploadingVideo.status !== 'ready'
+    );
+    const isStillIndexing = !!indexingVideo;
+
+    // Only generate tags if the video is not still indexing
+    if (isStillIndexing) {
+      console.log(`Video ${video._id} is still indexing, skipping tag generation`);
+      tags = [];
+    }
     // Use existing tags if available
-    if (video.metadata?.tags) {
+    else if (video.metadata?.tags) {
       tags = video.metadata.tags;
     }
     // Convert user metadata to tags if available
@@ -198,7 +210,8 @@ export default function AdsLibrary() {
     }
 
     // 데이터 타입에 맞게 메타데이터를 추출합니다
-    const metadata = video.user_metadata ? {
+    // 인덱싱 중이면 메타데이터를 생성하지 않음
+    const metadata = (!isStillIndexing && video.user_metadata) ? {
       source: video.user_metadata.source as string,
       topic_category: video.user_metadata.sector as string,
       emotions: video.user_metadata.emotions as string,
@@ -227,7 +240,9 @@ export default function AdsLibrary() {
       title: video.system_metadata?.video_title || video.system_metadata?.filename || 'Untitled Video',
       videoUrl: video.hls?.video_url || '',
       tags: tags,
-      metadata: metadata
+      metadata: metadata,
+      isIndexing: isStillIndexing,
+      status: isStillIndexing ? (indexingVideo?.status || 'processing') : undefined
     };
   };
 
@@ -334,7 +349,8 @@ export default function AdsLibrary() {
                 return {
                   ...item,
                   metadata: metadata,
-                  tags: convertMetadataToTags(metadata)
+                  tags: convertMetadataToTags(metadata),
+                  status: item.isIndexing ? item.status : undefined
                 };
               }
               return item;
@@ -381,10 +397,38 @@ export default function AdsLibrary() {
     if (!adsIndexId || videos.length === 0 || skipMetadataProcessing) return;
 
     // Filter videos that need metadata
-    const videosNeedingMetadata = filterVideosNeedingMetadata(videos, processedVideoIds, videosInProcessing);
+    // 중요: 인덱싱 중인 비디오는 메타데이터 처리를 건너뜁니다
+    const videosNeedingMetadata = videos.filter(video => {
+      // 1. 이미 처리 중이거나 처리 완료된 비디오는 건너뜁니다
+      if (processedVideoIds.has(video._id) || videosInProcessing.includes(video._id)) {
+        return false;
+      }
 
-    if (videosNeedingMetadata.length === 0) return;
+      // 2. 현재 인덱싱 중인 비디오는 건너뜁니다
+      const isStillIndexing = recentUploads.some(uploadingVideo =>
+        uploadingVideo.id === video._id && uploadingVideo.status !== 'ready'
+      );
+      if (isStillIndexing) {
+        console.log(`Video ${video._id} is still indexing, skipping metadata generation`);
+        return false;
+      }
 
+      // 3. 메타데이터가 없는 비디오만 처리합니다
+      return (!video.user_metadata ||
+        Object.keys(video.user_metadata).length === 0 ||
+        (!video.user_metadata.source &&
+         !video.user_metadata.topic_category &&
+         !video.user_metadata.emotions &&
+         !video.user_metadata.brands &&
+         !video.user_metadata.locations));
+    });
+
+    if (videosNeedingMetadata.length === 0) {
+      console.log('No videos need metadata processing');
+      return;
+    }
+
+    console.log(`Processing metadata for ${videosNeedingMetadata.length} videos`);
     setProcessingMetadata(true);
     // Temporarily disable metadata processing to prevent recursive processing
     setSkipMetadataProcessing(true);
@@ -418,7 +462,7 @@ export default function AdsLibrary() {
       // Re-enable metadata processing after completion
       setTimeout(() => setSkipMetadataProcessing(false), 2000);
     }
-  }, [adsIndexId, processVideoMetadataSingle, skipMetadataProcessing, processedVideoIds, videosInProcessing]);
+  }, [adsIndexId, processVideoMetadataSingle, skipMetadataProcessing, processedVideoIds, videosInProcessing, recentUploads]);
 
   // Update ContentItems array whenever video data changes
   useEffect(() => {
@@ -828,22 +872,84 @@ export default function AdsLibrary() {
   // Fetch recent indexing tasks
   const fetchRecentTasks = useCallback(async () => {
     try {
+      console.log(`Fetching recent indexing tasks for ads index: ${adsIndexId}`);
       const tasks = await fetchIndexingTasks(adsIndexId);
+
       if (tasks && tasks.length > 0) {
-        console.log('Recent indexing tasks:', tasks);
+        console.log(`Received ${tasks.length} indexing tasks`);
+
+        // 각 태스크의 상태별로 로그
+        const statusCounts: Record<string, number> = {};
+        tasks.forEach((task: IndexingTask) => {
+          statusCounts[task.status || 'unknown'] = (statusCounts[task.status || 'unknown'] || 0) + 1;
+        });
+        console.log('Task status distribution:', statusCounts);
+
+        // Create a map of all tasks by video ID for easy lookup
+        const taskMap = new Map<string, IndexingTask>();
+        tasks.forEach((task: IndexingTask) => {
+          if (task.video_id) {
+            taskMap.set(task.video_id, task);
+          }
+        });
+
+        // Get all videos that are still in indexing process
+        const indexingTasks = tasks.filter((task: IndexingTask) => task.status !== 'ready');
 
         // Filter for videos still in indexing (not ready)
-        const newIndexingItems = tasks
-          .filter((task: IndexingTask) => task.status !== 'ready')
-          .map((task: IndexingTask) => ({
-            id: task.video_id || '',
-            taskId: task._id,
-            title: task.system_metadata?.filename || task.video_id || 'Untitled Video',
-            status: task.status || 'unknown',
-            duration: task.system_metadata?.duration ? formatDuration(task.system_metadata.duration) : undefined
-          }));
+        const newIndexingItems = indexingTasks
+          .map((task: IndexingTask) => {
+            // 인덱싱 중인 비디오의 상세 정보 로그
+            console.log(`Indexing task details for ${task.video_id || 'unknown video'}:`, {
+              id: task._id,
+              status: task.status,
+              videoId: task.video_id,
+              hasSystemMetadata: !!task.system_metadata
+            });
 
+            return {
+              id: task.video_id || '',
+              taskId: task._id,
+              title: task.system_metadata?.filename || task.video_id || 'Untitled Video',
+              status: task.status || 'processing',
+              duration: task.system_metadata?.duration ? formatDuration(task.system_metadata.duration) : undefined
+            };
+          });
+
+        console.log(`Created ${newIndexingItems.length} indexing item entries for display`);
         setRecentUploads(newIndexingItems);
+
+        // Update existing items to mark as indexing or not indexing
+        setAdItems(prev => {
+          return prev.map(item => {
+            const task = taskMap.get(item.id);
+
+            // 1. 이 아이템에 대한 태스크가 있고 인덱싱 중이면 isIndexing=true로 설정
+            if (task && task.status !== 'ready') {
+              console.log(`Marking video ${item.id} as still indexing with status: ${task.status}`);
+              return {
+                ...item,
+                isIndexing: true,
+                indexingStatus: task.status,
+                // 인덱싱 중일 땐 태그를 비움
+                tags: [],
+                status: task.status
+              };
+            }
+            // 2. 이 아이템에 대한 태스크가 있고 인덱싱이 완료되었으면 isIndexing=false로 설정
+            else if (task && task.status === 'ready') {
+              console.log(`Marking video ${item.id} as indexing complete`);
+              return {
+                ...item,
+                isIndexing: false,
+                indexingStatus: undefined,
+                status: undefined
+              };
+            }
+            // 3. 이 아이템에 대한 태스크가 없으면 그대로 반환
+            return item;
+          });
+        });
 
         // If any video just completed indexing, trigger a refetch of all videos
         const justCompleted = tasks.filter((task: IndexingTask) => task.status === 'ready');
@@ -851,24 +957,20 @@ export default function AdsLibrary() {
           console.log(`${justCompleted.length} videos just completed indexing, refreshing all videos`);
 
           // Get any video IDs that were previously indexing but now are complete
-          const completedVideoIds = justCompleted.map(task => task.video_id).filter(Boolean);
+          const completedVideoIds = justCompleted
+            .map(task => task.video_id)
+            .filter(Boolean) as string[];
+
+          console.log('Completed video IDs:', completedVideoIds);
 
           // Force immediate refresh if we have videos that just completed
           if (completedVideoIds.length > 0 && refetch) {
             refetch();
-
-            // Also update any existing items in adItems to show they're no longer indexing
-            setAdItems(prev => prev.map(item => {
-              if (completedVideoIds.includes(item.id)) {
-                return {
-                  ...item,
-                  isIndexing: false
-                };
-              }
-              return item;
-            }));
           }
         }
+      } else {
+        console.log('No indexing tasks found');
+        setRecentUploads([]);
       }
     } catch (error) {
       console.error('Error fetching indexing tasks:', error);
@@ -909,12 +1011,11 @@ export default function AdsLibrary() {
         itemsMap.set(video.id, {
           id: video.id,
           title: video.title,
-          thumbnailUrl: video.thumbnailUrl || '',
+          thumbnailUrl: '',
           videoUrl: '',
           tags: [],
           isIndexing: true,
-          indexingStatus: video.status,
-          taskId: video.taskId
+          status: video.status || 'processing'
         });
       }
     });
@@ -929,28 +1030,6 @@ export default function AdsLibrary() {
     }
     return combinedItems;
   }, [isFiltering, filteredItems, combinedItems]);
-
-  // Add this helper function to the component
-  function getIndexingStatusText(status?: string): string {
-    if (!status || status === 'unknown') {
-      return 'Starting up indexing...';
-    }
-
-    switch (status.toLowerCase()) {
-      case 'validating':
-        return 'Validating video...';
-      case 'pending':
-        return 'Pending processing...';
-      case 'queued':
-        return 'Queued for indexing...';
-      case 'indexing':
-        return 'Indexing in progress...';
-      case 'failed':
-        return 'Indexing failed';
-      default:
-        return `${status.charAt(0).toUpperCase() + status.slice(1)}...`;
-    }
-  }
 
   // Total video count calculation based on different sources
   const totalVideoCount = useMemo(() => {
@@ -1196,14 +1275,16 @@ export default function AdsLibrary() {
                           // Special rendering for indexing videos
                           <div key={item.id} className="flex w-full mb-4">
                             <div className="w-[320px] flex-shrink-0 mr-4">
-                              <div className="relative aspect-video bg-black rounded-md overflow-hidden">
+                              <div className="relative aspect-video bg-black rounded-[45.60px] overflow-hidden">
                                 {/* Black background for indexing videos */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                                   <div className="w-10 h-10 mb-2 rounded-full bg-black bg-opacity-40 flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                                   </div>
-                                  <div className="text-white text-sm font-medium text-center">
-                                    {getIndexingStatusText(item.indexingStatus)}
+                                  <div className="text-white text-sm font-medium text-center bg-black bg-opacity-40 px-2 py-1 rounded">
+                                    {item.status && item.status !== 'unknown'
+                                      ? `${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`
+                                      : 'Processing'}
                                   </div>
                                 </div>
                               </div>

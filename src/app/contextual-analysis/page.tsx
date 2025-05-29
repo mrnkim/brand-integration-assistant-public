@@ -7,7 +7,9 @@ import {
   textToVideoEmbeddingSearch,
   videoToVideoEmbeddingSearch,
   EmbeddingSearchResult,
-  checkAndEnsureEmbeddings
+  checkAndEnsureEmbeddings,
+  checkVectorExists,
+  getAndStoreEmbeddings
 } from '@/hooks/apiHooks';
 import VideosDropDown from '@/components/VideosDropdown';
 import Video from '@/components/Video';
@@ -44,6 +46,10 @@ export default function ContextualAnalysis() {
   const [isLoadingEmbeddings, setIsLoadingEmbeddings] = useState(false);
   const [contentVideos, setContentVideos] = useState<VideoData[]>([]);
   const [embeddingsReady, setEmbeddingsReady] = useState(false);
+
+  // New state to track content embedding processing
+  const [isProcessingContentEmbeddings, setIsProcessingContentEmbeddings] = useState(false);
+  const [contentEmbeddingsProgress, setContentEmbeddingsProgress] = useState({ processed: 0, total: 0 });
 
   const { setSelectedAdId } = useGlobalState();
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
@@ -97,6 +103,9 @@ export default function ContextualAnalysis() {
         if (contentResponse && contentResponse.data) {
           setContentVideos(contentResponse.data);
           console.log(`📚 Loaded ${contentResponse.data.length} content videos`);
+
+          // Automatically check/ensure embeddings for all content videos
+          processAllContentEmbeddings(contentResponse.data);
         }
       } catch (error) {
         console.error("Error fetching content videos:", error);
@@ -188,6 +197,69 @@ export default function ContextualAnalysis() {
     } catch (error) {
       console.error("Error ensuring embeddings:", error);
       return false;
+    }
+  };
+
+  // Function to check and process all content video embeddings
+  const processAllContentEmbeddings = async (videos: VideoData[]) => {
+    if (!videos || videos.length === 0 || !contentIndexId) return;
+
+    setIsProcessingContentEmbeddings(true);
+    setContentEmbeddingsProgress({ processed: 0, total: videos.length });
+
+    console.log(`🔄 Starting to check embeddings for ${videos.length} content videos`);
+
+    try {
+      // Track content videos with missing embeddings
+      const missingEmbeddings: string[] = [];
+      const existingEmbeddings: string[] = [];
+
+      // First check which content videos need embeddings
+      for (const video of videos) {
+        const videoId = video._id;
+        const hasEmbedding = await checkVectorExists(videoId, contentIndexId);
+
+        if (hasEmbedding) {
+          existingEmbeddings.push(videoId);
+        } else {
+          missingEmbeddings.push(videoId);
+        }
+
+        // Update progress
+        setContentEmbeddingsProgress(prev => ({
+          ...prev,
+          processed: prev.processed + 1
+        }));
+      }
+
+      console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
+      console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
+
+      // Generate embeddings for videos that need them
+      if (missingEmbeddings.length > 0) {
+        setContentEmbeddingsProgress({ processed: 0, total: missingEmbeddings.length });
+
+        for (const videoId of missingEmbeddings) {
+          console.log(`🔄 Generating embedding for content video ${videoId}...`);
+          const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
+
+          if (embedResult.success) {
+            console.log(`✅ Successfully generated embedding for content video ${videoId}`);
+          } else {
+            console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
+          }
+
+          // Update progress
+          setContentEmbeddingsProgress(prev => ({
+            ...prev,
+            processed: prev.processed + 1
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error processing content embeddings:", error);
+    } finally {
+      setIsProcessingContentEmbeddings(false);
     }
   };
 
@@ -350,6 +422,18 @@ export default function ContextualAnalysis() {
 
       <div className="flex-1 overflow-auto ml-54">
         <div className="p-8 max-w-6xl mx-auto">
+          {/* Show content embedding processing status if active */}
+          {isProcessingContentEmbeddings && (
+            <div className="mb-4 p-3 bg-blue-50 rounded-md">
+              <div className="flex items-center space-x-2">
+                <LoadingSpinner size="sm" />
+                <span className="text-sm">
+                Do not close this page. Processing content video embeddings ({contentEmbeddingsProgress.processed} videos processed).
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Dropdown menu */}
           <div className="mb-10">
             <VideosDropDown
