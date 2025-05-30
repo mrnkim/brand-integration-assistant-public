@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const maxDuration = 120; // Set max duration to 120 seconds for large file uploads
+export const maxDuration = 60; // Set max duration to 60 seconds for Hobby plan
 
 export async function POST(request: NextRequest) {
   try {
