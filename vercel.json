@@ -1,12 +1,6 @@
 {
   "functions": {
-    "api/*/route.js": {
-      "maxDuration": 60
-    },
-    "api/*/*/route.js": {
-      "maxDuration": 60
-    },
-    "api/*/*/*/route.js": {
+    "src/app/api/**/*": {
       "maxDuration": 60
     }
   }
