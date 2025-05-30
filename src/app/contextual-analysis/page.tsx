@@ -9,7 +9,8 @@ import {
   EmbeddingSearchResult,
   checkAndEnsureEmbeddings,
   checkVectorExists,
-  getAndStoreEmbeddings
+  getAndStoreEmbeddings,
+  fetchIndexingTasks
 } from '@/hooks/apiHooks';
 import VideosDropDown from '@/components/VideosDropdown';
 import Video from '@/components/Video';
@@ -51,6 +52,18 @@ export default function ContextualAnalysis() {
   const [isProcessingContentEmbeddings, setIsProcessingContentEmbeddings] = useState(false);
   const [contentEmbeddingsProgress, setContentEmbeddingsProgress] = useState({ processed: 0, total: 0 });
 
+  // Track the last time we processed content embeddings
+  const [lastContentEmbeddingsCheck, setLastContentEmbeddingsCheck] = useState<Date | null>(null);
+
+  // New states to track indexing status
+  const [stillIndexingCount, setStillIndexingCount] = useState(0);
+  const [readyVideosCount, setReadyVideosCount] = useState(0);
+
+  // States to control visibility of status messages
+  const [showProcessingMessage, setShowProcessingMessage] = useState(true);
+  const [showIndexingMessage, setShowIndexingMessage] = useState(true);
+  const [showReadyMessage, setShowReadyMessage] = useState(true);
+
   const { setSelectedAdId } = useGlobalState();
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
@@ -74,6 +87,20 @@ export default function ContextualAnalysis() {
     initialData: { checked: false, ready: false },
   });
 
+  // Use the lastContentEmbeddingsCheck in a useQuery to refetch content embedding status
+  useQuery({
+    queryKey: ['contentEmbeddingsCheckStatus', contentIndexId],
+    queryFn: async () => {
+      return { lastChecked: lastContentEmbeddingsCheck };
+    },
+    // Only run this query when lastContentEmbeddingsCheck changes
+    enabled: !!lastContentEmbeddingsCheck,
+    // Don't refetch automatically
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: Infinity,
+  });
+
   const {
     data: videosData,
     fetchNextPage,
@@ -94,106 +121,7 @@ export default function ContextualAnalysis() {
 
   // Fetch content videos when component mounts and process their embeddings once
   useEffect(() => {
-    // Define a local async function to process content videos
-    async function processContentVideosOnFirstLoad(videos: VideoData[]) {
-      if (!videos || videos.length === 0 || !contentIndexId) return;
-
-      setIsProcessingContentEmbeddings(true);
-      setContentEmbeddingsProgress({ processed: 0, total: videos.length });
-
-      try {
-        // Track content videos with missing embeddings
-        const missingEmbeddings: string[] = [];
-        const existingEmbeddings: string[] = [];
-        const processedVideoIds = new Set<string>();
-
-        // First check which content videos need embeddings
-        for (const video of videos) {
-          const videoId = video._id;
-
-          // Check if this video has already been processed by checking the cache
-          const cacheKey = ['videoEmbedding', contentIndexId, videoId];
-          const cachedStatus = queryClient.getQueryData(cacheKey) as { exists: boolean } | undefined;
-
-          if (cachedStatus) {
-            console.log(`Video ${videoId} embedding status already in cache: ${cachedStatus.exists ? 'exists' : 'missing'}`);
-
-            if (cachedStatus.exists) {
-              existingEmbeddings.push(videoId);
-              processedVideoIds.add(videoId);
-            } else {
-              missingEmbeddings.push(videoId);
-            }
-          } else {
-            // Not in cache, check from API
-            const hasEmbedding = await checkVectorExists(videoId, contentIndexId);
-
-            // Cache the result
-            queryClient.setQueryData(cacheKey, { exists: hasEmbedding });
-
-            if (hasEmbedding) {
-              existingEmbeddings.push(videoId);
-              processedVideoIds.add(videoId);
-            } else {
-              missingEmbeddings.push(videoId);
-            }
-          }
-
-          // Update progress
-          setContentEmbeddingsProgress(prev => ({
-            ...prev,
-            processed: prev.processed + 1
-          }));
-        }
-
-        console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
-        console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
-
-        // Generate embeddings for videos that need them
-        if (missingEmbeddings.length > 0) {
-          setContentEmbeddingsProgress({ processed: 0, total: missingEmbeddings.length });
-
-          for (const videoId of missingEmbeddings) {
-            console.log(`🔄 Generating embedding for content video ${videoId}...`);
-            const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
-
-            if (embedResult.success) {
-              console.log(`✅ Successfully generated embedding for content video ${videoId}`);
-              // Update cache to indicate embedding now exists
-              queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: true });
-              processedVideoIds.add(videoId);
-            } else {
-              console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
-              // Mark as checked but failed
-              queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: false, failed: true });
-            }
-
-            // Update progress
-            setContentEmbeddingsProgress(prev => ({
-              ...prev,
-              processed: prev.processed + 1
-            }));
-          }
-        }
-
-        // Update the overall content embeddings status in cache
-        queryClient.setQueryData(['contentEmbeddingsStatus', contentIndexId], {
-          processed: true,
-          total: videos.length,
-          videoIds: videos.map(v => v._id),
-          processedVideoIds: Array.from(processedVideoIds),
-          needsProcessing: false,
-          lastProcessed: new Date().toISOString()
-        });
-
-      } catch (error) {
-        console.error("Error processing content embeddings:", error);
-      } finally {
-        setIsProcessingContentEmbeddings(false);
-      }
-    }
-
-    // Main content video fetching function
+    // Define a local async function to fetch content videos
     async function fetchContentVideos() {
       if (!contentIndexId) return;
 
@@ -229,29 +157,182 @@ export default function ContextualAnalysis() {
         console.log(`📚 Total loaded content videos: ${allContentVideos.length}`);
 
         if (allContentVideos.length > 0) {
+          // Update state with new content videos
           setContentVideos(allContentVideos);
 
-          // Set a flag in the query client to indicate content videos have been processed
-          const contentProcessingStatusKey = ['contentProcessingCompleted', contentIndexId];
-          const alreadyProcessed = queryClient.getQueryData(contentProcessingStatusKey);
-
-          if (!alreadyProcessed) {
-            console.log('First page load - processing all content video embeddings');
-            // Process all content embeddings on initial page load using the local function
-            await processContentVideosOnFirstLoad(allContentVideos);
-            // Mark as processed for future reference
-            queryClient.setQueryData(contentProcessingStatusKey, { completed: true, timestamp: new Date().toISOString() });
-          } else {
-            console.log('Content videos already processed in a previous session');
-          }
+          // Process embeddings for content videos
+          await processContentVideoEmbeddings(allContentVideos);
         }
       } catch (error) {
         console.error("Error fetching content videos:", error);
       }
     }
 
+    // Initial fetch of content videos
     fetchContentVideos();
+
+    // Set up polling to regularly check for new content videos
+    const pollInterval = 60000; // Poll every 60 seconds
+    const intervalId = setInterval(() => {
+      console.log("🔄 Polling for new content videos and updating embeddings");
+      fetchContentVideos();
+    }, pollInterval);
+
+    // Clean up interval when component unmounts
+    return () => {
+      clearInterval(intervalId);
+    };
   }, [contentIndexId, queryClient]);
+
+  // Process content video embeddings
+  async function processContentVideoEmbeddings(videos: VideoData[]) {
+    if (!videos || videos.length === 0 || !contentIndexId) return;
+
+    setIsProcessingContentEmbeddings(true);
+    setContentEmbeddingsProgress({ processed: 0, total: videos.length });
+
+    try {
+      // First, get the current indexing status of all videos in this index
+      console.log(`Fetching indexing tasks for content index: ${contentIndexId}`);
+      const indexingTasks = await fetchIndexingTasks(contentIndexId);
+
+      // Create a map of videoId -> indexing status
+      const indexingStatusMap = new Map<string, string>();
+      indexingTasks.forEach(task => {
+        if (task.video_id) {
+          indexingStatusMap.set(task.video_id, task.status || 'unknown');
+        }
+      });
+
+      console.log(`Retrieved indexing status for ${indexingStatusMap.size} videos`);
+
+      // Filter out videos that are still indexing
+      const readyVideos: VideoData[] = [];
+      const stillIndexingVideos: VideoData[] = [];
+
+      videos.forEach(video => {
+        const videoId = video._id;
+        const indexingStatus = indexingStatusMap.get(videoId);
+
+        // If not in the status map or status is 'ready', consider it ready for embedding
+        // Sometimes videos don't appear in indexing tasks if they were uploaded long ago
+        if (!indexingStatus || indexingStatus === 'ready') {
+          readyVideos.push(video);
+        } else {
+          stillIndexingVideos.push(video);
+          console.log(`Video ${videoId} is still indexing with status: ${indexingStatus}, skipping embedding generation`);
+        }
+      });
+
+      console.log(`Found ${readyVideos.length} ready videos and ${stillIndexingVideos.length} still indexing`);
+
+      // Update counts for UI display
+      setReadyVideosCount(readyVideos.length);
+      setStillIndexingCount(stillIndexingVideos.length);
+
+      // Update total in progress to only count ready videos
+      setContentEmbeddingsProgress({ processed: 0, total: readyVideos.length });
+
+      if (readyVideos.length === 0) {
+        console.log("No videos are ready for embedding processing");
+        setIsProcessingContentEmbeddings(false);
+        return;
+      }
+
+      // Track content videos with missing embeddings
+      const missingEmbeddings: string[] = [];
+      const existingEmbeddings: string[] = [];
+      const processedVideoIds = new Set<string>();
+
+      // First check which content videos need embeddings (only for ready videos)
+      for (const video of readyVideos) {
+        const videoId = video._id;
+
+        // Check if this video has already been processed by checking the cache
+        const cacheKey = ['videoEmbedding', contentIndexId, videoId];
+        const cachedStatus = queryClient.getQueryData(cacheKey) as { exists: boolean } | undefined;
+
+        if (cachedStatus) {
+          console.log(`Video ${videoId} embedding status already in cache: ${cachedStatus.exists ? 'exists' : 'missing'}`);
+
+          if (cachedStatus.exists) {
+            existingEmbeddings.push(videoId);
+            processedVideoIds.add(videoId);
+          } else {
+            missingEmbeddings.push(videoId);
+          }
+        } else {
+          // Not in cache, check from API
+          const hasEmbedding = await checkVectorExists(videoId, contentIndexId);
+
+          // Cache the result
+          queryClient.setQueryData(cacheKey, { exists: hasEmbedding });
+
+          if (hasEmbedding) {
+            existingEmbeddings.push(videoId);
+            processedVideoIds.add(videoId);
+          } else {
+            missingEmbeddings.push(videoId);
+          }
+        }
+
+        // Update progress
+        setContentEmbeddingsProgress(prev => ({
+          ...prev,
+          processed: prev.processed + 1
+        }));
+      }
+
+      console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
+      console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
+
+      // Generate embeddings for videos that need them
+      if (missingEmbeddings.length > 0) {
+        setContentEmbeddingsProgress({ processed: 0, total: missingEmbeddings.length });
+
+        for (const videoId of missingEmbeddings) {
+          console.log(`🔄 Generating embedding for content video ${videoId}...`);
+          const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
+
+          if (embedResult.success) {
+            console.log(`✅ Successfully generated embedding for content video ${videoId}`);
+            // Update cache to indicate embedding now exists
+            queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: true });
+            processedVideoIds.add(videoId);
+          } else {
+            console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
+            // Mark as checked but failed
+            queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: false, failed: true });
+          }
+
+          // Update progress
+          setContentEmbeddingsProgress(prev => ({
+            ...prev,
+            processed: prev.processed + 1
+          }));
+        }
+      }
+
+      // Update the overall content embeddings status in cache, including info about videos still indexing
+      queryClient.setQueryData(['contentEmbeddingsStatus', contentIndexId], {
+        processed: true,
+        total: videos.length,
+        readyVideos: readyVideos.length,
+        stillIndexingVideos: stillIndexingVideos.length,
+        videoIds: videos.map(v => v._id),
+        processedVideoIds: Array.from(processedVideoIds),
+        needsProcessing: stillIndexingVideos.length > 0, // Still need processing if any videos are indexing
+        lastProcessed: new Date().toISOString()
+      });
+
+      setLastContentEmbeddingsCheck(new Date());
+
+    } catch (error) {
+      console.error("Error processing content embeddings:", error);
+    } finally {
+      setIsProcessingContentEmbeddings(false);
+    }
+  }
 
   // Close modal when unmounting
   useEffect(() => {
@@ -500,13 +581,74 @@ export default function ContextualAnalysis() {
       <div className="flex-1 overflow-auto ml-54">
         <div className="p-8 max-w-6xl mx-auto">
           {/* Show content embedding processing status if active */}
-          {isProcessingContentEmbeddings && (
+          {isProcessingContentEmbeddings && showProcessingMessage && (
             <div className="mb-4 p-3 bg-blue-50 rounded-md">
-              <div className="flex items-center space-x-2">
-                <LoadingSpinner size="sm" />
-                <span className="text-sm">
-                Do not close this page. Processing content video embeddings ({contentEmbeddingsProgress.processed} videos processed out of {contentVideos.length} videos).
-                </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <LoadingSpinner size="sm" />
+                  <span className="text-sm">
+                  Do not close this page. Processing content video embeddings ({contentEmbeddingsProgress.processed} videos processed out of {contentEmbeddingsProgress.total} videos).
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowProcessingMessage(false)}
+                  className="text-blue-500 hover:text-blue-700 ml-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Show videos still indexing status */}
+          {stillIndexingCount > 0 && showIndexingMessage && (
+            <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm text-yellow-800">
+                    {stillIndexingCount} content videos are still being indexed. They will be processed for contextual analysis once indexing is complete.
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowIndexingMessage(false)}
+                  className="text-yellow-500 hover:text-yellow-700 ml-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Show embedding stats */}
+          {readyVideosCount > 0 && !isProcessingContentEmbeddings && showReadyMessage && (
+            <div className="mb-4 p-3 bg-green-50 rounded-md border border-green-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm text-green-800">
+                    {readyVideosCount} content videos are ready for contextual analysis.
+                    {lastContentEmbeddingsCheck && (
+                      <span className="ml-1">Last checked: {lastContentEmbeddingsCheck.toLocaleTimeString()}</span>
+                    )}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowReadyMessage(false)}
+                  className="text-green-500 hover:text-green-700 ml-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
               </div>
             </div>
           )}

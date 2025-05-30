@@ -3,7 +3,7 @@ import { getPineconeIndex } from '@/utils/pinecone';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const videoId = searchParams.get('videoId');
+  const videoId = searchParams.get('video_id');
 
   if (!videoId) {
     return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
