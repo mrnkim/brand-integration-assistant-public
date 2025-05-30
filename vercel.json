@@ -1,6 +1,12 @@
 {
   "functions": {
-    "api/videos/upload": {
+    "api/*/route.js": {
+      "maxDuration": 60
+    },
+    "api/*/*/route.js": {
+      "maxDuration": 60
+    },
+    "api/*/*/*/route.js": {
       "maxDuration": 60
     }
   }
