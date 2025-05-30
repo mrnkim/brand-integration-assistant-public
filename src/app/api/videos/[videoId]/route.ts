@@ -14,8 +14,30 @@ interface VideoApiResponse {
   embedding?: Record<string, unknown>; // Or a more specific Embedding type
 }
 
+// Define types for TwelveLabs API response
+interface TwelveLabsVideoData {
+  _id?: string;
+  index_id?: string;
+  hls?: Record<string, unknown>;
+  system_metadata?: Record<string, unknown>;
+  user_metadata?: Record<string, unknown>;
+  source?: Record<string, unknown>;
+  embedding?: {
+    video_embedding?: {
+      segments?: Array<{
+        start_offset_sec?: number;
+        end_offset_sec?: number;
+        embedding_option?: string;
+        embedding_scope?: string;
+        float?: number[];
+      }>;
+    };
+  };
+  [key: string]: unknown; // Allow for additional properties
+}
+
 // Type guard to check if the video object is valid and has expected properties
-function isValidVideoData(data: unknown): data is Record<string, unknown> {
+function isValidVideoData(data: unknown): data is TwelveLabsVideoData {
   return typeof data === 'object' && data !== null;
 }
 
@@ -99,13 +121,15 @@ export async function GET(
     console.log(`✅ Received video data with keys:`, videoData ? Object.keys(videoData as object) : 'null');
 
     if (requestEmbeddings) {
-      console.log(`📊 Embedding data present:`, 'embedding' in (videoData as any));
-      if ('embedding' in (videoData as any)) {
-        const embedding = (videoData as any).embedding;
+      console.log(`📊 Embedding data present:`, 'embedding' in (videoData as TwelveLabsVideoData));
+
+      const typedVideoData = videoData as TwelveLabsVideoData;
+      if (typedVideoData.embedding) {
+        const embedding = typedVideoData.embedding;
         console.log(`📊 Embedding structure:`, {
-          hasVideoEmbedding: !!embedding?.video_embedding,
-          hasSegments: !!embedding?.video_embedding?.segments,
-          segmentsCount: embedding?.video_embedding?.segments?.length || 0
+          hasVideoEmbedding: !!embedding.video_embedding,
+          hasSegments: !!embedding.video_embedding?.segments,
+          segmentsCount: embedding.video_embedding?.segments?.length || 0
         });
       } else {
         console.warn(`⚠️ No embedding data found in response for video ${videoId}`);
@@ -123,29 +147,31 @@ export async function GET(
       index_id: indexId,
     };
 
+    const typedVideoData: TwelveLabsVideoData = videoData;
+
     // Copy over original fields directly to preserve the structure
-    if ('hls' in videoData && videoData.hls) {
-      responseData.hls = videoData.hls as Record<string, unknown>;
+    if (typedVideoData.hls) {
+      responseData.hls = typedVideoData.hls;
     }
 
-    if ('system_metadata' in videoData && videoData.system_metadata) {
+    if (typedVideoData.system_metadata) {
       // Preserve the original system_metadata structure
-      responseData.system_metadata = videoData.system_metadata as Record<string, unknown>;
+      responseData.system_metadata = typedVideoData.system_metadata;
     }
 
-    if ('user_metadata' in videoData && videoData.user_metadata) {
-      responseData.user_metadata = videoData.user_metadata as Record<string, unknown>;
+    if (typedVideoData.user_metadata) {
+      responseData.user_metadata = typedVideoData.user_metadata;
     }
 
-    if ('source' in videoData && videoData.source) {
-      responseData.source = videoData.source as Record<string, unknown>;
+    if (typedVideoData.source) {
+      responseData.source = typedVideoData.source;
     }
 
     // Check if the 'embedding' field exists in the response from TwelveLabs
-    if ('embedding' in videoData && videoData.embedding) {
-      responseData.embedding = videoData.embedding as Record<string, unknown>;
+    if (typedVideoData.embedding) {
+      responseData.embedding = typedVideoData.embedding;
       console.log(`✅ Successfully included embedding data in response with ${
-        (videoData.embedding as any)?.video_embedding?.segments?.length || 0
+        typedVideoData.embedding.video_embedding?.segments?.length || 0
       } segments`);
     } else if (requestEmbeddings) {
       console.warn(`⚠️ Embedding was requested but not found in API response!`);

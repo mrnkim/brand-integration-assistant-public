@@ -25,8 +25,8 @@ export async function GET() {
       );
     }
 
-    // Initialize the Pinecone client
-    const client = getPineconeClient();
+    // Initialize the Pinecone client and verify connection
+    getPineconeClient();
 
     // Try to get the index
     const index = getPineconeIndex();
@@ -44,7 +44,7 @@ export async function GET() {
       stats: {
         dimension: stats.dimension,
         namespaces: stats.namespaces ? Object.keys(stats.namespaces).length : 0,
-        totalVectors: stats.totalVectorCount
+        totalVectors: stats.totalRecordCount
       }
     });
   } catch (error) {
