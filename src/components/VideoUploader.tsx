@@ -249,7 +249,39 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Upload failed: ${errorText}`);
+
+        // Parse the error message to extract the meaningful part
+        let cleanErrorMessage = "Unknown error occurred";
+        try {
+          // Try to parse as JSON
+          const errorJson = JSON.parse(errorText);
+
+          // Check different possible error formats
+          if (errorJson.details && typeof errorJson.details === 'object' && errorJson.details.message) {
+            // Format: { details: { message: "..." } }
+            cleanErrorMessage = errorJson.details.message;
+          } else if (errorJson.message) {
+            // Format: { message: "..." }
+            cleanErrorMessage = errorJson.message;
+          } else if (errorJson.error && typeof errorJson.error === 'string') {
+            // Format: { error: "..." }
+            cleanErrorMessage = errorJson.error;
+          } else if (typeof errorJson === 'object' && errorJson.code && errorJson.message) {
+            // TwelveLabs API format: { code: "...", message: "..." }
+            cleanErrorMessage = errorJson.message;
+          }
+        } catch {
+          // If it's not valid JSON, try to extract information using regex
+          const messageMatch = errorText.match(/\"message\"\:\s*\"([^\"]+)\"/);
+          if (messageMatch && messageMatch[1]) {
+            cleanErrorMessage = messageMatch[1];
+          } else {
+            // Just use the raw text but limit the length
+            cleanErrorMessage = errorText.length > 100 ? errorText.substring(0, 100) + "..." : errorText;
+          }
+        }
+
+        throw new Error(`Upload failed: ${cleanErrorMessage}`);
       }
 
       const data = await response.json();
@@ -334,10 +366,18 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
             message: 'Indexing complete'
           };
         } else if (data.status === 'failed' || data.status === 'error') {
+          // Extract a clean error message from the response
+          let cleanErrorMessage = "Unknown error";
+          if (data.error && typeof data.error === 'string') {
+            cleanErrorMessage = data.error;
+          } else if (data.message && typeof data.message === 'string') {
+            cleanErrorMessage = data.message;
+          }
+
           return {
             ...f,
             status: 'failed',
-            message: `Indexing failed: ${data.error || 'Unknown error'}`
+            message: `Indexing failed: ${cleanErrorMessage}`
           };
         } else {
           // Still in progress - show more detailed status
@@ -664,6 +704,103 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
     }
   };
 
+  // 에러 메시지를 깔끔하게 표시하기 위한 헬퍼 함수
+  const formatErrorMessage = (message: string): string => {
+    // 중첩된 JSON 구조에서 실제 오류 메시지만 추출
+    try {
+      // "details" 필드가 문자열로 들어있는 경우를 처리 (TwelveLabs API 에러 형식)
+      if (message.includes('"details":')) {
+        // JSON 파싱 시도
+        const errorObject = JSON.parse(message.substring(message.indexOf('{')));
+
+        // details가 문자열인 경우 (API 응답에서 중첩된 JSON 문자열로 온 경우)
+        if (errorObject.details && typeof errorObject.details === 'string') {
+          try {
+            // details 내부의 JSON 파싱
+            const detailsObject = JSON.parse(errorObject.details);
+            if (detailsObject.message) {
+              return detailsObject.message;
+            }
+          } catch {
+            // details가 JSON이 아닌 경우 그대로 사용
+            return errorObject.details;
+          }
+        }
+
+        // details가 객체인 경우
+        if (errorObject.details && typeof errorObject.details === 'object') {
+          if (errorObject.details.message) {
+            return errorObject.details.message;
+          }
+        }
+
+        // 기본 에러 메시지 찾기
+        if (errorObject.message) {
+          return errorObject.message;
+        }
+
+        if (errorObject.error) {
+          return errorObject.error;
+        }
+      }
+
+      // "Upload failed:" 접두어가 있으면 제거하고 처리
+      if (message.startsWith('Upload failed:')) {
+        const actualMessage = message.substring('Upload failed:'.length).trim();
+
+        // JSON 형식인지 확인
+        if (actualMessage.startsWith('{') && actualMessage.endsWith('}')) {
+          try {
+            const errorObj = JSON.parse(actualMessage);
+
+            // Twelve Labs API 에러 형식 확인
+            if (errorObj.error && errorObj.error.includes('Twelve Labs API error')) {
+              // details 필드가 있고 문자열인 경우
+              if (errorObj.details && typeof errorObj.details === 'string') {
+                try {
+                  // details 내부의 JSON 구조 파싱
+                  const detailsObj = JSON.parse(errorObj.details);
+                  if (detailsObj.message) {
+                    return detailsObj.message;
+                  }
+                } catch {
+                  // details 파싱 실패시 원본 사용
+                  return errorObj.details;
+                }
+              }
+            }
+
+            // 기본 메시지 필드 확인
+            if (errorObj.message) return errorObj.message;
+            if (errorObj.error) return errorObj.error;
+
+            // JSON 구조에서 적절한 필드를 찾지 못하면 원본 반환
+            return actualMessage;
+          } catch {
+            // JSON 파싱 실패시 원본 메시지 반환
+            return actualMessage;
+          }
+        }
+
+        // JSON이 아니면 그대로 반환
+        return actualMessage;
+      }
+
+      // 이미 처리된 다른 접두어가 있는 경우
+      if (message.startsWith('Indexing failed:') || message.startsWith('Status check error:')) {
+        // 접두어 이후의 실제 메시지만 반환
+        const actualMessage = message.split(':', 2)[1].trim();
+        return actualMessage;
+      }
+
+      // 그 외 케이스는 원본 메시지 반환
+      return message;
+    } catch {
+      // 파싱 과정에서 오류 발생 시 원본 메시지 반환
+      return message;
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -786,10 +923,15 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-red-500">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 6.75v-.75" />
-                            </svg>
+                            <div className="flex flex-col items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-red-500">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 6.75v-.75" />
+                              </svg>
+                              <div className="mt-2 px-2 py-1 bg-red-600 rounded text-white text-xs max-w-full text-center">
+                                Failed
+                              </div>
+                            </div>
                           )}
                         </div>
                       )}
@@ -800,8 +942,20 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
                       <p className="text-sm font-medium truncate">{file.title || file.file.name}</p>
                       <div className="flex justify-between items-center text-xs text-gray-500">
                         <span>{file.duration ? formatDuration(file.duration) : ''}</span>
-                        <span>{file.status !== 'queued' ? file.status.charAt(0).toUpperCase() + file.status.slice(1) : ''}</span>
+                        <span
+                          className={`${file.status === 'failed' ? 'text-red-500 font-medium' : ''}`}
+                          title={file.status === 'failed' ? file.message : ''}
+                        >
+                          {file.status !== 'queued' ? file.status.charAt(0).toUpperCase() + file.status.slice(1) : ''}
+                        </span>
                       </div>
+
+                      {/* Error message display for failed uploads */}
+                      {file.status === 'failed' && (
+                        <div className="mt-1 p-1 bg-red-50 border border-red-200 rounded text-xs text-red-600 truncate hover:whitespace-normal hover:text-wrap" title={formatErrorMessage(file.message)}>
+                          {formatErrorMessage(file.message)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
