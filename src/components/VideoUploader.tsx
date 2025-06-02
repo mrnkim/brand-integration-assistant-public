@@ -824,13 +824,13 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-white rounded-[45.06px] p-10 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Upload videos</h2>
+          <h2 className="text-2xl font-medium">Upload videos</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full"
+            className="p-1 hover:bg-gray-100 rounded-full cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -840,12 +840,13 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
 
         {!showThumbnailView ? (
           <div className="mb-4">
-            <div
-              className={`border-2 border-dashed rounded-xl p-8 text-center ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
+            <button
+              className={`border-1 h-[400px] bg-white-200 w-full border-dashed rounded-[45.06px] p-8 text-center ${dragActive ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:bg-[#f5fbf6]'} transition-colors  duration-200 cursor-pointer`}
               onDragEnter={handleDrag}
               onDragOver={handleDrag}
               onDragLeave={handleDrag}
               onDrop={handleDrop}
+              onClick={handleButtonClick}
             >
               <input
                 ref={inputRef}
@@ -856,30 +857,30 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
                 className="hidden"
               />
 
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto text-gray-400 mb-2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-              </svg>
+              <img
+                src="/upload.svg"
+                alt="Upload icon"
+                className="w-14 h-14 mx-auto mb-2"
+              />
 
-              <p className="mb-2 text-sm text-gray-700">
-                Drag and drop videos here, or
+              <p className="mb-2 text-xl font-medium">
+                Drop videos or browse files
               </p>
-              <button
-                type="button"
-                onClick={handleButtonClick}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                disabled={uploadInProgress}
-              >
-                Browse files
-              </button>
-              <p className="mt-1 text-xs text-gray-500">
-                Maximum {MAX_FILES} videos. Supported formats: MP4, MOV, AVI
+
+              <div className="mt-20 flex gap-2 justify-center">
+                <span className="inline-block border-1 px-1 py-0.5 rounded-sm text-sm">4sec-0.5hr</span>
+                <span className="inline-block border-1 px-1 py-0.5 rounded-sm text-sm">Resolution 360p-4k</span>
+                <span className="inline-block border-1 px-1 py-0.5 rounded-sm text-sm">File size ≤2GB per video</span>
+              </div>
+              <p className="mt-3 text-sm font-medium">
+                To upload videos up to 2hrs, create an index with Marengo only
               </p>
-            </div>
+            </button>
           </div>
         ) : (
           <>
             {/* Thumbnail view */}
-            <div className="mb-6 border-2 border-dashed rounded-xl p-4">
+            <div className="mb-6 border-2 border-dashed rounded-xl p-4 bg-[#f5fbf6]">
               <div className="flex justify-between items-center mb-4">
                 <div className="text-md font-medium">{files.length} videos</div>
                 <div className="flex items-center">
@@ -904,7 +905,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
               {/* Thumbnails grid */}
               <div className="grid grid-cols-3 gap-4">
                 {files.map((file) => (
-                  <div key={file.id} className="relative group">
+                  <div key={file.id} className="relative group transition-all duration-200 hover:scale-[1.02] bg-white hover:bg-[#f0f9f1] p-2 rounded-lg">
                     {/* Thumbnail with status indicator */}
                     <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
                       {file.thumbnail ? (
@@ -1000,14 +1001,19 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
               </button>
               <button
                 onClick={startUpload}
-                className="px-6 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 disabled:bg-gray-400"
+                className="px-8 py-2 text-sm font-medium bg-gray-100 rounded-md hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-400 flex items-center"
                 disabled={uploadInProgress || files.length === 0 || !files.some(f => f.status === 'queued')}
               >
                 {uploadInProgress ? (
                   <span className="flex items-center">
                     <LoadingSpinner /> Uploading...
                   </span>
-                ) : 'Upload'}
+                ) : (
+                  <>
+                    <img src="/upload.svg" alt="Upload" className="w-4 h-4 mr-2" />
+                    Upload
+                  </>
+                )}
               </button>
             </div>
           </>
