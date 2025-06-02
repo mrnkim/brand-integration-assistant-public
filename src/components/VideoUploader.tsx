@@ -228,6 +228,8 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
   // Upload a single file to Twelve Labs
   const uploadFile = async (file: UploadingFile) => {
     try {
+      console.log('Starting upload for file:', file.file.name);
+
       // Update file status
       setFiles(prev => prev.map(f =>
         f.id === file.id
@@ -235,26 +237,45 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
           : f
       ));
 
-      // Create FormData for the API request
+      // Step 1: Get API token from our server
+      const tokenResponse = await fetch('/api/videos/get-token');
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('Failed to get API token:', errorText);
+        throw new Error(`Failed to get API token: ${errorText}`);
+      }
+
+      const { token } = await tokenResponse.json();
+
+      // Step 2: Create FormData for direct Twelve Labs API request
       const formData = new FormData();
       formData.append('index_id', indexId);
       formData.append('video_file', file.file);
       formData.append('enable_video_stream', 'true');
 
-      // Upload to Twelve Labs via our API proxy
-      const response = await fetch('/api/videos/upload', {
+      // Step 3: Upload directly to Twelve Labs API
+      console.log('Sending direct upload to Twelve Labs API with index_id:', indexId);
+      const response = await fetch('https://api.twelvelabs.io/v1.3/tasks', {
         method: 'POST',
+        headers: {
+          'x-api-key': token,
+          // Content-Type is automatically set by fetch with FormData
+        },
         body: formData,
       });
 
+      console.log('Twelve Labs API response status:', response.status);
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('Twelve Labs API error:', errorText);
 
         // Parse the error message to extract the meaningful part
         let cleanErrorMessage = "Unknown error occurred";
         try {
           // Try to parse as JSON
           const errorJson = JSON.parse(errorText);
+          console.log('Parsed error JSON:', errorJson);
 
           // Check different possible error formats
           if (errorJson.details && typeof errorJson.details === 'object' && errorJson.details.message) {
@@ -270,7 +291,8 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
             // TwelveLabs API format: { code: "...", message: "..." }
             cleanErrorMessage = errorJson.message;
           }
-        } catch {
+        } catch (parseError) {
+          console.error('Error parsing JSON response:', parseError);
           // If it's not valid JSON, try to extract information using regex
           const messageMatch = errorText.match(/\"message\"\:\s*\"([^\"]+)\"/);
           if (messageMatch && messageMatch[1]) {
@@ -285,7 +307,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
       }
 
       const data = await response.json();
-      console.log('Upload response:', data);
+      console.log('Upload success response:', data);
 
       // Update file with task and video IDs
       setFiles(prev => prev.map(f =>
