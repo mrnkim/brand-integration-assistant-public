@@ -825,7 +825,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-white rounded-[45.06px] p-10 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-[45.06px] p-10 max-w-2xl w-full min-h-[500px] max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-medium">Upload videos</h2>
           <button
@@ -880,13 +880,13 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
         ) : (
           <>
             {/* Thumbnail view */}
-            <div className="mb-6 border-2 border-dashed rounded-xl p-4 bg-[#f5fbf6]">
+            <div className="flex flex-col relative mb-6 border-1 min-h-[350px] border-gray-300 border-dashed rounded-[45.06px] p-6 bg-white-200">
               <div className="flex justify-between items-center mb-4">
-                <div className="text-md font-medium">{files.length} videos</div>
+                <div className="text-sm font-medium">{files.length} videos</div>
                 <div className="flex items-center">
                   <button
                     onClick={handleButtonClick}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium mr-4"
+                    className="cursor-pointer border rounded-lg px-1.5 py-1 text-xs mr-4"
                     disabled={uploadInProgress || files.length >= MAX_FILES}
                   >
                     Browse
@@ -903,16 +903,16 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
               </div>
 
               {/* Thumbnails grid */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4 flex-grow">
                 {files.map((file) => (
-                  <div key={file.id} className="relative group transition-all duration-200 hover:scale-[1.02] bg-white hover:bg-[#f0f9f1] p-2 rounded-lg">
+                  <div key={file.id} className="relative group transition-all duration-200 p-2 rounded-lg">
                     {/* Thumbnail with status indicator */}
-                    <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
+                    <div className="relative aspect-video rounded-lg bg-gray-100">
                       {file.thumbnail ? (
                         <img
                           src={file.thumbnail}
                           alt={file.title || file.file.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover rounded-3xl"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -926,9 +926,9 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
                       {file.status === 'queued' && (
                         <button
                           onClick={() => removeFile(file.id)}
-                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black bg-opacity-60 flex items-center justify-center text-white hover:bg-opacity-80"
+                          className="cursor-pointer absolute -top-1 -right-1 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center text-white"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
@@ -962,9 +962,8 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
 
                     {/* Title and duration below thumbnail */}
                     <div className="mt-1">
-                      <p className="text-sm font-medium truncate">{file.title || file.file.name}</p>
+                      <p className="text-xs font-medium truncate">{file.title || file.file.name}</p>
                       <div className="flex justify-between items-center text-xs text-gray-500">
-                        <span>{file.duration ? formatDuration(file.duration) : ''}</span>
                         <span
                           className={`${file.status === 'failed' ? 'text-red-500 font-medium' : ''}`}
                           title={file.status === 'failed' ? file.message : ''}
@@ -985,7 +984,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
               </div>
 
               {/* Total duration */}
-              <div className="mt-4 text-right">
+              <div className="self-end mt-auto pt-4 text-sm font-medium">
                 Total video duration is {formatDuration(totalDuration)}
               </div>
             </div>
@@ -994,14 +993,14 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
             <div className="flex justify-between">
               <button
                 onClick={onClose}
-                className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="cursor-pointer px-4 py-2 text-sm font-medium bg-white border rounded-xl hover:bg-zinc-200 hover:rounded-3xl"
                 disabled={uploadInProgress}
               >
                 Cancel
               </button>
               <button
                 onClick={startUpload}
-                className="px-8 py-2 text-sm font-medium bg-gray-100 rounded-md hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-400 flex items-center"
+                className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-black border rounded-xl hover:bg-zinc-500 hover:rounded-3xl"
                 disabled={uploadInProgress || files.length === 0 || !files.some(f => f.status === 'queued')}
               >
                 {uploadInProgress ? (
@@ -1010,7 +1009,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
                   </span>
                 ) : (
                   <>
-                    <img src="/upload.svg" alt="Upload" className="w-4 h-4 mr-2" />
                     Upload
                   </>
                 )}
