@@ -778,15 +778,6 @@ export default function ContextualAnalysis() {
               </button>
             </div>
 
-            {/* Remove the separate loading spinner section since it's now in the button */}
-            {isAnalyzing && !isLoadingEmbeddings && similarResults.length === 0 && (
-              <div className="flex flex-col justify-center items-center mt-10">
-                <p className="text-gray-600">
-                  Searching for contextually relevant content...
-                </p>
-              </div>
-            )}
-
             {/* Display analysis results as videos */}
             {similarResults.length > 0 && !isAnalyzing && !isLoadingEmbeddings && (
               <SimilarVideoResults

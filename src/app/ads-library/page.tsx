@@ -1140,7 +1140,7 @@ export default function AdsLibrary() {
                               {filterCategories.map((category) => (
                                 <button
                                   key={category.id}
-                                  className="flex items-center justify-between w-full text-left px-4 py-2 text-md hover:bg-gray-200 cursor-pointer"
+                                  className="rounded-2xl flex items-center justify-between w-full text-left px-4 py-2 text-md hover:bg-gray-200 cursor-pointer"
                                   onClick={() => handleFilterCategorySelect(category.id)}
                                 >
                                   <span>{capitalizeText(category.label.replace(/_/g, ' '))}</span>
