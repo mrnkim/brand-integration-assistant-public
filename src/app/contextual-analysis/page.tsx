@@ -582,7 +582,7 @@ export default function ContextualAnalysis() {
         <div className="p-8 max-w-6xl mx-auto">
           {/* Show content embedding processing status if active */}
           {isProcessingContentEmbeddings && showProcessingMessage && (
-            <div className="mb-4 p-3 bg-blue-50 rounded-md">
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <LoadingSpinner size="sm" />
@@ -592,7 +592,7 @@ export default function ContextualAnalysis() {
                 </div>
                 <button
                   onClick={() => setShowProcessingMessage(false)}
-                  className="text-blue-500 hover:text-blue-700 ml-2"
+                  className="cursor-pointer text-blue-500 hover:text-blue-700 ml-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -607,16 +607,16 @@ export default function ContextualAnalysis() {
             <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-generate" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
                   </svg>
-                  <span className="text-sm text-yellow-800">
+                  <span className="text-sm">
                     {stillIndexingCount} content videos are still being indexed. They will be processed for contextual analysis once indexing is complete.
                   </span>
                 </div>
                 <button
                   onClick={() => setShowIndexingMessage(false)}
-                  className="text-yellow-500 hover:text-yellow-700 ml-2"
+                  className="cursor-pointer text-yellow-500 hover:text-yellow-700 ml-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -634,7 +634,7 @@ export default function ContextualAnalysis() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span className="text-sm text-green-800">
+                  <span className="text-sm">
                     {readyVideosCount} content videos are ready for contextual analysis.
                     {lastContentEmbeddingsCheck && (
                       <span className="ml-1">Last checked: {lastContentEmbeddingsCheck.toLocaleTimeString()}</span>
@@ -643,7 +643,7 @@ export default function ContextualAnalysis() {
                 </div>
                 <button
                   onClick={() => setShowReadyMessage(false)}
-                  className="text-green-500 hover:text-green-700 ml-2"
+                  className="cursor-pointer text-green-500 hover:text-green-700 ml-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>

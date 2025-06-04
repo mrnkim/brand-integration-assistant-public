@@ -880,7 +880,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
         ) : (
           <>
             {/* Thumbnail view */}
-            <div className="flex flex-col relative mb-6 border-1 min-h-[350px] border-gray-300 border-dashed rounded-[45.06px] p-6 bg-white-200">
+            <div className="flex flex-col relative mb-6 border-1 min-h-[350px] border-gray-300 border-dashed rounded-[45.06px] p-6 bg-light-blue">
               <div className="flex justify-between items-center mb-4">
                 <div className="text-sm font-medium">{files.length} videos</div>
                 <div className="flex items-center">
