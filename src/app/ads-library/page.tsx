@@ -1270,10 +1270,10 @@ export default function AdsLibrary() {
                     </div>
                   ) : (
                     <div className="mt-3 ml-2">
-                      {displayItems.map(item => (
+                      {displayItems.map((item, index) => (
                         item.isIndexing ? (
                           // Special rendering for indexing videos
-                          <div key={item.id} className="flex w-full mb-4">
+                          <div key={`indexing-${item.id}-${index}`} className="flex w-full mb-4">
                             <div className="w-[320px] flex-shrink-0 mr-4">
                               <div className="relative aspect-video bg-black rounded-[45.60px] overflow-hidden">
                                 {/* Black background for indexing videos */}
@@ -1293,9 +1293,9 @@ export default function AdsLibrary() {
                               </div>
                             </div>
                             {/* Empty columns for consistency with ContentItem layout */}
-                            {COLUMNS.slice(1).map(column => (
+                            {COLUMNS.slice(1).map((column, colIndex) => (
                               <div
-                                key={`${item.id}-${column.id}`}
+                                key={`${item.id}-${column.id}-${colIndex}`}
                                 className="flex-shrink-0 text-center flex items-center justify-center"
                                 style={{ width: column.width }}
                               >
@@ -1312,7 +1312,7 @@ export default function AdsLibrary() {
                         ) : (
                           // Regular ContentItem for indexed videos
                           <ContentItem
-                            key={item.id}
+                            key={`content-${item.id}-${index}`}
                             videoId={item.id}
                             indexId={adsIndexId}
                             thumbnailUrl={item.thumbnailUrl}
