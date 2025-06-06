@@ -258,3 +258,29 @@ export interface AdItemType {
   taskId?: string;
   status?: string;
 }
+
+export interface FilterMenuProps {
+  showFilterMenu: boolean;
+  selectedFilterCategory: string | null;
+  filterCategories: FilterCategory[];
+  filterOptions: {[key: string]: string[]};
+  onFilterCategorySelect: (categoryId: string | null) => void;
+  onToggleFilter: (category: string, value: string) => void;
+  onResetCategoryFilters: (category: string) => void;
+  onCloseFilterMenu: () => void;
+  getActiveCategoryFilterCount: (category: string) => number;
+  isFilterActive: (category: string, value: string) => boolean;
+  capitalizeText: (text: string) => string;
+}
+export interface ActiveFiltersProps {
+  activeFilters: {[key: string]: string[]};
+  onResetCategoryFilters: (category: string) => void;
+  onResetAllFilters: () => void;
+  getTotalActiveFilterCount: () => number;
+  capitalizeText: (text: string) => string;
+}
+
+type FilterCategory = {
+  id: string;
+  label: string;
+};
