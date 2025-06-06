@@ -17,9 +17,40 @@ export const fetchVideos = async (
   }
 
   try {
-    const response = await fetch(`/api/videos?page=${page}&index_id=${indexId}&limit=${limit}`);
+    // Ensure limit doesn't exceed the maximum allowed by the API (50)
+    const validatedLimit = Math.min(limit, 50);
+    if (limit > 50) {
+      console.warn(`Requested page limit ${limit} exceeds maximum allowed (50). Using limit=50 instead.`);
+    }
+
+    console.log(`Fetching videos from index: ${indexId}, page: ${page}, limit: ${validatedLimit}`);
+
+    // Check if the index ID seems valid (basic check)
+    if (indexId === '6836a0b9dad860d6bd2f61e7') {
+      console.warn(`⚠️ Using potentially problematic index ID: ${indexId}`);
+    }
+
+    const response = await fetch(`/api/videos?page=${page}&index_id=${indexId}&limit=${validatedLimit}`);
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`HTTP error fetching videos! status: ${response.status}`, errorText);
+
+      // If it's a 400 error, it might be due to an invalid index ID or limit
+      if (response.status === 400) {
+        console.error(`API error: ${errorText}. This could be due to invalid index ID (${indexId}) or limit parameter.`);
+
+        // Return an empty response instead of throwing
+        return {
+          data: [],
+          page_info: {
+            page: page,
+            total_page: 1,
+            total_count: 0
+          }
+        };
+      }
+
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -27,7 +58,16 @@ export const fetchVideos = async (
     return data;
   } catch (error) {
     console.error('Error fetching videos:', error);
-    throw error;
+
+    // Return empty response instead of throwing to allow the app to continue
+    return {
+      data: [],
+      page_info: {
+        page: page,
+        total_page: 1,
+        total_count: 0
+      }
+    };
   }
 };
 

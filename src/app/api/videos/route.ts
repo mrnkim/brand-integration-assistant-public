@@ -41,10 +41,16 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') || '1';
     const indexId = searchParams.get('index_id');
-    const limit = searchParams.get('limit') || '12';
+    let limit = parseInt(searchParams.get('limit') || '12', 10);
 
     if (!indexId) {
       return NextResponse.json({ error: 'Index ID is required' }, { status: 400 });
+    }
+
+    // Enforce maximum limit of 50 for Twelve Labs API
+    if (limit > 50) {
+      console.warn(`Requested limit ${limit} exceeds maximum allowed (50). Using limit=50 instead.`);
+      limit = 50;
     }
 
     if (!API_KEY || !TWELVELABS_API_BASE_URL) {

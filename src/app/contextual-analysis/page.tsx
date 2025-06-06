@@ -685,7 +685,7 @@ export default function ContextualAnalysis() {
                     onPlay={handlePlay}
                     />
                 ) : (
-                  <div className="border rounded-md bg-gray-50 p-8 flex items-center justify-center h-64 w-[320px]">
+                  <div className="border rounded-[45.06px] bg-gray-50 p-8 flex items-center justify-center h-38 w-[320px]">
                     <p>Select an ad from the dropdown</p>
                   </div>
                 )}
