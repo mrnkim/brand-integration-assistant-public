@@ -122,7 +122,6 @@ export const checkProcessingStatus = async (
     url.searchParams.append('videoId', videoId);
     url.searchParams.append('indexId', indexId);
 
-    console.log(`Checking processing status for video ${videoId} in index ${indexId}`);
     const response = await fetch(url.toString());
 
     if (!response.ok) {
@@ -136,17 +135,6 @@ export const checkProcessingStatus = async (
     }
 
     const data = await response.json();
-    console.log(`Processing status for video ${videoId}:`, JSON.stringify(data));
-
-    // 중요: 정확히 processed 값이 무엇인지 명확하게 로깅
-    console.log(`Video ${videoId} processed status is explicitly: ${Boolean(data.processed)}`);
-
-    // 벡터가 없을 때 임베딩 생성 명시적 로깅
-    if (!data.processed) {
-      console.log(`### IMPORTANT: Video ${videoId} is NOT processed. Will attempt to create embedding.`);
-    } else {
-      console.log(`### CONFIRMED: Video ${videoId} is already processed. No need to create embedding.`);
-    }
 
     return data;
   } catch (error) {
@@ -170,7 +158,6 @@ export const checkVectorExists = async (videoId: string, indexId?: string): Prom
       url.searchParams.append('index_id', indexId);
     }
 
-    console.log(`Checking if vector exists for video ${videoId}${indexId ? ` in index ${indexId}` : ''}`);
     const response = await fetch(url.toString());
 
     if (!response.ok) {
@@ -179,7 +166,6 @@ export const checkVectorExists = async (videoId: string, indexId?: string): Prom
     }
 
     const data = await response.json();
-    console.log(`Vector exists for video ${videoId}: ${data.exists}`);
     return data.exists;
   } catch (error) {
     console.error('Error checking vector existence:', error);
@@ -190,16 +176,12 @@ export const checkVectorExists = async (videoId: string, indexId?: string): Prom
 
 export const getAndStoreEmbeddings = async (indexId: string, videoId: string) => {
   try {
-    console.log(`🔄 Getting embeddings for video ${videoId} in index ${indexId}`);
-    console.log(`🧪 Environment check: Pinecone API key exists: ${!!process.env.PINECONE_API_KEY}, Pinecone index: ${process.env.PINECONE_INDEX}`);
-
     // First check if we already have embeddings stored for this video
     try {
       const existsResponse = await fetch(`/api/vectors/exists?video_id=${videoId}&index_id=${indexId}`);
       if (existsResponse.ok) {
         const existsData = await existsResponse.json();
         if (existsData.exists) {
-          console.log(`✅ Embeddings already exist for video ${videoId}, skipping generation`);
           return { success: true, message: 'Embeddings already exist' };
         }
       }
@@ -208,11 +190,9 @@ export const getAndStoreEmbeddings = async (indexId: string, videoId: string) =>
     }
 
     // Add delay to ensure video data is ready at Twelve Labs
-    console.log(`⏱️ Waiting for video data to be ready...`);
     await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Fetch video details with embedding
-    console.log(`🔍 Fetching video details with embedding for ${videoId}`);
     const response = await fetch(`/api/videos/${videoId}?indexId=${indexId}&embed=true`);
 
     if (!response.ok) {
@@ -221,11 +201,9 @@ export const getAndStoreEmbeddings = async (indexId: string, videoId: string) =>
 
       // If we get a 404 or 400, the video might not be fully processed yet, wait longer
       if (response.status === 404 || response.status === 400) {
-        console.log(`⚠️ Video ${videoId} may not be fully processed yet, will retry after delay`);
         await new Promise(resolve => setTimeout(resolve, 10000));
 
         // Try again after waiting
-        console.log(`🔄 Retrying fetch after delay...`);
         const retryResponse = await fetch(`/api/videos/${videoId}?indexId=${indexId}&embed=true`);
         if (!retryResponse.ok) {
           const retryErrorText = await retryResponse.text();
@@ -247,16 +225,6 @@ export const getAndStoreEmbeddings = async (indexId: string, videoId: string) =>
     }
 
     const videoDetails = await response.json();
-
-    // Debugging: Check what we got back from the API
-    console.log(`ℹ️ Video details structure:`, {
-      hasEmbedding: !!videoDetails.embedding,
-      embeddingKeys: videoDetails.embedding ? Object.keys(videoDetails.embedding) : [],
-      hasVideoEmbedding: !!(videoDetails.embedding && videoDetails.embedding.video_embedding),
-      hasSegments: !!(videoDetails.embedding && videoDetails.embedding.video_embedding && videoDetails.embedding.video_embedding.segments),
-      segmentsLength: videoDetails.embedding && videoDetails.embedding.video_embedding && videoDetails.embedding.video_embedding.segments
-        ? videoDetails.embedding.video_embedding.segments.length : 0
-    });
 
     // Check specifically if the embedding property exists and is not null/undefined
     if (!videoDetails || !videoDetails.embedding) {
@@ -285,8 +253,6 @@ const processAndStoreEmbedding = async (videoDetails: VideoDetailWithEmbedding, 
       return { success: false, message: 'Invalid embedding structure - missing segments' };
     }
 
-    console.log(`Embedding found for video ${videoId} with ${embedding.video_embedding.segments.length} segments`);
-
     // Get proper filename and title from system_metadata
     let filename = '';
     let videoTitle = '';
@@ -294,30 +260,21 @@ const processAndStoreEmbedding = async (videoDetails: VideoDetailWithEmbedding, 
     if (videoDetails.system_metadata) {
       if (videoDetails.system_metadata.filename) {
         filename = videoDetails.system_metadata.filename;
-        console.log(`Using filename from system_metadata: ${filename}`);
       }
       if (videoDetails.system_metadata.video_title) {
         videoTitle = videoDetails.system_metadata.video_title;
-        console.log(`Using video title from system_metadata: ${videoTitle}`);
       }
     }
 
     // If filename is not found, use videoId as fallback
     if (!filename) {
       filename = `${videoId}.mp4`;
-      console.log(`No filename found, using fallback: ${filename}`);
     }
 
     // If no video title, extract from filename (remove extension)
     if (!videoTitle && filename) {
       videoTitle = filename.split('.')[0];
-      console.log(`No video title found, using name from filename: ${videoTitle}`);
     }
-
-    console.log(`Storing embedding for video ${videoId}`);
-    console.log(`- Title: ${videoTitle}`);
-    console.log(`- Filename: ${filename}`);
-    console.log(`- Segments: ${embedding.video_embedding.segments.length}`);
 
     // Test Pinecone connection before attempting to store
     try {
@@ -330,7 +287,6 @@ const processAndStoreEmbedding = async (videoDetails: VideoDetailWithEmbedding, 
         return { success: false, message: 'Pinecone connection test failed' };
       }
 
-      console.log(`✅ Pinecone connection test passed`);
     } catch (connectionError) {
       console.error(`❌ Error testing Pinecone connection:`, connectionError);
     }
@@ -364,7 +320,6 @@ const processAndStoreEmbedding = async (videoDetails: VideoDetailWithEmbedding, 
     }
 
     const result = await storeResponse.json();
-    console.log(`Successfully stored embeddings for video ${videoId} in Pinecone`);
     return { success: true, ...result };
   } catch (error) {
     console.error(`Error in processAndStoreEmbedding for video ${videoId}:`, error);
@@ -385,6 +340,7 @@ export const generateMetadata = async (videoId: string): Promise<string> => {
     }
 
     const data = await response.json();
+    console.log("🚀 > generateMetadata > data=", data)
     // Now data has the structure { id, data, usage } where data.data contains the hashtags
     return data.data || '';
   } catch (error) {
@@ -403,7 +359,8 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     emotions: '',
     brands: '',
     locations: '',
-    demographics: ''
+    demographics_gender: '',
+    demographics_age: ''
   };
 
   // 각 해시태그에서 카테고리 추출 시도
@@ -413,69 +370,102 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
 
   // 각 카테고리별 태그를 수집하기 위한 객체
   const categoryTags: Record<string, string[]> = {
-    demographics: [],
+    demographics_gender: [],
+    demographics_age: [],
     sector: [],
     emotions: [],
     locations: [],
     brands: []
   };
 
-  // 카테고리별 키워드 (모두 소문자로 정의)
-  const demographicsKeywords = ['male', 'female', '18-25', '25-34', '35-44', '45-54', '55+'];
-  const sectorKeywords = ['beauty', 'fashion', 'tech', 'travel', 'cpg', 'food', 'bev', 'retail'];
-  const emotionKeywords = ['happy', 'positive', 'happypositive', 'happy/positive', 'exciting', 'relaxing', 'inspiring', 'serious', 'festive', 'calm', 'determined'];
+  // 카테고리별 키워드 - route.ts에 정의된 값들과 일치시킴
+  // Demographics Gender: Male, Female
+  const demographicsGenderKeywords = ['male', 'female', 'men', 'women'];
 
-  // 특정 위치 키워드 - 이것들이 나오면 확실하게 위치로 분류
-  const locationKeywords = [
-    'seoul', 'dubai', 'doha', 'newyork', 'new york', 'paris', 'tokyo', 'london', 'berlin',
-    'lasvegas', 'las vegas', 'france', 'korea', 'qatar', 'uae', 'usa', 'bocachica', 'bocachicabeach', 'marathon'
+  // Demographics Age: 18-25, 25-34, 35-44, 45-54, 55+
+  const demographicsAgeKeywords = ['18-25', '25-34', '35-44', '45-54', '55+'];
+
+  // Sector: Beauty, Fashion, Tech, Travel, CPG, Food & Bev, Retail
+  const sectorKeywords = ['beauty', 'fashion', 'tech', 'travel', 'cpg', 'food', 'bev', 'retail', 'food&bev'];
+
+  // Emotion: happy/positive, exciting, relaxing, inspiring, serious, festive, calm
+  const emotionKeywords = [
+    'happy', 'positive', 'happypositive', 'happy/positive',
+    'exciting', 'relaxing', 'inspiring', 'serious', 'festive', 'calm', 'determined'
   ];
 
-  // 특정 브랜드 키워드 - 이것들이 나오면 확실하게 브랜드로 분류
+  // 특정 위치 키워드 - API에서는 "any real-world location"으로 정의
+  const locationKeywords = [
+    'seoul', 'dubai', 'doha', 'newyork', 'new york', 'paris', 'tokyo', 'london', 'berlin',
+    'lasvegas', 'las vegas', 'france', 'korea', 'qatar', 'uae', 'usa', 'bocachica',
+    'bocachicabeach', 'marathon'
+  ];
+
+  // 특정 브랜드 키워드 - API에서는 "any mentioned brands in the input"으로 정의
   const brandKeywords = [
     'fentybeauty', 'adidas', 'nike', 'spacex', 'apple', 'microsoft', 'google', 'amazon',
     'ferrari', 'heineken', 'redbullracing', 'redbull', 'sailgp', 'fifaworldcup', 'fifa',
-    'tourdefrance', 'nttdata', 'oracle'
+    'tourdefrance', 'nttdata', 'oracle', 'maybelline'
   ];
+
+  // 생성된 해시태그가 어떤 카테고리에 속하는지 분석
+  console.log(`Analyzing ${hashtags.length} hashtags from: ${hashtagText}`);
 
   for (const tag of hashtags) {
     const cleanTag = tag.slice(1).toLowerCase(); // # 제거 및 소문자 변환
+    console.log(`Processing hashtag: ${cleanTag}`);
 
-    // 인구통계 확인 - 인구통계는 demographics 필드에 저장
-    if (demographicsKeywords.includes(cleanTag)) {
-      categoryTags.demographics.push(cleanTag);
+    // 인구통계 성별 확인
+    if (demographicsGenderKeywords.includes(cleanTag)) {
+      console.log(`Found demographic gender tag: ${cleanTag}`);
+      categoryTags.demographics_gender.push(cleanTag);
+      continue;
+    }
+
+    // 인구통계 연령 확인
+    if (demographicsAgeKeywords.includes(cleanTag)) {
+      console.log(`Found demographic age tag: ${cleanTag}`);
+      categoryTags.demographics_age.push(cleanTag);
       continue;
     }
 
     // 섹터 확인
     if (sectorKeywords.includes(cleanTag)) {
+      console.log(`Found sector tag: ${cleanTag}`);
       categoryTags.sector.push(cleanTag);
       continue;
     }
 
     // 감정 확인
     if (emotionKeywords.includes(cleanTag)) {
+      console.log(`Found emotion tag: ${cleanTag}`);
       categoryTags.emotions.push(cleanTag);
       continue;
     }
 
     // 위치 키워드 확인
     if (locationKeywords.includes(cleanTag)) {
+      console.log(`Found location tag: ${cleanTag}`);
       categoryTags.locations.push(cleanTag);
       continue;
     }
 
     // 브랜드 키워드 확인
     if (brandKeywords.includes(cleanTag)) {
+      console.log(`Found brand tag: ${cleanTag}`);
       categoryTags.brands.push(cleanTag);
       continue;
     }
+
+    // 어떤 기존 목록에도 없으면 브랜드나 위치로 처리
+    console.log(`Unclassified tag: ${cleanTag}`);
   }
 
   // 아직 분류되지 않은 태그들 처리
   const unclassifiedTags = hashtags.filter(tag => {
     const cleanTag = tag.slice(1).toLowerCase();
-    return !demographicsKeywords.includes(cleanTag) &&
+    return !demographicsGenderKeywords.includes(cleanTag) &&
+           !demographicsAgeKeywords.includes(cleanTag) &&
            !sectorKeywords.includes(cleanTag) &&
            !emotionKeywords.includes(cleanTag) &&
            !locationKeywords.includes(cleanTag) &&
@@ -484,13 +474,17 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
 
   // 아직 분류되지 않은 태그가 있고, locations가 비어있으면 첫 번째 태그를 locations로 간주
   if (unclassifiedTags.length > 0 && categoryTags.locations.length === 0) {
-    categoryTags.locations.push(unclassifiedTags[0].slice(1).toLowerCase());
+    const locationTag = unclassifiedTags[0].slice(1).toLowerCase();
+    console.log(`Assigning unclassified tag as location: ${locationTag}`);
+    categoryTags.locations.push(locationTag);
     unclassifiedTags.shift();
   }
 
   // 아직 분류되지 않은 태그가 있고, brands가 비어있으면 다음 태그를 brands로 간주
   if (unclassifiedTags.length > 0 && categoryTags.brands.length === 0) {
-    categoryTags.brands.push(unclassifiedTags[0].slice(1).toLowerCase());
+    const brandTag = unclassifiedTags[0].slice(1).toLowerCase();
+    console.log(`Assigning unclassified tag as brand: ${brandTag}`);
+    categoryTags.brands.push(brandTag);
   }
 
   // 각 카테고리 태그를 쉼표로 구분된 문자열로 변환
@@ -500,6 +494,15 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     }
   }
 
+  // 역방향 호환성을 위해 demographics 필드 설정
+  if (metadata.demographics_gender || metadata.demographics_age) {
+    const demographics = [];
+    if (metadata.demographics_gender) demographics.push(metadata.demographics_gender);
+    if (metadata.demographics_age) demographics.push(metadata.demographics_age);
+    metadata.demographics = demographics.join(', ');
+  }
+
+  console.log('Parsed hashtags into metadata:', metadata);
   return metadata;
 };
 
@@ -527,11 +530,26 @@ export const updateVideoMetadata = async (
     if ('sector' in metadata) apiMetadata.sector = metadata.sector;
 
     // demographics 관련 필드
-    if ('demo_age' in metadata || 'demo_gender' in metadata) {
-      const demographics = [];
-      if (metadata.demo_age) demographics.push(metadata.demo_age);
-      if (metadata.demo_gender) demographics.push(metadata.demo_gender);
-      apiMetadata.demographics = demographics.join(', ');
+    const demoValues = [];
+    if ('demographics_gender' in metadata && metadata.demographics_gender) {
+      demoValues.push(metadata.demographics_gender);
+    }
+    if ('demographics_age' in metadata && metadata.demographics_age) {
+      demoValues.push(metadata.demographics_age);
+    }
+
+    // 기존 방식과의 호환성 유지
+    if (demoValues.length === 0) {
+      if ('demographics' in metadata && metadata.demographics) {
+        apiMetadata.demographics = metadata.demographics;
+      } else if ('demo_age' in metadata || 'demo_gender' in metadata) {
+        const demographics = [];
+        if (metadata.demo_age) demographics.push(metadata.demo_age);
+        if (metadata.demo_gender) demographics.push(metadata.demo_gender);
+        apiMetadata.demographics = demographics.join(', ');
+      }
+    } else {
+      apiMetadata.demographics = demoValues.join(', ');
     }
 
     // 로깅
@@ -581,7 +599,6 @@ export const updateVideoMetadata = async (
 export const convertMetadataToTags = (metadata: Record<string, unknown>): { category: string; value: string }[] => {
   if (!metadata) return [];
 
-
   const tags: { category: string; value: string }[] = [];
 
   // Helper function to normalize tag values
@@ -598,14 +615,50 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
     tags.push({ category: 'Source', value: normalizeTagValue(metadata.source) });
   }
 
-  // Demographics - 새로운 필드로 처리
-  if (metadata.demographics && typeof metadata.demographics === 'string') {
+  // Demographics Gender
+  if (metadata.demographics_gender && typeof metadata.demographics_gender === 'string') {
+    metadata.demographics_gender.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '')
+      .forEach(tag => {
+        tags.push({ category: 'Demographics Gender', value: normalizeTagValue(tag) });
+      });
+  }
+
+  // Demographics Age
+  if (metadata.demographics_age && typeof metadata.demographics_age === 'string') {
+    metadata.demographics_age.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag !== '')
+      .forEach(tag => {
+        tags.push({ category: 'Demographics Age', value: normalizeTagValue(tag) });
+      });
+  }
+
+  // 기존 Demographics 필드 - 역호환성
+  if (!metadata.demographics_gender && !metadata.demographics_age &&
+      metadata.demographics && typeof metadata.demographics === 'string') {
     // 쉼표로 구분된 값을 개별 태그로 추가
     metadata.demographics.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
       .forEach(tag => {
-        tags.push({ category: 'Demographics', value: normalizeTagValue(tag) });
+        // 성별 관련 태그인지 확인
+        if (tag.toLowerCase().includes('male') ||
+            tag.toLowerCase().includes('women') ||
+            tag.toLowerCase().includes('men')) {
+          tags.push({ category: 'Demographics Gender', value: normalizeTagValue(tag) });
+        }
+        // 연령 관련 태그인지 확인
+        else if (tag.toLowerCase().includes('age') ||
+                tag.toLowerCase().includes('old') ||
+                /\d+-\d+/.test(tag)) {
+          tags.push({ category: 'Demographics Age', value: normalizeTagValue(tag) });
+        }
+        // 그 외의 경우 일반 Demographics로 간주
+        else {
+          tags.push({ category: 'Demographics', value: normalizeTagValue(tag) });
+        }
       });
   }
 

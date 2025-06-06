@@ -15,7 +15,8 @@ Based on the input video metadata, generate a list of 5 to 10 relevant hashtags.
 
 **Each of the following categories must be represented by at least one hashtag:**
 
-- Demographics
+- Demographics Gender
+- Demographics Age
 - Sector
 - Emotion
 - Location
@@ -32,7 +33,9 @@ Based on the input video metadata, generate a list of 5 to 10 relevant hashtags.
 
 **Input Example:**
 
-Demographics: woman
+Demographics Gender: female
+
+Demographics Age: 25-34
 
 Sector: beauty
 
@@ -46,7 +49,9 @@ Mentioned Brands: fentybeauty
 
 **Allowed Options:**
 
-Demographics: Male, Female, 18-25, 25-34, 35-44, 45-54, 55+
+Demographics Gender: Male, Female
+
+Demographics Age: 18-25, 25-34, 35-44, 45-54, 55+
 
 Sector: Beauty, Fashion, Tech, Travel, CPG, Food & Bev, Retail
 

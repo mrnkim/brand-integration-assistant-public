@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode, createContext, useContext } from 'react';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // Create a context for global state
 type GlobalState = {
@@ -39,7 +38,6 @@ export function ReactQueryProvider({ children }: { children: ReactNode }) {
       <GlobalStateContext.Provider value={{ selectedAdId, setSelectedAdId }}>
         {children}
       </GlobalStateContext.Provider>
-      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }

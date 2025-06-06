@@ -155,22 +155,40 @@ export default function AdsLibrary() {
       tags = convertMetadataToTags(video.user_metadata);
     }
 
+    // Utility function to extract specific demographic types
+    const extractDemographics = (demographics: string, type: 'gender' | 'age'): string => {
+      if (!demographics) return '';
+
+      const demoArr = demographics.split(',').map(d => d.trim().toLowerCase());
+
+      if (type === 'gender') {
+        return demoArr.filter(d =>
+          d.includes('male') ||
+          d.includes('men') ||
+          d.includes('women')
+        ).join(', ');
+      } else { // age
+        return demoArr.filter(d =>
+          d.includes('age') ||
+          d.includes('old') ||
+          /\d+-\d+/.test(d)
+        ).join(', ');
+      }
+    };
+
     const metadata = (!isStillIndexing && video.user_metadata) ? {
       source: video.user_metadata.source as string,
       topic_category: video.user_metadata.sector as string,
       emotions: video.user_metadata.emotions as string,
       brands: video.user_metadata.brands as string,
       locations: video.user_metadata.locations as string,
-      demo_age: video.user_metadata.demographics ?
-                (video.user_metadata.demographics as string).split(',')
-                .filter(d => d.toLowerCase().includes('age') ||
-                            d.toLowerCase().includes('old') ||
-                            /\d+-\d+/.test(d)).join(', ') : '',
-      demo_gender: video.user_metadata.demographics ?
-                  (video.user_metadata.demographics as string).split(',')
-                  .filter(d => d.toLowerCase().includes('male') ||
-                              d.toLowerCase().includes('women') ||
-                              d.toLowerCase().includes('men')).join(', ') : '',
+      // 먼저 demographics_gender/age 필드 확인
+      demo_gender: video.user_metadata.demographics_gender as string ||
+                 (video.user_metadata.demographics ?
+                  extractDemographics(video.user_metadata.demographics as string, 'gender') : ''),
+      demo_age: video.user_metadata.demographics_age as string ||
+               (video.user_metadata.demographics ?
+                extractDemographics(video.user_metadata.demographics as string, 'age') : ''),
     } : undefined;
 
     return {
@@ -196,22 +214,40 @@ export default function AdsLibrary() {
         setAdItems(prevItems => {
           return prevItems.map(item => {
             if (item.id === videoId) {
+              // Utility function to extract specific demographic types
+              const extractDemographics = (demographics: string, type: 'gender' | 'age'): string => {
+                if (!demographics) return '';
+
+                const demoArr = demographics.split(',').map(d => d.trim().toLowerCase());
+
+                if (type === 'gender') {
+                  return demoArr.filter(d =>
+                    d.includes('male') ||
+                    d.includes('men') ||
+                    d.includes('women')
+                  ).join(', ');
+                } else { // age
+                  return demoArr.filter(d =>
+                    d.includes('age') ||
+                    d.includes('old') ||
+                    /\d+-\d+/.test(d)
+                  ).join(', ');
+                }
+              };
+
               const updatedMetadata = updatedVideo.user_metadata ? {
                 source: updatedVideo.user_metadata.source || '',
                 topic_category: updatedVideo.user_metadata.sector || '',
                 emotions: updatedVideo.user_metadata.emotions || '',
                 brands: updatedVideo.user_metadata.brands || '',
                 locations: updatedVideo.user_metadata.locations || '',
-                demo_age: updatedVideo.user_metadata.demographics ?
-                  (updatedVideo.user_metadata.demographics as string).split(',')
-                  .filter(d => d.toLowerCase().includes('age') ||
-                    d.toLowerCase().includes('old') ||
-                    /\d+-\d+/.test(d)).join(', ') : '',
-                demo_gender: updatedVideo.user_metadata.demographics ?
-                  (updatedVideo.user_metadata.demographics as string).split(',')
-                  .filter(d => d.toLowerCase().includes('male') ||
-                    d.toLowerCase().includes('women') ||
-                    d.toLowerCase().includes('men')).join(', ') : '',
+                // 먼저 demographics_gender/age 필드 확인
+                demo_gender: updatedVideo.user_metadata.demographics_gender ||
+                          (updatedVideo.user_metadata.demographics ?
+                          extractDemographics(updatedVideo.user_metadata.demographics as string, 'gender') : ''),
+                demo_age: updatedVideo.user_metadata.demographics_age ||
+                        (updatedVideo.user_metadata.demographics ?
+                        extractDemographics(updatedVideo.user_metadata.demographics as string, 'age') : ''),
               } : undefined;
 
               const updatedTags = updatedVideo.user_metadata ? convertMetadataToTags(updatedVideo.user_metadata) : [];
