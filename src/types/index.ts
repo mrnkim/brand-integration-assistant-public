@@ -237,3 +237,24 @@ export interface ChaptersResponse {
   type: string;
   video_id: string;
 }
+
+export interface AdItemType {
+  id: string;
+  thumbnailUrl: string;
+  title: string;
+  videoUrl: string;
+  tags: Tag[];
+  metadata?: {
+    source?: string;
+    topic_category?: string;
+    emotions?: string;
+    brands?: string;
+    locations?: string;
+    demo_age?: string;
+    demo_gender?: string;
+  };
+  isIndexing?: boolean;
+  indexingStatus?: string;
+  taskId?: string;
+  status?: string;
+}
