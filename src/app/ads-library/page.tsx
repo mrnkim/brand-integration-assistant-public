@@ -110,7 +110,7 @@ export default function AdsLibrary() {
     refetch
   } = useInfiniteQuery({
     queryKey: ['videos', adsIndexId],
-    queryFn: ({ pageParam }) => fetchVideos(pageParam, adsIndexId),
+    queryFn: ({ pageParam }) => fetchVideos(pageParam, adsIndexId, 12),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       if (lastPage.page_info.page < lastPage.page_info.total_page) {
@@ -125,6 +125,7 @@ export default function AdsLibrary() {
   const { ref: observerRef, inView } = useInView({
     threshold: 0.1,
     triggerOnce: false,
+    rootMargin: '200px 0px', // Load earlier before the user sees the end
   });
 
   // Load next page when observer is in view
@@ -770,22 +771,22 @@ export default function AdsLibrary() {
                         )
                       ))}
 
-                      {/* Load more button - only show when not filtering */}
-                      {!isFiltering && hasNextPage && (
-                        <div
-                          className="flex justify-center py-4 mb-8"
-                          ref={observerRef}
-                        >
-                          {isFetchingNextPage ? (
-                            <div className="flex items-center space-x-2">
-                              <LoadingSpinner />
-                              <span className="text-gray-500">Loading more videos...</span>
-                            </div>
-                          ) : (
-                            <div className="h-10 w-full" />
-                          )}
-                        </div>
-                      )}
+                      {/* Load more indicator - show regardless of hasNextPage to ensure it's visible */}
+                      <div
+                        className="flex justify-center py-4 mb-8"
+                        ref={observerRef}
+                      >
+                        {isFetchingNextPage ? (
+                          <div className="flex items-center space-x-2">
+                            <LoadingSpinner />
+                            <span className="text-gray-500">Loading more videos...</span>
+                          </div>
+                        ) : hasNextPage ? (
+                          <div className="h-10 w-full" />
+                        ) : (
+                          <div className="text-sm text-gray-500">All videos loaded</div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

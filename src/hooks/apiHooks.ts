@@ -9,20 +9,22 @@ export const fetchIndex = async (indexId: string): Promise<IndexResponse> => {
 // 비디오 목록 가져오기
 export const fetchVideos = async (
   page: number = 1,
-  indexId?: string
+  indexId?: string,
+  limit: number = 12 // Default page size
 ): Promise<PaginatedResponse> => {
   if (!indexId) {
     throw new Error('Index ID is required');
   }
 
   try {
-    const response = await fetch(`/api/videos?page=${page}&index_id=${indexId}`);
+    const response = await fetch(`/api/videos?page=${page}&index_id=${indexId}&limit=${limit}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('Error fetching videos:', error);
     throw error;
