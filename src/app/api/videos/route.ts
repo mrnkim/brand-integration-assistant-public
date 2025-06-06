@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') || '1';
     const indexId = searchParams.get('index_id');
-    const pageLimit = searchParams.get('page_limit') || '10';
+    const limit = searchParams.get('limit') || '12';
 
     if (!indexId) {
       return NextResponse.json({ error: 'Index ID is required' }, { status: 400 });
@@ -55,7 +55,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos?page=${page}&page_limit=${pageLimit}`;
+    const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos?page=${page}&page_limit=${limit}`;
+
+    console.log(`Fetching videos from API: ${url}`);
 
     const options = {
       method: 'GET',

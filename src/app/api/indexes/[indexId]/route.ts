@@ -1,3 +1,4 @@
+import { IndexResponse } from "@/types";
 import { NextResponse } from "next/server";
 
 const API_KEY = process.env.TWELVELABS_API_KEY;
@@ -48,9 +49,7 @@ export async function GET(
       );
     }
 
-    // Use unknown type and a type guard for safer handling
-    const indexData: unknown = await response.json();
-
+    const indexData: IndexResponse = await response.json();
     return NextResponse.json(indexData);
 
   } catch (e) {

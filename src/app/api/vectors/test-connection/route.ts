@@ -3,7 +3,6 @@ import { getPineconeClient, getPineconeIndex } from '@/utils/pinecone';
 
 export async function GET() {
   try {
-    console.log('🧪 Testing Pinecone connection...');
 
     // Check environment variables
     const pineconeApiKey = process.env.PINECONE_API_KEY;

@@ -7,7 +7,6 @@ export async function POST(req: Request) {
     const { videoId, indexId, resetAll = false } = body;
 
     // If resetAll is true, it will ignore individual video resets
-    // For general safety, require either resetAll=true OR (videoId AND indexId)
     if (!resetAll && (!videoId || !indexId)) {
       return NextResponse.json(
         { success: false, error: 'Either resetAll=true OR both videoId and indexId are required' },
@@ -50,10 +49,6 @@ export async function POST(req: Request) {
         );
       }
     }
-
-    // For reset all, this is just a placeholder response
-    // In a real implementation, this would delete all vectors or recreate the index
-    console.log('Reset functionality is for testing only - not actually deleting all vectors');
 
     return NextResponse.json({
       success: true,

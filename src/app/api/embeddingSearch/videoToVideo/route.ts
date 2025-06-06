@@ -63,9 +63,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Debug log to track what's happening
-    console.log(`Found ${allResults.length} total matches from video-based search`);
-
     // Remove duplicates (keep only the highest score for each tlVideoId)
     const uniqueResults = Object.values(
       allResults.reduce((acc: Record<string, typeof current>, current) => {
@@ -78,9 +75,7 @@ export async function POST(req: Request) {
         return acc;
       }, {})
     );
-
-    console.log(`Found ${uniqueResults.length} unique videos after deduplication`);
-
+    
     // Sort by score
     const sortedResults = uniqueResults.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 

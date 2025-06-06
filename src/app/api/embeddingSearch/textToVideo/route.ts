@@ -44,10 +44,9 @@ export async function POST(req: Request) {
       includeMetadata: true,
     });
 
-    // Remove duplicates (keep only the highest score for each video)
     interface SearchResult {
       metadata?: Record<string, string | number | boolean | string[]>;
-      score: number;  // score를 필수 필드로 지정
+      score: number; 
     }
 
     const uniqueResults = Object.values(

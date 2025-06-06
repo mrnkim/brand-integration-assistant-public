@@ -63,7 +63,6 @@ Mentioned Brands: any mentioned brands in the input`
       );
     }
 
-    // 개발/테스트 환경에서는 API 호출 없이 샘플 응답을 반환
     if (!API_KEY || !TWELVELABS_API_BASE_URL) {
       console.error('Missing API key or base URL in environment variables');
       return NextResponse.json(
@@ -90,7 +89,6 @@ Mentioned Brands: any mentioned brands in the input`
       const response = await fetch(url, options);
 
       if (!response.ok) {
-        // Log the error details for debugging
         const errorText = await response.text();
         console.error(`TwelveLabs API error (${response.status}): ${errorText}`);
 

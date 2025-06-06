@@ -4,11 +4,9 @@ const API_KEY = process.env.TWELVELABS_API_KEY;
 const TWELVELABS_API_BASE_URL = process.env.TWELVELABS_API_BASE_URL;
 
 export async function POST(request: NextRequest) {
-  console.log('### DEBUG: /api/vectors POST API called');
   try {
     const body = await request.json();
     const { index_id, video_id } = body;
-    console.log(`### DEBUG: Fetching embeddings for video_id=${video_id}, index_id=${index_id}`);
 
     if (!index_id || !video_id) {
       console.error('### DEBUG ERROR: Missing required parameters in request body');
@@ -28,7 +26,6 @@ export async function POST(request: NextRequest) {
 
     // First, try to get the video without embedding options to check if it already has embeddings
     const videoUrl = `${TWELVELABS_API_BASE_URL}/indexes/${index_id}/videos/${video_id}`;
-    console.log(`### DEBUG: Checking if video already has embeddings - GET ${videoUrl}`);
 
     const options = {
       method: 'GET',
@@ -49,11 +46,9 @@ export async function POST(request: NextRequest) {
     }
 
     const videoData = await videoResponse.json();
-    console.log(`### DEBUG: Video data retrieved. Has embeddings: ${Boolean(videoData.embedding?.video_embedding?.segments)}`);
 
     // Check if embeddings already exist
     if (videoData.embedding?.video_embedding?.segments) {
-      console.log(`### DEBUG: Embedding already exists for video ${video_id}`);
 
       return NextResponse.json({
         videoId: video_id,
@@ -65,7 +60,6 @@ export async function POST(request: NextRequest) {
 
     // Embeddings don't exist, request them with the embedding_option parameter
     const embeddingUrl = `${TWELVELABS_API_BASE_URL}/indexes/${index_id}/videos/${video_id}?embedding_option=visual-text`;
-    console.log(`### DEBUG: Requesting embeddings with embedding_option=visual-text - GET ${embeddingUrl}`);
 
     const embeddingResponse = await fetch(embeddingUrl, options);
 
@@ -78,7 +72,6 @@ export async function POST(request: NextRequest) {
     }
 
     const embeddingData = await embeddingResponse.json();
-    console.log(`### DEBUG: Successfully retrieved embeddings for video ${video_id}`);
 
     // Return the embedding data
     return NextResponse.json({

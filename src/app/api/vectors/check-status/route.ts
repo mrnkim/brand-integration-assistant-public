@@ -8,19 +8,16 @@ export async function GET(req: Request) {
     const indexId = searchParams.get('indexId');
 
     if (!videoId || !indexId) {
-      console.error('🔍 CHECK-STATUS - Missing required parameters');
       return NextResponse.json(
         { processed: false, error: 'videoId and indexId are required parameters' },
         { status: 400 }
       );
     }
 
-    console.log(`🔍 CHECK-STATUS - Checking if video ${videoId} exists in index ${indexId}`);
 
     // Determine category based on indexId
     const isAdsIndex = indexId.toLowerCase().includes('ad');
     const category = isAdsIndex ? 'ad' : 'content';
-    console.log(`🔍 CHECK-STATUS - Using category "${category}" for index ${indexId}`);
 
     // Get Pinecone index
     const pineconeIndex = getPineconeIndex();
@@ -34,9 +31,6 @@ export async function GET(req: Request) {
     }
 
     try {
-      // Query for vectors with this video ID
-      console.log(`🔍 CHECK-STATUS - Querying Pinecone for video ${videoId}`);
-
       // Use a zero vector with correct dimensions (1024) - only using filter to find vectors
       const queryResponse = await pineconeIndex.query({
         vector: Array(1024).fill(0), // Zero vector with 1024 dimensions to match the index dimension
@@ -47,18 +41,6 @@ export async function GET(req: Request) {
 
       const matchCount = queryResponse.matches?.length || 0;
       const processed = Boolean(matchCount);
-
-      // Log basic query results
-      console.log(`🔍 CHECK-STATUS - Query result for ${videoId}: ${processed ? "FOUND" : "NOT FOUND"}`);
-
-      // If found, log the first match details
-      if (processed && queryResponse.matches && queryResponse.matches[0]) {
-        const firstMatch = queryResponse.matches[0];
-        console.log(`🔍 CHECK-STATUS - First match info:`, JSON.stringify({
-          id: firstMatch.id,
-          metadata: firstMatch.metadata
-        }, null, 2));
-      }
 
       return NextResponse.json({
         processed,

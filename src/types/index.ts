@@ -284,3 +284,21 @@ type FilterCategory = {
   id: string;
   label: string;
 };
+
+export interface SearchResult {
+  _id: string;
+  index_id?: string;
+  video_id: string;
+  score: number;
+  duration: number;
+  thumbnail_url?: string;
+  video_url?: string;
+  video_title?: string;
+  segments?: Array<{
+    start: number;
+    end: number;
+    score: number;
+    matched_words?: string[];
+  }>;
+  [key: string]: string | number | boolean | object | undefined;
+}

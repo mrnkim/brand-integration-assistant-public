@@ -1,46 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import FormData from "form-data";
+import { SearchResult } from "@/types";
 
 export const runtime = "nodejs";
 
-// Define interface for search result
-interface SearchResult {
-  _id: string;
-  index_id?: string;
-  video_id: string;
-  score: number;
-  duration: number;
-  thumbnail_url?: string;
-  video_url?: string;
-  video_title?: string;
-  segments?: Array<{
-    start: number;
-    end: number;
-    score: number;
-    matched_words?: string[];
-  }>;
-  // For any other properties that might be present
-  [key: string]: string | number | boolean | object | undefined;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 > Search API > Received request');
 
     const apiKey = process.env.TWELVELABS_API_KEY;
 
     const body = await request.json();
-    console.log('🔍 > Search API > Request body:', body);
 
     const { textSearchQuery, indexId: requestIndexId, page = 1, page_size = 10, offset = 0 } = body;
-    console.log('🔍 > Search API > Pagination parameters:', { page, page_size, offset });
 
     // Use indexId from request if provided, otherwise use from env
     const indexId = requestIndexId || process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
 
     if (!apiKey || !indexId) {
-      console.log('🔍 > Search API > Missing API key or index ID');
       return NextResponse.json(
         { error: "API key or Index ID is not set" },
         { status: 500 }
@@ -48,7 +25,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (!textSearchQuery || textSearchQuery.trim() === '') {
-      console.log('🔍 > Search API > Empty search query');
       return NextResponse.json(
         { error: "Search query is required" },
         { status: 400 }
@@ -69,7 +45,7 @@ export async function POST(request: NextRequest) {
       searchDataForm.append("offset", offset.toString());
     }
 
-    const url = "https://api.twelvelabs.io/v1.3/search"; // API 버전 업데이트
+    const url = "https://api.twelvelabs.io/v1.3/search";
 
     try {
       const response = await axios.post(url, searchDataForm, {
@@ -80,7 +56,6 @@ export async function POST(request: NextRequest) {
       });
 
       const responseData = response.data;
-      console.log("🚀 > POST > responseData=", responseData)
 
       if (!responseData) {
         return NextResponse.json(
