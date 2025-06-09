@@ -187,22 +187,281 @@ const VideoModal: React.FC<VideoModalProps> = ({
   const getExplanationText = (): string => {
     if (!originalSource) return "This content was found in the search results.";
 
+    console.log("==== VideoModal Debug Start ====");
+    console.log("originalSource:", originalSource);
+    console.log("Ad videoId:", selectedAdId);
+    console.log("Content videoId:", videoId);
+
     const adMetadata = adVideoDetail?.user_metadata;
-    const contentTags = contentMetadata?.user_metadata
-      ? Object.entries(contentMetadata.user_metadata)
-          .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
-          .flatMap(entry => (entry[1] as string).split(',').map(tag => tag.trim()))
-          .filter(tag => tag.length > 0)
-      : [];
 
-    const adTags = adMetadata
-      ? Object.entries(adMetadata)
-          .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
-          .flatMap(entry => (entry[1] as string).split(',').map(tag => tag.trim()))
-          .filter(tag => tag.length > 0)
-      : [];
+    // 디버깅을 위한 로그 추가
+    console.log("Raw Ad metadata:", JSON.stringify(adMetadata, null, 2));
+    console.log("Raw Content metadata:", JSON.stringify(contentMetadata?.user_metadata, null, 2));
 
-    const commonTags = adTags.filter(tag => contentTags.includes(tag));
+    // 태그 추출 함수 - 필드명 차이를 고려한 통합 추출 로직
+    const extractTagsFromMetadata = (metadata: Record<string, unknown> | undefined) => {
+      if (!metadata) {
+        console.log("No metadata provided for tag extraction");
+        return [];
+      }
+
+      const allTags: string[] = [];
+      const fieldMappings: Record<string, string[]> = {
+        // 섹터/주제
+        sector: ['sector', 'topic_category'],
+        // 감정
+        emotions: ['emotions'],
+        // 브랜드
+        brands: ['brands'],
+        // 위치
+        locations: ['locations', 'location'],
+        // 성별
+        gender: ['demographics_gender', 'demo_gender'],
+        // 연령
+        age: ['demographics_age', 'demo_age']
+      };
+
+      console.log("Metadata fields:", Object.keys(metadata));
+
+      // demographics 통합 필드 처리 (성별과 연령이 함께 있는 경우)
+      if (metadata.demographics && typeof metadata.demographics === 'string') {
+        console.log(`  Found demographics: "${metadata.demographics}"`);
+        const demographicsValue = metadata.demographics as string;
+
+        // 쉼표로 구분된 값들 처리
+        const demoParts = demographicsValue.split(',').map(part => part.trim());
+        console.log(`  Demographics parts:`, demoParts);
+
+        // 성별 키워드
+        const genderKeywords = ['male', 'female', 'men', 'women'];
+
+        // 연령 패턴 (숫자-숫자 형식)
+        const agePattern = /^\d+-\d+$/;
+
+        demoParts.forEach(part => {
+          const lowerPart = part.toLowerCase();
+
+          // 성별 확인
+          if (genderKeywords.some(keyword => lowerPart.includes(keyword))) {
+            console.log(`  Extracted gender tag from demographics: "${part}"`);
+            allTags.push(part);
+          }
+          // 연령 확인 (숫자-숫자 패턴)
+          else if (agePattern.test(part)) {
+            console.log(`  Extracted age tag from demographics: "${part}"`);
+            allTags.push(part);
+          }
+          // 그 외의 경우도 일단 추가
+          else {
+            console.log(`  Extracted other demographic tag: "${part}"`);
+            allTags.push(part);
+          }
+        });
+      }
+
+      // 모든 필드 매핑을 순회하며 태그 추출
+      Object.values(fieldMappings).forEach(fields => {
+        fields.forEach(field => {
+          const value = metadata[field];
+          if (value && typeof value === 'string') {
+            console.log(`  Found ${field}: "${value}"`);
+            const tags = value.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag.length > 0);
+            console.log(`  Extracted tags from ${field}:`, tags);
+            tags.forEach(tag => allTags.push(tag));
+          } else {
+            console.log(`  Field ${field} not found or not a string`);
+          }
+        });
+      });
+
+      return allTags;
+    };
+
+    // 광고와 콘텐츠에서 모든 태그 추출
+    console.log("Extracting tags from ad metadata...");
+    const adTags = extractTagsFromMetadata(adMetadata);
+    console.log("Extracting tags from content metadata...");
+    const contentTags = extractTagsFromMetadata(contentMetadata?.user_metadata);
+
+    console.log("All extracted ad tags:", adTags);
+    console.log("All extracted content tags:", contentTags);
+
+    // 공통 태그 찾기 (대소문자 구분 없이)
+    console.log("Finding common tags...");
+    const commonTags: string[] = [];
+
+    adTags.forEach(adTag => {
+      const normalizedAdTag = adTag.toLowerCase();
+      const matchingContentTag = contentTags.find(contentTag =>
+        contentTag.toLowerCase() === normalizedAdTag
+      );
+
+      if (matchingContentTag) {
+        console.log(`Found common tag: "${adTag}" (Ad) matches "${matchingContentTag}" (Content)`);
+        // 원래 대소문자가 유지된 태그 사용
+        commonTags.push(adTag);
+      } else {
+        console.log(`No match found for ad tag: "${adTag}"`);
+      }
+    });
+
+    console.log("Final common tags:", commonTags);
+
+    // Create a mapping from tag value to category
+    const tagCategories = new Map<string, string>();
+
+    // 태그에 카테고리 할당하는 함수
+    const assignCategoryToTags = (metadata: Record<string, unknown> | undefined) => {
+      if (!metadata) return;
+
+      // demographics 통합 필드 처리
+      if (metadata.demographics && typeof metadata.demographics === 'string') {
+        const demographicsValue = metadata.demographics as string;
+        const demoParts = demographicsValue.split(',').map(part => part.trim());
+
+        // 성별 키워드
+        const genderKeywords = ['male', 'female', 'men', 'women'];
+
+        // 연령 패턴 (숫자-숫자 형식)
+        const agePattern = /^\d+-\d+$/;
+
+        demoParts.forEach(part => {
+          const lowerPart = part.toLowerCase();
+          const trimmedTag = part.trim();
+
+          // 성별 확인
+          if (genderKeywords.some(keyword => lowerPart.includes(keyword))) {
+            tagCategories.set(lowerPart, 'gender');
+            console.log(`Assigned category 'gender' to tag from demographics: "${trimmedTag}"`);
+          }
+          // 연령 확인 (숫자-숫자 패턴)
+          else if (agePattern.test(part)) {
+            tagCategories.set(lowerPart, 'age');
+            console.log(`Assigned category 'age' to tag from demographics: "${trimmedTag}"`);
+          }
+        });
+      }
+
+      // 섹터/주제 (Topic)
+      ['sector', 'topic_category'].forEach(field => {
+        const value = metadata[field];
+        if (value && typeof value === 'string') {
+          value.split(',').forEach((tag: string) => {
+            const trimmedTag = tag.trim();
+            if (trimmedTag) {
+              tagCategories.set(trimmedTag.toLowerCase(), 'topic');
+              console.log(`Assigned category 'topic' to tag: "${trimmedTag}"`);
+            }
+          });
+        }
+      });
+
+      // 감정 (Emotions)
+      const emotions = metadata.emotions;
+      if (emotions && typeof emotions === 'string') {
+        emotions.split(',').forEach((tag: string) => {
+          const trimmedTag = tag.trim();
+          if (trimmedTag) {
+            tagCategories.set(trimmedTag.toLowerCase(), 'emotions');
+            console.log(`Assigned category 'emotions' to tag: "${trimmedTag}"`);
+          }
+        });
+      }
+
+      // 브랜드 (Brands)
+      const brands = metadata.brands;
+      if (brands && typeof brands === 'string') {
+        brands.split(',').forEach((tag: string) => {
+          const trimmedTag = tag.trim();
+          if (trimmedTag) {
+            tagCategories.set(trimmedTag.toLowerCase(), 'brands');
+            console.log(`Assigned category 'brands' to tag: "${trimmedTag}"`);
+          }
+        });
+      }
+
+      // 위치 (Location)
+      ['locations', 'location'].forEach(field => {
+        const value = metadata[field];
+        if (value && typeof value === 'string') {
+          value.split(',').forEach((tag: string) => {
+            const trimmedTag = tag.trim();
+            if (trimmedTag) {
+              tagCategories.set(trimmedTag.toLowerCase(), 'location');
+              console.log(`Assigned category 'location' to tag: "${trimmedTag}"`);
+            }
+          });
+        }
+      });
+
+      // 성별 (Gender)
+      ['demographics_gender', 'demo_gender'].forEach(field => {
+        const value = metadata[field];
+        if (value && typeof value === 'string') {
+          value.split(',').forEach((tag: string) => {
+            const trimmedTag = tag.trim();
+            if (trimmedTag) {
+              tagCategories.set(trimmedTag.toLowerCase(), 'gender');
+              console.log(`Assigned category 'gender' to tag: "${trimmedTag}"`);
+            }
+          });
+        }
+      });
+
+      // 연령 (Age)
+      ['demographics_age', 'demo_age'].forEach(field => {
+        const value = metadata[field];
+        if (value && typeof value === 'string') {
+          value.split(',').forEach((tag: string) => {
+            const trimmedTag = tag.trim();
+            if (trimmedTag) {
+              tagCategories.set(trimmedTag.toLowerCase(), 'age');
+              console.log(`Assigned category 'age' to tag: "${trimmedTag}"`);
+            }
+          });
+        }
+      });
+    };
+
+    // 광고와 콘텐츠 메타데이터 모두에서 카테고리 정보 추출
+    console.log("Assigning categories from ad metadata...");
+    assignCategoryToTags(adMetadata);
+    console.log("Assigning categories from content metadata...");
+    assignCategoryToTags(contentMetadata?.user_metadata);
+
+    console.log("All tag categories:", Object.fromEntries(tagCategories));
+
+    // Sort common tags according to the specified order
+    console.log("Sorting common tags by category priority...");
+    const sortedCommonTags = [...commonTags].sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+
+      const categoryA = tagCategories.get(aLower) || '';
+      const categoryB = tagCategories.get(bLower) || '';
+
+      console.log(`Comparing tags: "${a}" (${categoryA}) vs "${b}" (${categoryB})`);
+
+      // Define order priority
+      const categoryOrder = {
+        'topic': 1,
+        'emotions': 2,
+        'brands': 3,
+        'location': 4,
+        'gender': 5,
+        'age': 6
+      };
+
+      // Get priority or default to high number if category not found
+      const priorityA = categoryOrder[categoryA as keyof typeof categoryOrder] || 99;
+      const priorityB = categoryOrder[categoryB as keyof typeof categoryOrder] || 99;
+
+      console.log(`Priorities: ${a}=${priorityA}, ${b}=${priorityB}`);
+
+      return priorityA - priorityB;
+    });
+
+    console.log("Final sorted common tags:", sortedCommonTags);
 
     let explanation = "";
 
@@ -210,7 +469,8 @@ const VideoModal: React.FC<VideoModalProps> = ({
       case "BOTH":
         explanation = `it shares both visual and thematic elements with the selected ad.`;
         if (commonTags.length > 0) {
-          const capitalizedTags = commonTags.slice(0, 3).map(tag => capitalizeText(tag));
+          const capitalizedTags = sortedCommonTags.slice(0, 3).map(tag => capitalizeText(tag));
+          console.log("Using capitalized tags for display:", capitalizedTags);
           explanation += ` They share common tags: `;
           explanation += capitalizedTags.map(tag =>
             `<span class="inline-block bg-gray-100 border rounded-full px-2 py-0.5 text-xs mx-0.5">${tag}</span>`
@@ -218,21 +478,44 @@ const VideoModal: React.FC<VideoModalProps> = ({
           if (commonTags.length > 3) {
             explanation += '...';
           }
+        } else {
+          console.log("No common tags found for BOTH source type");
         }
         break;
       case "TEXT":
         explanation = `it shares thematic elements and keywords with the selected ad.`;
         if (commonTags.length > 0) {
-          const capitalizedTags = commonTags.slice(0, 3).map(tag => capitalizeText(tag));
+          const capitalizedTags = sortedCommonTags.slice(0, 3).map(tag => capitalizeText(tag));
+          console.log("Using capitalized tags for display:", capitalizedTags);
           explanation += ` They share common tags: ${capitalizedTags.join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
+        } else {
+          console.log("No common tags found for TEXT source type");
         }
         break;
       case "VIDEO":
         explanation = `it shares visual elements and style with the selected ad.`;
+        console.log("VIDEO source type - common tags will be displayed:", commonTags);
+        // VIDEO 타입에서도 공통 태그 표시 (이미지 화면의 F1 레이스 비디오가 이 케이스)
+        if (commonTags.length > 0) {
+          const capitalizedTags = sortedCommonTags.slice(0, 3).map(tag => capitalizeText(tag));
+          console.log("Using capitalized tags for VIDEO source:", capitalizedTags);
+          explanation += ` They share common tags: `;
+          explanation += capitalizedTags.map(tag =>
+            `<span class="inline-block bg-gray-100 border rounded-full px-2 py-0.5 text-xs mx-0.5">${tag}</span>`
+          ).join("");
+          if (commonTags.length > 3) {
+            explanation += '...';
+          }
+        } else {
+          console.log("No common tags found for VIDEO source type");
+        }
         break;
       default:
         explanation = `it was found in the search results.`;
     }
+
+    console.log("Final explanation:", explanation);
+    console.log("==== VideoModal Debug End ====");
 
     return explanation;
   };
