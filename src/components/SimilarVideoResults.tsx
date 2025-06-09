@@ -33,6 +33,8 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
       setLoadingDetails(true);
       const detailsMap: Record<string, VideoData> = {};
+      // 유효하지 않은 비디오 ID 추적을 위한 Set
+      const invalidVideoIds = new Set<string>();
 
       // Fetch details for the first 9 results to avoid too many requests
       const videosToFetch = results.slice(0, 9).filter(result => result.metadata?.tl_video_id);
@@ -46,14 +48,39 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
             try {
               const details = await fetchVideoDetails(videoId, indexId);
-              detailsMap[videoId] = details;
+              if (details) {
+                detailsMap[videoId] = details;
+              } else {
+                // 응답은 왔지만 데이터가 없는 경우
+                console.warn(`No details returned for video ${videoId}`);
+                invalidVideoIds.add(videoId);
+              }
             } catch (error) {
+              // 오류가 발생한 경우 (예: 404 Not Found)
               console.error(`Error fetching details for video ${videoId}:`, error);
+
+              // 오류 메시지에서 "resource_not_exists" 또는 "does not exist" 문자열이 포함된 경우
+              // 해당 비디오는 존재하지 않는 것으로 표시
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              if (
+                errorMessage.includes('resource_not_exists') ||
+                errorMessage.includes('does not exist') ||
+                errorMessage.includes('Not Found')
+              ) {
+                console.warn(`Video ${videoId} does not exist in collection, excluding from results`);
+                invalidVideoIds.add(videoId);
+              }
             }
           })
         );
 
         setVideoDetails(detailsMap);
+
+        // 로그 출력
+        if (invalidVideoIds.size > 0) {
+          console.info(`Excluded ${invalidVideoIds.size} invalid videos from results:`,
+            Array.from(invalidVideoIds));
+        }
       } catch (error) {
         console.error('Error fetching video details:', error);
       } finally {
@@ -176,6 +203,9 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
           // Only render videos with valid IDs
           if (!videoId) return null;
+
+          // 존재하지 않는 비디오(오류가 발생한 비디오)는 렌더링하지 않음
+          if (!videoDetails[videoId]) return null;
 
           // Get the full video details from our fetched data
           const videoData = videoDetails[videoId];
