@@ -403,6 +403,77 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     demographics_age: ''
   };
 
+  // 새로운 형식 (레이블이 있는 형식) 처리
+  // 레이블을 확인하여 직접 메타데이터를 추출합니다.
+  if (hashtagText.includes('Demographics Gender:') ||
+      hashtagText.includes('Demographics Age:') ||
+      hashtagText.includes('Topic Category:') ||
+      hashtagText.includes('Emotions:') ||
+      hashtagText.includes('Location:') ||
+      hashtagText.includes('Brands:') ||
+      hashtagText.includes('Gender:') ||
+      hashtagText.includes('Age:') ||
+      hashtagText.includes('Topic:')) {
+
+    console.log("Parsing formatted metadata with labels");
+
+    // 각 줄을 분리
+    const lines = hashtagText.split('\n');
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // 각 레이블에 맞게 데이터 추출 (새로운 레이블과 이전 레이블 모두 지원)
+      if (trimmedLine.startsWith('Demographics Gender:')) {
+        metadata.demographics_gender = trimmedLine.substring('Demographics Gender:'.length).trim();
+        console.log(`Found demographics_gender: ${metadata.demographics_gender}`);
+      }
+      else if (trimmedLine.startsWith('Gender:')) {
+        metadata.demographics_gender = trimmedLine.substring('Gender:'.length).trim();
+        console.log(`Found gender (mapped to demographics_gender): ${metadata.demographics_gender}`);
+      }
+      else if (trimmedLine.startsWith('Demographics Age:')) {
+        metadata.demographics_age = trimmedLine.substring('Demographics Age:'.length).trim();
+        console.log(`Found demographics_age: ${metadata.demographics_age}`);
+      }
+      else if (trimmedLine.startsWith('Age:')) {
+        metadata.demographics_age = trimmedLine.substring('Age:'.length).trim();
+        console.log(`Found age (mapped to demographics_age): ${metadata.demographics_age}`);
+      }
+      else if (trimmedLine.startsWith('Topic Category:')) {
+        metadata.sector = trimmedLine.substring('Topic Category:'.length).trim();
+        console.log(`Found sector (Topic Category): ${metadata.sector}`);
+      }
+      else if (trimmedLine.startsWith('Topic:')) {
+        metadata.sector = trimmedLine.substring('Topic:'.length).trim();
+        console.log(`Found topic (mapped to sector): ${metadata.sector}`);
+      }
+      else if (trimmedLine.startsWith('Emotions:')) {
+        metadata.emotions = trimmedLine.substring('Emotions:'.length).trim();
+        console.log(`Found emotions: ${metadata.emotions}`);
+      }
+      else if (trimmedLine.startsWith('Location:')) {
+        metadata.locations = trimmedLine.substring('Location:'.length).trim();
+        console.log(`Found locations: ${metadata.locations}`);
+      }
+      else if (trimmedLine.startsWith('Brands:')) {
+        metadata.brands = trimmedLine.substring('Brands:'.length).trim();
+        console.log(`Found brands: ${metadata.brands}`);
+      }
+    }
+
+    // 역방향 호환성을 위해 demographics 필드 설정
+    if (metadata.demographics_gender || metadata.demographics_age) {
+      const demographics = [];
+      if (metadata.demographics_gender) demographics.push(metadata.demographics_gender);
+      if (metadata.demographics_age) demographics.push(metadata.demographics_age);
+      metadata.demographics = demographics.join(', ');
+    }
+
+    return metadata;
+  }
+
+  // 기존 해시태그 방식 처리 (이전 코드 유지 - 역호환성)
   // 각 해시태그에서 카테고리 추출 시도
   // 개행문자(\n)를 공백으로 대체하여 일관된 분할 처리
   const cleanText = hashtagText.replace(/\n/g, ' ');
@@ -655,23 +726,23 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
     tags.push({ category: 'Source', value: normalizeTagValue(metadata.source) });
   }
 
-  // Demographics Gender
+  // Demographics Gender -> Target Demo: Gender
   if (metadata.demographics_gender && typeof metadata.demographics_gender === 'string') {
     metadata.demographics_gender.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
       .forEach(tag => {
-        tags.push({ category: 'Demographics Gender', value: normalizeTagValue(tag) });
+        tags.push({ category: 'Target Demo: Gender', value: normalizeTagValue(tag) });
       });
   }
 
-  // Demographics Age
+  // Demographics Age -> Target Demo: Age
   if (metadata.demographics_age && typeof metadata.demographics_age === 'string') {
     metadata.demographics_age.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
       .forEach(tag => {
-        tags.push({ category: 'Demographics Age', value: normalizeTagValue(tag) });
+        tags.push({ category: 'Target Demo: Age', value: normalizeTagValue(tag) });
       });
   }
 
@@ -687,13 +758,13 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
         if (tag.toLowerCase().includes('male') ||
             tag.toLowerCase().includes('women') ||
             tag.toLowerCase().includes('men')) {
-          tags.push({ category: 'Demographics Gender', value: normalizeTagValue(tag) });
+          tags.push({ category: 'Target Demo: Gender', value: normalizeTagValue(tag) });
         }
         // 연령 관련 태그인지 확인
         else if (tag.toLowerCase().includes('age') ||
                 tag.toLowerCase().includes('old') ||
                 /\d+-\d+/.test(tag)) {
-          tags.push({ category: 'Demographics Age', value: normalizeTagValue(tag) });
+          tags.push({ category: 'Target Demo: Age', value: normalizeTagValue(tag) });
         }
         // 그 외의 경우 일반 Demographics로 간주
         else {
@@ -702,14 +773,14 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
       });
   }
 
-  // Sector
+  // Sector -> Topic Category
   if (metadata.sector && typeof metadata.sector === 'string') {
     // 쉼표로 구분된 값을 개별 태그로 추가
     metadata.sector.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
       .forEach(tag => {
-        tags.push({ category: 'Sector', value: normalizeTagValue(tag) });
+        tags.push({ category: 'Topic Category', value: normalizeTagValue(tag) });
       });
   }
 

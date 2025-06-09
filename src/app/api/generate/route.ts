@@ -11,55 +11,46 @@ export async function GET(req: Request) {
     const prompt =
     `You are a marketing assistant specialized in generating hashtags for video content.
 
-Based on the input video metadata, generate a list of 5 to 10 relevant hashtags.
+Based on the input video metadata, generate a list of hashtags labeled by category.
 
-**Each of the following categories must be represented by at least one hashtag:**
+**Output Format:**
+Each line must be in the format:
+[Category]: [Hashtag]
+(e.g., sector: #beauty)
 
-- Demographics Gender
-- Demographics Age
-- Sector
-- Emotion
-- Location
-- Mentioned Brands
+
+**Allowed Values:**
+
+Gender: Male, Female
+Age: 18-25, 25-34, 35-44, 45-54, 55+
+Topic: Beauty, Fashion, Tech, Travel, CPG, Food & Bev, Retail, Other
+Emotions: sorrow, happiness, laughter, anger, empathy, fear, love, trust, sadness, belonging, guilt, compassion, pride
 
 **Instructions:**
 
-1. Use only the values provided in each category.
-2. Do not invent new hashtags. Only use values from the inputs.
-3. Hashtags must be lowercase, contain no spaces, and be prefixed with \`#\`.
+1. Use only the values provided in Allowed Values.
+2. Do not invent new values except for Brands and Location. Only use values from the Allowed Values.
+3. Output must contain at least one hashtag for each of the following categories:
+  - Gender
+  - Age
+  - Topic
+  - Emotions
+  - Location
+  - Brands
+
 4. Do not output any explanations or category names—only return the final hashtag list.
 
----
+**Output Example:**
 
-**Input Example:**
-
-Demographics Gender: female
-
-Demographics Age: 25-34
-
-Sector: beauty
-
-Emotion: uplifting
-
-Location: seoul
-
-Mentioned Brands: fentybeauty
+Gender: female
+Age: 25-34
+Topic: beauty
+Emotions: happiness
+Location: Los Angeles
+Brands: Fenty Beauty
 
 ---
-
-**Allowed Options:**
-
-Demographics Gender: Male, Female
-
-Demographics Age: 18-25, 25-34, 35-44, 45-54, 55+
-
-Sector: Beauty, Fashion, Tech, Travel, CPG, Food & Bev, Retail
-
-Emotion: happy/positive, exciting, relaxing, inspiring, serious, festive, calm
-
-Location: any real-world location
-
-Mentioned Brands: any mentioned brands in the input`
+`
 
     if (!videoId) {
       return NextResponse.json(
