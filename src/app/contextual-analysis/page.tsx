@@ -37,7 +37,6 @@ const adaptToPaginatedResponse = (response: PaginatedResponse): VideoPage => ({
 export default function ContextualAnalysis() {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
-  console.log("🚀 > ContextualAnalysis > selectedVideo=", selectedVideo)
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -126,41 +125,30 @@ export default function ContextualAnalysis() {
       if (!contentIndexId) return;
 
       try {
-        // 모든 content video를 가져오기 위해 pagination 처리
         let currentPage = 1;
         let hasMorePages = true;
         const allContentVideos: VideoData[] = [];
 
-        // 모든 페이지 가져오기
         while (hasMorePages) {
-          console.log(`📄 Fetching content videos page ${currentPage}`);
           const contentResponse = await fetchVideos(currentPage, contentIndexId);
 
           if (contentResponse && contentResponse.data && contentResponse.data.length > 0) {
             allContentVideos.push(...contentResponse.data);
-            console.log(`📚 Loaded ${contentResponse.data.length} content videos from page ${currentPage}`);
 
-            // 다음 페이지가 있는지 확인
             const totalPages = contentResponse.page_info.total_page;
             currentPage++;
 
             if (currentPage > totalPages) {
               hasMorePages = false;
-              console.log(`📚 Reached last page. Total pages: ${totalPages}`);
             }
           } else {
-            // 더 이상 데이터가 없으면 루프 종료
             hasMorePages = false;
           }
         }
 
-        console.log(`📚 Total loaded content videos: ${allContentVideos.length}`);
-
         if (allContentVideos.length > 0) {
-          // Update state with new content videos
           setContentVideos(allContentVideos);
 
-          // Process embeddings for content videos
           await processContentVideoEmbeddings(allContentVideos);
         }
       } catch (error) {
@@ -174,7 +162,6 @@ export default function ContextualAnalysis() {
     // Set up polling to regularly check for new content videos
     const pollInterval = 60000; // Poll every 60 seconds
     const intervalId = setInterval(() => {
-      console.log("🔄 Polling for new content videos and updating embeddings");
       fetchContentVideos();
     }, pollInterval);
 
@@ -193,7 +180,6 @@ export default function ContextualAnalysis() {
 
     try {
       // First, get the current indexing status of all videos in this index
-      console.log(`Fetching indexing tasks for content index: ${contentIndexId}`);
       const indexingTasks = await fetchIndexingTasks(contentIndexId);
 
       // Create a map of videoId -> indexing status
@@ -203,8 +189,6 @@ export default function ContextualAnalysis() {
           indexingStatusMap.set(task.video_id, task.status || 'unknown');
         }
       });
-
-      console.log(`Retrieved indexing status for ${indexingStatusMap.size} videos`);
 
       // Filter out videos that are still indexing
       const readyVideos: VideoData[] = [];
@@ -220,11 +204,8 @@ export default function ContextualAnalysis() {
           readyVideos.push(video);
         } else {
           stillIndexingVideos.push(video);
-          console.log(`Video ${videoId} is still indexing with status: ${indexingStatus}, skipping embedding generation`);
         }
       });
-
-      console.log(`Found ${readyVideos.length} ready videos and ${stillIndexingVideos.length} still indexing`);
 
       // Update counts for UI display
       setReadyVideosCount(readyVideos.length);
@@ -234,7 +215,6 @@ export default function ContextualAnalysis() {
       setContentEmbeddingsProgress({ processed: 0, total: readyVideos.length });
 
       if (readyVideos.length === 0) {
-        console.log("No videos are ready for embedding processing");
         setIsProcessingContentEmbeddings(false);
         return;
       }
@@ -253,8 +233,6 @@ export default function ContextualAnalysis() {
         const cachedStatus = queryClient.getQueryData(cacheKey) as { exists: boolean } | undefined;
 
         if (cachedStatus) {
-          console.log(`Video ${videoId} embedding status already in cache: ${cachedStatus.exists ? 'exists' : 'missing'}`);
-
           if (cachedStatus.exists) {
             existingEmbeddings.push(videoId);
             processedVideoIds.add(videoId);
@@ -283,19 +261,14 @@ export default function ContextualAnalysis() {
         }));
       }
 
-      console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
-      console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
-
       // Generate embeddings for videos that need them
       if (missingEmbeddings.length > 0) {
         setContentEmbeddingsProgress({ processed: 0, total: missingEmbeddings.length });
 
         for (const videoId of missingEmbeddings) {
-          console.log(`🔄 Generating embedding for content video ${videoId}...`);
           const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
 
           if (embedResult.success) {
-            console.log(`✅ Successfully generated embedding for content video ${videoId}`);
             // Update cache to indicate embedding now exists
             queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: true });
             processedVideoIds.add(videoId);
@@ -336,7 +309,6 @@ export default function ContextualAnalysis() {
 
   // Close modal when unmounting
   useEffect(() => {
-    console.log("🚀 > ContextualAnalysis > adaptedVideosData=", adaptedVideosData)
     return () => {
       setIsModalOpen(false);
       setIsPlaying(false); // Keep the background video paused
@@ -364,8 +336,6 @@ export default function ContextualAnalysis() {
         { checked: boolean, ready: boolean } | undefined;
 
       if (!cachedStatus?.checked) {
-        console.log(`Auto-triggering embedding check for ad video ${selectedVideoId} (not previously checked)`);
-
         // Set loading state
         setIsLoadingEmbeddings(true);
 
@@ -382,7 +352,6 @@ export default function ContextualAnalysis() {
           setIsLoadingEmbeddings(false);
         });
       } else {
-        console.log(`Video ${selectedVideoId} already checked for embeddings, status: ${cachedStatus.ready ? 'ready' : 'not ready'}`);
         // Update UI to match cached state
         setEmbeddingsReady(cachedStatus.ready);
       }
@@ -394,9 +363,7 @@ export default function ContextualAnalysis() {
     const allVideos = videosData?.pages.flatMap((page: PaginatedResponse) => page.data) || [];
     const video = allVideos.find((v: VideoData) => v._id === videoId);
     setSelectedVideo(video || null);
-    // Reset analysis results when video changes
     setSimilarResults([]);
-    // Update global state with selected ad ID
     setSelectedAdId(videoId);
   };
 
@@ -405,13 +372,12 @@ export default function ContextualAnalysis() {
     if (!selectedVideoId) return false;
 
     try {
-      // Only process the ad video (set processContentVideos to false)
       const result = await checkAndEnsureEmbeddings(
         selectedVideoId,
         adsIndexId,
         contentIndexId,
         contentVideos,
-        false // Don't process content videos when checking individual ad videos
+        false
       );
 
       return result.success;
@@ -427,9 +393,7 @@ export default function ContextualAnalysis() {
     try {
       setIsAnalyzing(true);
 
-      // 임베딩이 아직 준비되지 않았거나 확인 중이라면 준비
       if (!embeddingsReady && !isLoadingEmbeddings) {
-        console.log(`Checking embeddings before running contextual alignment analysis`);
 
         const embeddingsExist = await ensureEmbeddings();
         if (!embeddingsExist) {
@@ -438,36 +402,18 @@ export default function ContextualAnalysis() {
           return;
         }
       } else if (isLoadingEmbeddings) {
-        // 이미 로딩 중이라면 완료될 때까지 대기
-        console.log("Embeddings are already being loaded, waiting...");
         setIsAnalyzing(false);
         return;
       }
 
-      console.log(`Running contextual alignment analysis for video ${selectedVideoId}`);
-
-      // Clear previous results
       setSimilarResults([]);
 
-      // 두 가지 검색 방식을 병렬로 실행
       let textResults: EmbeddingSearchResult[] = [];
       let videoResults: EmbeddingSearchResult[] = [];
 
       try {
         textResults = await textToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
-        console.log("=== TEXT-BASED SEARCH RESULTS ===");
-        console.log("🚀 > handleContextualAnalysis > textResults=", textResults);
-
         if (textResults.length > 0) {
-          textResults.forEach((result, index) => {
-            // 검색 방법 정보 표시 (태그 또는 제목)
-            const searchMethodInfo = result.searchMethod ?
-              `(by ${result.searchMethod})` : '';
-
-            console.log(`${index + 1}. ${result.metadata?.video_file || 'Unknown'} - Score: ${(result.score * 100).toFixed(1)}% ${searchMethodInfo} (ID: ${result.metadata?.tl_video_id})`);
-          });
-        } else {
-          console.log("No text-based matches found");
         }
       } catch (error) {
         console.error("Error in text-based search:", error);
@@ -477,11 +423,7 @@ export default function ContextualAnalysis() {
         videoResults = await videoToVideoEmbeddingSearch(selectedVideoId, adsIndexId, contentIndexId);
 
         if (videoResults.length > 0) {
-          videoResults.forEach((result, index) => {
-            console.log(`${index + 1}. ${result.metadata?.video_file || 'Unknown'} - Score: ${(result.score * 100).toFixed(1)}% (ID: ${result.metadata?.tl_video_id})`);
-          });
         } else {
-          console.log("No video-based matches found");
         }
       } catch (error) {
         console.error("Error in video-based search:", error);
@@ -533,7 +475,7 @@ export default function ContextualAnalysis() {
               metadata: result.metadata,
               textScore: 0,
               videoScore: result.score,
-              finalScore: result.score,  // Initial score is just the video score
+              finalScore: result.score,
               source: "VIDEO"
             });
           }
@@ -557,8 +499,6 @@ export default function ContextualAnalysis() {
       setSimilarResults(formattedResults);
 
       // Log the results with source information
-      console.log("\n=== COMBINED RESULTS WITH PRIORITIZED SCORING ===");
-      console.log(`Combined ${textResults.length} text-based and ${videoResults.length} video-based results into ${formattedResults.length} unique videos`);
 
     } catch (error) {
       console.error("Error during contextual analysis:", error);
@@ -770,7 +710,7 @@ export default function ContextualAnalysis() {
                         ? 'Running Contextual Analysis'
                         : 'Contextual Alignment Analysis'}
                 </div>
-                {!isLoadingEmbeddings && !isAnalyzing && (
+              {!isLoadingEmbeddings && !isAnalyzing && (
                   <div className="w-2 h-2 p-[3px] flex justify-center items-center flex-wrap content-center">
                     <div className="flex-1 self-stretch bg-stone-900" />
                   </div>
