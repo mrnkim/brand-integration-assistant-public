@@ -6,7 +6,6 @@ import {
   fetchVideos,
   textToVideoEmbeddingSearch,
   videoToVideoEmbeddingSearch,
-  EmbeddingSearchResult,
   checkAndEnsureEmbeddings,
   checkVectorExists,
   getAndStoreEmbeddings,
@@ -20,6 +19,7 @@ import Sidebar from '@/components/Sidebar';
 import { useGlobalState } from '@/providers/ReactQueryProvider';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import VideoModalSimple from '@/components/VideoModalSimple';
+import { EmbeddingSearchResult } from '@/types';
 
 
 // VideoPage adapter for the API response
@@ -41,24 +41,14 @@ export default function ContextualAnalysis() {
   const [similarResults, setSimilarResults] = useState<EmbeddingSearchResult[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // New states for tracking embedding loading
   const [isLoadingEmbeddings, setIsLoadingEmbeddings] = useState(false);
   const [contentVideos, setContentVideos] = useState<VideoData[]>([]);
   const [embeddingsReady, setEmbeddingsReady] = useState(false);
-
-  // New state to track content embedding processing
   const [isProcessingContentEmbeddings, setIsProcessingContentEmbeddings] = useState(false);
   const [contentEmbeddingsProgress, setContentEmbeddingsProgress] = useState({ processed: 0, total: 0 });
-
-  // Track the last time we processed content embeddings
   const [lastContentEmbeddingsCheck, setLastContentEmbeddingsCheck] = useState<Date | null>(null);
-
-  // New states to track indexing status
   const [stillIndexingCount, setStillIndexingCount] = useState(0);
   const [readyVideosCount, setReadyVideosCount] = useState(0);
-
-  // States to control visibility of status messages
   const [showProcessingMessage, setShowProcessingMessage] = useState(true);
   const [showIndexingMessage, setShowIndexingMessage] = useState(true);
   const [showReadyMessage, setShowReadyMessage] = useState(true);
@@ -67,26 +57,22 @@ export default function ContextualAnalysis() {
   const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || '';
   const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
-  // Add Query Client for cache operations
   const queryClient = useQueryClient();
 
   // Query to cache embedding check results
   useQuery({
     queryKey: ['embeddingStatus', selectedVideoId],
     queryFn: async () => {
-      // This query doesn't actually fetch data, it just stores the status
       return { checked: false, ready: false };
     },
-    // Don't refetch this query automatically - we'll manage it manually
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     staleTime: Infinity,
     enabled: !!selectedVideoId,
-    // Initialize with a default value to prevent undefined issues
     initialData: { checked: false, ready: false },
   });
 
-  // Use the lastContentEmbeddingsCheck in a useQuery to refetch content embedding status
+  // Query to cache content embedding check results
   useQuery({
     queryKey: ['contentEmbeddingsCheckStatus', contentIndexId],
     queryFn: async () => {
@@ -100,6 +86,7 @@ export default function ContextualAnalysis() {
     staleTime: Infinity,
   });
 
+  // Query to fetch videos from the ads index
   const {
     data: videosData,
     fetchNextPage,
@@ -120,7 +107,6 @@ export default function ContextualAnalysis() {
 
   // Fetch content videos when component mounts and process their embeddings once
   useEffect(() => {
-    // Define a local async function to fetch content videos
     async function fetchContentVideos() {
       if (!contentIndexId) return;
 
@@ -156,10 +142,8 @@ export default function ContextualAnalysis() {
       }
     }
 
-    // Initial fetch of content videos
     fetchContentVideos();
 
-    // Set up polling to regularly check for new content videos
     const pollInterval = 60000; // Poll every 60 seconds
     const intervalId = setInterval(() => {
       fetchContentVideos();
@@ -179,10 +163,8 @@ export default function ContextualAnalysis() {
     setContentEmbeddingsProgress({ processed: 0, total: videos.length });
 
     try {
-      // First, get the current indexing status of all videos in this index
       const indexingTasks = await fetchIndexingTasks(contentIndexId);
 
-      // Create a map of videoId -> indexing status
       const indexingStatusMap = new Map<string, string>();
       indexingTasks.forEach(task => {
         if (task.video_id) {
@@ -190,7 +172,6 @@ export default function ContextualAnalysis() {
         }
       });
 
-      // Filter out videos that are still indexing
       const readyVideos: VideoData[] = [];
       const stillIndexingVideos: VideoData[] = [];
 
@@ -198,8 +179,6 @@ export default function ContextualAnalysis() {
         const videoId = video._id;
         const indexingStatus = indexingStatusMap.get(videoId);
 
-        // If not in the status map or status is 'ready', consider it ready for embedding
-        // Sometimes videos don't appear in indexing tasks if they were uploaded long ago
         if (!indexingStatus || indexingStatus === 'ready') {
           readyVideos.push(video);
         } else {
@@ -207,11 +186,9 @@ export default function ContextualAnalysis() {
         }
       });
 
-      // Update counts for UI display
       setReadyVideosCount(readyVideos.length);
       setStillIndexingCount(stillIndexingVideos.length);
 
-      // Update total in progress to only count ready videos
       setContentEmbeddingsProgress({ processed: 0, total: readyVideos.length });
 
       if (readyVideos.length === 0) {
@@ -219,16 +196,13 @@ export default function ContextualAnalysis() {
         return;
       }
 
-      // Track content videos with missing embeddings
       const missingEmbeddings: string[] = [];
       const existingEmbeddings: string[] = [];
       const processedVideoIds = new Set<string>();
 
-      // First check which content videos need embeddings (only for ready videos)
       for (const video of readyVideos) {
         const videoId = video._id;
 
-        // Check if this video has already been processed by checking the cache
         const cacheKey = ['videoEmbedding', contentIndexId, videoId];
         const cachedStatus = queryClient.getQueryData(cacheKey) as { exists: boolean } | undefined;
 
@@ -240,10 +214,8 @@ export default function ContextualAnalysis() {
             missingEmbeddings.push(videoId);
           }
         } else {
-          // Not in cache, check from API
           const hasEmbedding = await checkVectorExists(videoId, contentIndexId);
 
-          // Cache the result
           queryClient.setQueryData(cacheKey, { exists: hasEmbedding });
 
           if (hasEmbedding) {
@@ -254,14 +226,12 @@ export default function ContextualAnalysis() {
           }
         }
 
-        // Update progress
         setContentEmbeddingsProgress(prev => ({
           ...prev,
           processed: prev.processed + 1
         }));
       }
 
-      // Generate embeddings for videos that need them
       if (missingEmbeddings.length > 0) {
         setContentEmbeddingsProgress({ processed: 0, total: missingEmbeddings.length });
 
@@ -269,16 +239,13 @@ export default function ContextualAnalysis() {
           const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
 
           if (embedResult.success) {
-            // Update cache to indicate embedding now exists
             queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: true });
             processedVideoIds.add(videoId);
           } else {
             console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
-            // Mark as checked but failed
             queryClient.setQueryData(['videoEmbedding', contentIndexId, videoId], { exists: false, failed: true });
           }
 
-          // Update progress
           setContentEmbeddingsProgress(prev => ({
             ...prev,
             processed: prev.processed + 1
@@ -286,7 +253,6 @@ export default function ContextualAnalysis() {
         }
       }
 
-      // Update the overall content embeddings status in cache, including info about videos still indexing
       queryClient.setQueryData(['contentEmbeddingsStatus', contentIndexId], {
         processed: true,
         total: videos.length,
@@ -307,17 +273,16 @@ export default function ContextualAnalysis() {
     }
   }
 
-  // Close modal when unmounting
   useEffect(() => {
     return () => {
       setIsModalOpen(false);
-      setIsPlaying(false); // Keep the background video paused
+      setIsPlaying(false);
     };
   }, []);
 
   const handlePlay = () => {
     setIsModalOpen(true);
-    setIsPlaying(false); // Keep the background video paused
+    setIsPlaying(false);
   };
 
   // Auto-select the first video when data is loaded
@@ -331,33 +296,28 @@ export default function ContextualAnalysis() {
   // Automatically check ONLY the ad video embedding when a video is selected
   useEffect(() => {
     if (selectedVideoId && !isLoadingEmbeddings) {
-      // Check if this video has already been processed by checking the cache
       const cachedStatus = queryClient.getQueryData(['embeddingStatus', selectedVideoId]) as
         { checked: boolean, ready: boolean } | undefined;
 
       if (!cachedStatus?.checked) {
-        // Set loading state
         setIsLoadingEmbeddings(true);
 
-        // Start embedding check process - ONLY for the ad video (not content videos)
         ensureEmbeddings().then(success => {
-          // Cache the result so we don't check this video again
           queryClient.setQueryData(['embeddingStatus', selectedVideoId], {
             checked: true,
             ready: success
           });
 
-          // Update UI state
           setEmbeddingsReady(success);
           setIsLoadingEmbeddings(false);
         });
       } else {
-        // Update UI to match cached state
         setEmbeddingsReady(cachedStatus.ready);
       }
     }
   }, [selectedVideoId, isLoadingEmbeddings, queryClient]);
 
+  // Handle video change
   const handleVideoChange = async (videoId: string) => {
     setSelectedVideoId(videoId);
     const allVideos = videosData?.pages.flatMap((page: PaginatedResponse) => page.data) || [];
@@ -387,6 +347,7 @@ export default function ContextualAnalysis() {
     }
   };
 
+  // Handle contextual analysis
   const handleContextualAnalysis = async () => {
     if (!selectedVideoId) return;
 
@@ -429,10 +390,8 @@ export default function ContextualAnalysis() {
         console.error("Error in video-based search:", error);
       }
 
-      // Create a map to track all results by videoId
       const combinedResultsMap = new Map();
 
-      // Add text-based results to the map
       textResults.forEach(result => {
         const videoId = result.metadata?.tl_video_id;
         if (videoId) {
@@ -441,13 +400,12 @@ export default function ContextualAnalysis() {
             metadata: result.metadata,
             textScore: result.score,
             videoScore: 0,
-            finalScore: result.score,  // Initial score is just the text score
+            finalScore: result.score,
             source: "TEXT"
           });
         }
       });
 
-      // Add/update video-based results in the map
       videoResults.forEach(result => {
         const videoId = result.metadata?.tl_video_id;
         if (videoId) {
@@ -469,7 +427,6 @@ export default function ContextualAnalysis() {
               source: "BOTH"
             });
           } else {
-            // This is a result only found in video search
             combinedResultsMap.set(videoId, {
               videoId,
               metadata: result.metadata,
@@ -482,11 +439,9 @@ export default function ContextualAnalysis() {
         }
       });
 
-      // Convert the map to an array and sort by finalScore
       const mergedResults = Array.from(combinedResultsMap.values())
         .sort((a, b) => b.finalScore - a.finalScore);
 
-      // Convert to format expected by the UI
       const formattedResults = mergedResults.map(item => ({
         score: item.finalScore,
         metadata: item.metadata,
@@ -495,10 +450,7 @@ export default function ContextualAnalysis() {
         videoScore: item.videoScore
       }));
 
-      // Set the results for display
       setSimilarResults(formattedResults);
-
-      // Log the results with source information
 
     } catch (error) {
       console.error("Error during contextual analysis:", error);
@@ -507,7 +459,6 @@ export default function ContextualAnalysis() {
     }
   };
 
-  // Create adapted data structure for VideosDropDown
   const adaptedVideosData = videosData ? {
     pages: videosData.pages.map(adaptToPaginatedResponse),
     pageParams: videosData.pageParams.map(param => typeof param === 'number' ? param : 1)

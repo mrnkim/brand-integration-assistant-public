@@ -1,30 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactPlayer from 'react-player';
 import { useQuery } from '@tanstack/react-query';
-import { generateChapters, Chapter, fetchVideoDetails } from '@/hooks/apiHooks';
+import { generateChapters, fetchVideoDetails } from '@/hooks/apiHooks';
 import LoadingSpinner from './LoadingSpinner';
 import { useGlobalState } from '@/providers/ReactQueryProvider';
-import { VideoData } from '@/types';
-
-// 확장된 Chapter 인터페이스
-interface ChapterWithMetadata extends Chapter {
-  chapter_title?: string;
-  chapter_summary?: string;
-  chapter_number?: number;
-}
-
-interface VideoModalProps {
-  videoUrl: string;
-  videoId: string;
-  isOpen: boolean;
-  onClose: () => void;
-  title?: string;
-  searchScore?: number;
-  textScore?: number;
-  videoScore?: number;
-  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
-  contentMetadata?: VideoData;
-}
+import { VideoModalProps, ChapterWithMetadata, Chapter } from '@/types';
 
 const VideoModal: React.FC<VideoModalProps> = ({
   videoUrl,
@@ -59,13 +39,12 @@ const VideoModal: React.FC<VideoModalProps> = ({
     enabled: !!selectedAdId && !!adsIndexId && isOpen
   });
 
-  // 챕터 데이터 가져오기
+  // Fetch chapters data
   const { data: chaptersData, isLoading: isChaptersLoading } = useQuery({
     queryKey: ["chapters", videoId],
     queryFn: () => generateChapters(videoId),
     enabled: isOpen && !!videoId,
   });
-  console.log("🚀 > chaptersData=", chaptersData)
 
   // Effect to handle returning to video at the right timestamp after ad
   useEffect(() => {
@@ -87,7 +66,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
     }
   }, [isOpen]);
 
-  // 시간을 00:00:00 형식으로 변환하는 함수
+  // Format time to 00:00:00 format
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -100,7 +79,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
     ].join(':');
   };
 
-  // 비디오 진행 상황 추적
+  // Track video progress
   const handleProgress = (state: { playedSeconds: number }) => {
     if (selectedChapter === null || !chaptersData || !adVideoDetail) {
       return;
@@ -120,13 +99,12 @@ const VideoModal: React.FC<VideoModalProps> = ({
     }
   };
 
-  // 챕터 클릭 핸들러
+  // Chapter click handler
   const handleChapterClick = (index: number) => {
     if (playbackSequence === 'ad') {
-      return; // Don't allow chapter selection during ad playback
+      return;
     }
 
-    // Check if an ad is available
     if (!adVideoDetail?.hls?.video_url) {
       console.warn("No ad selected. Please select an ad in the contextual analysis page.");
       return;
@@ -147,18 +125,17 @@ const VideoModal: React.FC<VideoModalProps> = ({
     }
   };
 
-  // 광고 종료 핸들러
+  // Ad ended handler
   const handleAdEnded = () => {
     if (selectedChapter === null || !chaptersData) return;
 
     const chapter = chaptersData.chapters[selectedChapter];
     setPlaybackSequence('video');
     setReturnToTime(chapter.end);
-    // 광고가 끝나면 isPlaying 상태를 true로 설정
     setIsPlaying(true);
   };
 
-  // 비디오 로드 완료 핸들러
+  // Video loaded handler
   const handleDuration = (duration: number) => {
     setDuration(duration);
   };
@@ -186,19 +163,9 @@ const VideoModal: React.FC<VideoModalProps> = ({
   // Generate explanation text based on search results
   const getExplanationText = (): string => {
     if (!originalSource) return "This content was found in the search results.";
-
-    console.log("==== VideoModal Debug Start ====");
-    console.log("originalSource:", originalSource);
-    console.log("Ad videoId:", selectedAdId);
-    console.log("Content videoId:", videoId);
-
     const adMetadata = adVideoDetail?.user_metadata;
 
-    // 디버깅을 위한 로그 추가
-    console.log("Raw Ad metadata:", JSON.stringify(adMetadata, null, 2));
-    console.log("Raw Content metadata:", JSON.stringify(contentMetadata?.user_metadata, null, 2));
-
-    // 태그 추출 함수 - 필드명 차이를 고려한 통합 추출 로직
+    // Tag extraction function - unified extraction logic considering field name differences
     const extractTagsFromMetadata = (metadata: Record<string, unknown> | undefined) => {
       if (!metadata) {
         console.log("No metadata provided for tag extraction");
@@ -207,69 +174,52 @@ const VideoModal: React.FC<VideoModalProps> = ({
 
       const allTags: string[] = [];
       const fieldMappings: Record<string, string[]> = {
-        // 섹터/주제
         sector: ['sector', 'topic_category'],
-        // 감정
         emotions: ['emotions'],
-        // 브랜드
         brands: ['brands'],
-        // 위치
         locations: ['locations', 'location'],
-        // 성별
         gender: ['demographics_gender', 'demo_gender'],
-        // 연령
         age: ['demographics_age', 'demo_age']
       };
 
-      console.log("Metadata fields:", Object.keys(metadata));
 
-      // demographics 통합 필드 처리 (성별과 연령이 함께 있는 경우)
+      // demographics unified field processing (when gender and age are together)
       if (metadata.demographics && typeof metadata.demographics === 'string') {
         console.log(`  Found demographics: "${metadata.demographics}"`);
         const demographicsValue = metadata.demographics as string;
 
-        // 쉼표로 구분된 값들 처리
+        // Process comma-separated values
         const demoParts = demographicsValue.split(',').map(part => part.trim());
         console.log(`  Demographics parts:`, demoParts);
 
-        // 성별 키워드
+        // Gender keywords
         const genderKeywords = ['male', 'female', 'men', 'women'];
 
-        // 연령 패턴 (숫자-숫자 형식)
+        // Age pattern (number-number format)
         const agePattern = /^\d+-\d+$/;
 
         demoParts.forEach(part => {
           const lowerPart = part.toLowerCase();
 
-          // 성별 확인
           if (genderKeywords.some(keyword => lowerPart.includes(keyword))) {
-            console.log(`  Extracted gender tag from demographics: "${part}"`);
             allTags.push(part);
           }
-          // 연령 확인 (숫자-숫자 패턴)
           else if (agePattern.test(part)) {
-            console.log(`  Extracted age tag from demographics: "${part}"`);
             allTags.push(part);
           }
-          // 그 외의 경우도 일단 추가
           else {
-            console.log(`  Extracted other demographic tag: "${part}"`);
             allTags.push(part);
           }
         });
       }
 
-      // 모든 필드 매핑을 순회하며 태그 추출
       Object.values(fieldMappings).forEach(fields => {
         fields.forEach(field => {
           const value = metadata[field];
           if (value && typeof value === 'string') {
-            console.log(`  Found ${field}: "${value}"`);
             const tags = value.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag.length > 0);
-            console.log(`  Extracted tags from ${field}:`, tags);
             tags.forEach(tag => allTags.push(tag));
           } else {
-            console.log(`  Field ${field} not found or not a string`);
           }
         });
       });
@@ -277,17 +227,10 @@ const VideoModal: React.FC<VideoModalProps> = ({
       return allTags;
     };
 
-    // 광고와 콘텐츠에서 모든 태그 추출
-    console.log("Extracting tags from ad metadata...");
     const adTags = extractTagsFromMetadata(adMetadata);
-    console.log("Extracting tags from content metadata...");
     const contentTags = extractTagsFromMetadata(contentMetadata?.user_metadata);
 
-    console.log("All extracted ad tags:", adTags);
-    console.log("All extracted content tags:", contentTags);
-
-    // 공통 태그 찾기 (대소문자 구분 없이)
-    console.log("Finding common tags...");
+    // Find common tags (case-insensitive)
     const commonTags: string[] = [];
 
     adTags.forEach(adTag => {
@@ -297,52 +240,38 @@ const VideoModal: React.FC<VideoModalProps> = ({
       );
 
       if (matchingContentTag) {
-        console.log(`Found common tag: "${adTag}" (Ad) matches "${matchingContentTag}" (Content)`);
-        // 원래 대소문자가 유지된 태그 사용
         commonTags.push(adTag);
-      } else {
-        console.log(`No match found for ad tag: "${adTag}"`);
       }
     });
 
-    console.log("Final common tags:", commonTags);
 
     // Create a mapping from tag value to category
     const tagCategories = new Map<string, string>();
 
-    // 태그에 카테고리 할당하는 함수
+    // Function to assign categories to tags
     const assignCategoryToTags = (metadata: Record<string, unknown> | undefined) => {
       if (!metadata) return;
 
-      // demographics 통합 필드 처리
       if (metadata.demographics && typeof metadata.demographics === 'string') {
         const demographicsValue = metadata.demographics as string;
         const demoParts = demographicsValue.split(',').map(part => part.trim());
 
-        // 성별 키워드
         const genderKeywords = ['male', 'female', 'men', 'women'];
 
-        // 연령 패턴 (숫자-숫자 형식)
         const agePattern = /^\d+-\d+$/;
 
         demoParts.forEach(part => {
           const lowerPart = part.toLowerCase();
-          const trimmedTag = part.trim();
 
-          // 성별 확인
           if (genderKeywords.some(keyword => lowerPart.includes(keyword))) {
             tagCategories.set(lowerPart, 'gender');
-            console.log(`Assigned category 'gender' to tag from demographics: "${trimmedTag}"`);
           }
-          // 연령 확인 (숫자-숫자 패턴)
           else if (agePattern.test(part)) {
             tagCategories.set(lowerPart, 'age');
-            console.log(`Assigned category 'age' to tag from demographics: "${trimmedTag}"`);
           }
         });
       }
 
-      // 섹터/주제 (Topic)
       ['sector', 'topic_category'].forEach(field => {
         const value = metadata[field];
         if (value && typeof value === 'string') {
@@ -350,7 +279,6 @@ const VideoModal: React.FC<VideoModalProps> = ({
             const trimmedTag = tag.trim();
             if (trimmedTag) {
               tagCategories.set(trimmedTag.toLowerCase(), 'topic');
-              console.log(`Assigned category 'topic' to tag: "${trimmedTag}"`);
             }
           });
         }
@@ -363,24 +291,20 @@ const VideoModal: React.FC<VideoModalProps> = ({
           const trimmedTag = tag.trim();
           if (trimmedTag) {
             tagCategories.set(trimmedTag.toLowerCase(), 'emotions');
-            console.log(`Assigned category 'emotions' to tag: "${trimmedTag}"`);
           }
         });
       }
 
-      // 브랜드 (Brands)
       const brands = metadata.brands;
       if (brands && typeof brands === 'string') {
         brands.split(',').forEach((tag: string) => {
           const trimmedTag = tag.trim();
           if (trimmedTag) {
             tagCategories.set(trimmedTag.toLowerCase(), 'brands');
-            console.log(`Assigned category 'brands' to tag: "${trimmedTag}"`);
           }
         });
       }
 
-      // 위치 (Location)
       ['locations', 'location'].forEach(field => {
         const value = metadata[field];
         if (value && typeof value === 'string') {
@@ -388,13 +312,11 @@ const VideoModal: React.FC<VideoModalProps> = ({
             const trimmedTag = tag.trim();
             if (trimmedTag) {
               tagCategories.set(trimmedTag.toLowerCase(), 'location');
-              console.log(`Assigned category 'location' to tag: "${trimmedTag}"`);
             }
           });
         }
       });
 
-      // 성별 (Gender)
       ['demographics_gender', 'demo_gender'].forEach(field => {
         const value = metadata[field];
         if (value && typeof value === 'string') {
@@ -402,13 +324,11 @@ const VideoModal: React.FC<VideoModalProps> = ({
             const trimmedTag = tag.trim();
             if (trimmedTag) {
               tagCategories.set(trimmedTag.toLowerCase(), 'gender');
-              console.log(`Assigned category 'gender' to tag: "${trimmedTag}"`);
             }
           });
         }
       });
 
-      // 연령 (Age)
       ['demographics_age', 'demo_age'].forEach(field => {
         const value = metadata[field];
         if (value && typeof value === 'string') {
@@ -416,23 +336,17 @@ const VideoModal: React.FC<VideoModalProps> = ({
             const trimmedTag = tag.trim();
             if (trimmedTag) {
               tagCategories.set(trimmedTag.toLowerCase(), 'age');
-              console.log(`Assigned category 'age' to tag: "${trimmedTag}"`);
             }
           });
         }
       });
     };
 
-    // 광고와 콘텐츠 메타데이터 모두에서 카테고리 정보 추출
-    console.log("Assigning categories from ad metadata...");
     assignCategoryToTags(adMetadata);
-    console.log("Assigning categories from content metadata...");
     assignCategoryToTags(contentMetadata?.user_metadata);
 
-    console.log("All tag categories:", Object.fromEntries(tagCategories));
 
     // Sort common tags according to the specified order
-    console.log("Sorting common tags by category priority...");
     const sortedCommonTags = [...commonTags].sort((a, b) => {
       const aLower = a.toLowerCase();
       const bLower = b.toLowerCase();
@@ -440,7 +354,6 @@ const VideoModal: React.FC<VideoModalProps> = ({
       const categoryA = tagCategories.get(aLower) || '';
       const categoryB = tagCategories.get(bLower) || '';
 
-      console.log(`Comparing tags: "${a}" (${categoryA}) vs "${b}" (${categoryB})`);
 
       // Define order priority
       const categoryOrder = {
@@ -456,12 +369,10 @@ const VideoModal: React.FC<VideoModalProps> = ({
       const priorityA = categoryOrder[categoryA as keyof typeof categoryOrder] || 99;
       const priorityB = categoryOrder[categoryB as keyof typeof categoryOrder] || 99;
 
-      console.log(`Priorities: ${a}=${priorityA}, ${b}=${priorityB}`);
 
       return priorityA - priorityB;
     });
 
-    console.log("Final sorted common tags:", sortedCommonTags);
 
     let explanation = "";
 
@@ -470,7 +381,6 @@ const VideoModal: React.FC<VideoModalProps> = ({
         explanation = `it shares both visual and thematic elements with the selected ad.`;
         if (commonTags.length > 0) {
           const capitalizedTags = sortedCommonTags.slice(0, 3).map(tag => capitalizeText(tag));
-          console.log("Using capitalized tags for display:", capitalizedTags);
           explanation += ` They share common tags: `;
           explanation += capitalizedTags.map(tag =>
             `<span class="inline-block bg-gray-100 border rounded-full px-2 py-0.5 text-xs mx-0.5">${tag}</span>`
@@ -478,27 +388,20 @@ const VideoModal: React.FC<VideoModalProps> = ({
           if (commonTags.length > 3) {
             explanation += '...';
           }
-        } else {
-          console.log("No common tags found for BOTH source type");
         }
         break;
       case "TEXT":
         explanation = `it shares thematic elements and keywords with the selected ad.`;
         if (commonTags.length > 0) {
           const capitalizedTags = sortedCommonTags.slice(0, 3).map(tag => capitalizeText(tag));
-          console.log("Using capitalized tags for display:", capitalizedTags);
           explanation += ` They share common tags: ${capitalizedTags.join(", ")}${commonTags.length > 3 ? '...' : ''}.`;
         } else {
-          console.log("No common tags found for TEXT source type");
         }
         break;
       case "VIDEO":
         explanation = `it shares visual elements and style with the selected ad.`;
-        console.log("VIDEO source type - common tags will be displayed:", commonTags);
-        // VIDEO 타입에서도 공통 태그 표시 (이미지 화면의 F1 레이스 비디오가 이 케이스)
         if (commonTags.length > 0) {
           const capitalizedTags = sortedCommonTags.slice(0, 3).map(tag => capitalizeText(tag));
-          console.log("Using capitalized tags for VIDEO source:", capitalizedTags);
           explanation += ` They share common tags: `;
           explanation += capitalizedTags.map(tag =>
             `<span class="inline-block bg-gray-100 border rounded-full px-2 py-0.5 text-xs mx-0.5">${tag}</span>`
@@ -506,16 +409,11 @@ const VideoModal: React.FC<VideoModalProps> = ({
           if (commonTags.length > 3) {
             explanation += '...';
           }
-        } else {
-          console.log("No common tags found for VIDEO source type");
         }
         break;
       default:
         explanation = `it was found in the search results.`;
     }
-
-    console.log("Final explanation:", explanation);
-    console.log("==== VideoModal Debug End ====");
 
     return explanation;
   };
@@ -607,7 +505,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
             )}
           </div>
 
-          {/* 챕터 정보 표시 섹션 */}
+          {/* chapter info section */}
           {showChapterInfo && selectedChapter !== null && chaptersData?.chapters && (
             <div className="mt-4 mb-4 rounded-[45.60px] p-4 relative" style={{ backgroundColor: "#FDE3AE" }}>
               <button
@@ -633,7 +531,6 @@ const VideoModal: React.FC<VideoModalProps> = ({
                                  chaptersData.chapters[selectedChapter].text ||
                                  "No summary available";
 
-                  // 마지막 문장만 추출 (마침표, 느낌표, 물음표로 끝나는 문장 기준)
                   const sentences = summary.match(/[^.!?]+[.!?]+/g) || [summary];
                   return sentences[sentences.length - 1].trim();
                 })()}
@@ -642,7 +539,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
             </div>
           )}
 
-          {/* 챕터 타임라인 바 */}
+          {/* chapter timeline bar */}
           <div className="relative w-full h-28 p-4 rounded-md">
             {isChaptersLoading ? (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -652,7 +549,6 @@ const VideoModal: React.FC<VideoModalProps> = ({
               <>
                 <div className="absolute w-[96%] h-2 bg-black top-1/3 left-[2%] -translate-y-1/2 z-10"></div>
                 {chaptersData?.chapters?.map((chapter: Chapter, index: number) => {
-                  // Adjust position to ensure dots stay within the visible area
                   const position = Math.max(2, Math.min(98, (chapter.end / (duration || 1)) * 96 + 2));
 
                   return (

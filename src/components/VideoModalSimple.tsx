@@ -23,10 +23,6 @@ const VideoModalSimple: React.FC<VideoModalProps> = ({
 }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
-
-
-
-
   // Initialize isPlaying when modal opens
   useEffect(() => {
     if (isOpen) {

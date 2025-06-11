@@ -26,7 +26,6 @@ type SidebarProps = {
   activeMenu: 'ads-library' | 'contextual-analysis';
 };
 
-// 메뉴 아이템 설정
 const menuConfig = [
   {
     id: 'ads-library',

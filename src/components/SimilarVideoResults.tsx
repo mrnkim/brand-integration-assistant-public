@@ -1,25 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Video from './Video';
 import VideoModal from './VideoModal';
-import { EmbeddingSearchResult, fetchVideoDetails } from '@/hooks/apiHooks';
-import { VideoData } from '@/types';
+import { fetchVideoDetails } from '@/hooks/apiHooks';
+import { VideoData, SimilarVideoResultsProps, SelectedVideoData } from '@/types';
 import LoadingSpinner from './LoadingSpinner';
 
-interface SimilarVideoResultsProps {
-  results: EmbeddingSearchResult[];
-  indexId: string;
-}
-
-interface SelectedVideoData {
-  id: string;
-  url: string;
-  title: string;
-  score?: number;
-  textScore?: number;
-  videoScore?: number;
-  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
-  metadata: VideoData;
-}
 
 const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, indexId }) => {
   const [videoDetails, setVideoDetails] = useState<Record<string, VideoData>>({});

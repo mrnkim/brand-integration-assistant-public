@@ -11,10 +11,8 @@ type ContentItemProps = {
   tags: Tag[];
   videoId: string;
   indexId: string;
-  // 호환성을 위해 남겨두지만 내부에서는 사용하지 않음
   thumbnailUrl?: string;
   title?: string;
-  // Add user metadata
   metadata?: {
     source?: string;
     topic_category?: string;
@@ -30,8 +28,6 @@ type ContentItemProps = {
 
 const ContentItem: FC<ContentItemProps> = ({
   videoUrl,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  tags,
   title,
   videoId,
   indexId,
@@ -44,7 +40,6 @@ const ContentItem: FC<ContentItemProps> = ({
   const [updatingField, setUpdatingField] = useState<string | null>(null);
   const [localMetadata, setLocalMetadata] = useState(metadata || {});
 
-  // Close modal when unmounting
   useEffect(() => {
     return () => {
       setIsModalOpen(false);
@@ -52,7 +47,6 @@ const ContentItem: FC<ContentItemProps> = ({
     };
   }, []);
 
-  // metadata prop이 변경되면 로컬 상태 업데이트
   useEffect(() => {
     setLocalMetadata(metadata || {});
   }, [metadata, videoId]);
@@ -62,7 +56,6 @@ const ContentItem: FC<ContentItemProps> = ({
     setUpdatingField(category.toLowerCase());
 
     try {
-      // Map category to metadata field
       let field = '';
       switch (category.toLowerCase()) {
         case 'source':
@@ -90,33 +83,27 @@ const ContentItem: FC<ContentItemProps> = ({
           throw new Error(`Unknown category: ${category}`);
       }
 
-      // Normalize the value - convert to lowercase and properly capitalize
       let normalizedValue = value.trim();
 
-      // Only process if there's actually a value
       if (normalizedValue) {
         console.log(`[ContentItem] Before normalization - field: ${field}, value: "${normalizedValue}"`);
 
-        // For comma-separated values, process each part individually
         if (normalizedValue.includes(',')) {
-          // Split by comma, trim each part, normalize capitalization, then rejoin
           normalizedValue = normalizedValue
             .split(',')
             .map(part => {
               const trimmedPart = part.trim();
               if (!trimmedPart) return '';
 
-              // Convert to lowercase first, then capitalize first letter of each word
               return trimmedPart
                 .toLowerCase()
                 .split(' ')
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                 .join(' ');
             })
-            .filter(part => part) // Remove empty parts
+            .filter(part => part)
             .join(', ');
         } else {
-          // Single value - convert to lowercase then capitalize first letter of each word
           normalizedValue = normalizedValue
             .toLowerCase()
             .split(' ')
@@ -127,35 +114,29 @@ const ContentItem: FC<ContentItemProps> = ({
         console.log(`[ContentItem] After normalization - field: ${field}, value: "${normalizedValue}"`);
       }
 
-      // 로컬 메타데이터 먼저 업데이트하여 UI에 즉시 반영
       const updatedMetadata = {
         ...localMetadata,
         [field]: normalizedValue
       };
 
-      // 로컬 상태 업데이트
       setLocalMetadata(updatedMetadata);
 
       console.log('Updating metadata:', { videoId, indexId, metadata: updatedMetadata, field, value });
 
-      // Call API to update metadata
       const success = await updateVideoMetadata(videoId, indexId, updatedMetadata);
 
       if (success) {
         console.log(`Metadata updated successfully for field: ${field}`);
       } else {
         console.error(`Failed to update metadata for field: ${field}`);
-        // 업데이트 실패 시 이전 메타데이터로 복원
         setLocalMetadata(metadata || {});
       }
 
-      // Notify parent component if callback is provided
       if (onMetadataUpdated && success) {
         onMetadataUpdated();
       }
     } catch (error) {
       console.error('Failed to save metadata:', error);
-      // 에러 발생 시 이전 메타데이터로 복원
       setLocalMetadata(metadata || {});
     } finally {
       setUpdatingField(null);
@@ -176,7 +157,6 @@ const ContentItem: FC<ContentItemProps> = ({
     );
   };
 
-  // 로딩 스피너 렌더링
   const renderLoading = () => (
     <div className="flex justify-center">
       <div className="w-4 h-4">
@@ -187,10 +167,9 @@ const ContentItem: FC<ContentItemProps> = ({
 
   const handlePlay = () => {
     setIsModalOpen(true);
-    setIsPlaying(false); // Keep the background video paused
+    setIsPlaying(false);
   };
 
-  // 로딩 중인지 확인하고 메타데이터 필드가 비어있는 경우 로딩 스피너 표시
   const needsMetadata = !localMetadata ||
     Object.keys(localMetadata).length === 0 ||
     !localMetadata.source ||
@@ -199,7 +178,6 @@ const ContentItem: FC<ContentItemProps> = ({
     !localMetadata.brands ||
     !localMetadata.locations;
 
-  // 특정 필드가 현재 업데이트 중인지 확인
   const isFieldUpdating = (field: string) => updatingField === field.toLowerCase();
 
   return (

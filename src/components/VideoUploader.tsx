@@ -1,26 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
+import { VideoUploaderProps, UploadingFile } from '@/types';
 
 const MAX_FILES = 10; // Maximum number of files to upload at once
 
-interface VideoUploaderProps {
-  indexId: string;
-  onUploadComplete: () => void;
-  onClose: () => void;
-}
-
-interface UploadingFile {
-  id: string; // Local ID for tracking
-  file: File;
-  progress: number;
-  status: 'queued' | 'uploading' | 'indexing' | 'completed' | 'failed';
-  message: string;
-  taskId?: string; // From Twelve Labs API
-  videoId?: string; // From Twelve Labs API
-  thumbnail?: string; // Base64 thumbnail preview
-  duration?: number; // Duration in seconds
-  title?: string; // Video title (from filename)
-}
 
 const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete, onClose }) => {
   const [files, setFiles] = useState<UploadingFile[]>([]);
@@ -726,16 +709,11 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
     }
   };
 
-  // 에러 메시지를 깔끔하게 표시하기 위한 헬퍼 함수
   const formatErrorMessage = (message: string): string => {
-    // 중첩된 JSON 구조에서 실제 오류 메시지만 추출
     try {
-      // "details" 필드가 문자열로 들어있는 경우를 처리 (TwelveLabs API 에러 형식)
       if (message.includes('"details":')) {
-        // JSON 파싱 시도
         const errorObject = JSON.parse(message.substring(message.indexOf('{')));
 
-        // details가 문자열인 경우 (API 응답에서 중첩된 JSON 문자열로 온 경우)
         if (errorObject.details && typeof errorObject.details === 'string') {
           try {
             // details 내부의 JSON 파싱
@@ -744,19 +722,16 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
               return detailsObject.message;
             }
           } catch {
-            // details가 JSON이 아닌 경우 그대로 사용
             return errorObject.details;
           }
         }
 
-        // details가 객체인 경우
         if (errorObject.details && typeof errorObject.details === 'object') {
           if (errorObject.details.message) {
             return errorObject.details.message;
           }
         }
 
-        // 기본 에러 메시지 찾기
         if (errorObject.message) {
           return errorObject.message;
         }
@@ -766,7 +741,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
         }
       }
 
-      // "Upload failed:" 접두어가 있으면 제거하고 처리
       if (message.startsWith('Upload failed:')) {
         const actualMessage = message.substring('Upload failed:'.length).trim();
 
@@ -775,50 +749,38 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
           try {
             const errorObj = JSON.parse(actualMessage);
 
-            // Twelve Labs API 에러 형식 확인
             if (errorObj.error && errorObj.error.includes('Twelve Labs API error')) {
-              // details 필드가 있고 문자열인 경우
               if (errorObj.details && typeof errorObj.details === 'string') {
                 try {
-                  // details 내부의 JSON 구조 파싱
                   const detailsObj = JSON.parse(errorObj.details);
                   if (detailsObj.message) {
                     return detailsObj.message;
                   }
                 } catch {
-                  // details 파싱 실패시 원본 사용
                   return errorObj.details;
                 }
               }
             }
 
-            // 기본 메시지 필드 확인
             if (errorObj.message) return errorObj.message;
             if (errorObj.error) return errorObj.error;
 
-            // JSON 구조에서 적절한 필드를 찾지 못하면 원본 반환
             return actualMessage;
           } catch {
-            // JSON 파싱 실패시 원본 메시지 반환
             return actualMessage;
           }
         }
 
-        // JSON이 아니면 그대로 반환
         return actualMessage;
       }
 
-      // 이미 처리된 다른 접두어가 있는 경우
       if (message.startsWith('Indexing failed:') || message.startsWith('Status check error:')) {
-        // 접두어 이후의 실제 메시지만 반환
         const actualMessage = message.split(':', 2)[1].trim();
         return actualMessage;
       }
 
-      // 그 외 케이스는 원본 메시지 반환
       return message;
     } catch {
-      // 파싱 과정에서 오류 발생 시 원본 메시지 반환
       return message;
     }
   };

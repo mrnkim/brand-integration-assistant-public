@@ -1,7 +1,7 @@
 import { useState, KeyboardEvent, useRef, useEffect } from 'react';
 
 interface EditableTagProps {
-  value: string; // 쉼표로 구분된 태그 값
+  value: string;
   category: string;
   onSave: (category: string, value: string) => Promise<void>;
   disabled?: boolean;
@@ -21,7 +21,6 @@ const EditableTag: React.FC<EditableTagProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const newTagInputRef = useRef<HTMLInputElement>(null);
 
-  // 편집 모드나 추가 모드로 전환할 때 적절한 input에 focus
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -95,7 +94,6 @@ const EditableTag: React.FC<EditableTagProps> = ({
   };
 
   const handleBlur = async () => {
-    // 값이 달라졌을 때만 저장 (빈 문자열 포함)
     if (editValue !== value) {
       setIsSaving(true);
       try {
@@ -115,7 +113,6 @@ const EditableTag: React.FC<EditableTagProps> = ({
     if (newTagValue.trim()) {
       setIsSaving(true);
       try {
-        // 기존 태그에 새 태그 추가
         const updatedValue = value ? `${value}, ${newTagValue.trim()}` : newTagValue.trim();
         await onSave(category, updatedValue);
       } catch (error) {
@@ -128,11 +125,9 @@ const EditableTag: React.FC<EditableTagProps> = ({
     setIsAddingNew(false);
   };
 
-  // 쉼표로 구분된 태그를 배열로 분리하여 각각 표시
   const renderTags = () => {
     if (!value) return null;
 
-    // 쉼표로 구분된 태그를 배열로 변환
     const tagsBefore = value.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '');
@@ -140,10 +135,8 @@ const EditableTag: React.FC<EditableTagProps> = ({
 
     const tags = tagsBefore.map(tag => {
 
-      // 1. 전체 태그를 먼저 소문자로 변환
       const lowerTag = tag.toLowerCase();
 
-      // 2. 각 단어의 첫 글자만 대문자로 변환
       const capitalized = lowerTag.split(' ')
         .map(word => {
           const result = word.charAt(0).toUpperCase() + word.slice(1);
@@ -168,7 +161,6 @@ const EditableTag: React.FC<EditableTagProps> = ({
     ));
   };
 
-  // 새 태그 추가 버튼 렌더링
   const renderAddButton = () => (
     <span
       onClick={handleAddNewClick}

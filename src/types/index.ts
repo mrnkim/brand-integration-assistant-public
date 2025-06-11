@@ -302,3 +302,238 @@ export interface SearchResult {
   }>;
   [key: string]: string | number | boolean | object | undefined;
 }
+
+export interface SearchResultListProps {
+  searchResultData: {
+    pageInfo: {
+      page: number;
+      total_page: number;
+      total_videos: number;
+      total_results?: number;
+      next_page_token?: string;
+    };
+    textSearchResults: Array<{
+      _id: string;
+      index_id?: string;
+      video_id: string;
+      score: number;
+      confidence?: string;
+      duration: number;
+      thumbnail_url?: string;
+      video_url?: string;
+      video_title?: string;
+      start?: number;
+      end?: number;
+      segments?: Array<{
+        start: number;
+        end: number;
+        score: number;
+        matched_words?: string[];
+      }>;
+    }>;
+  };
+  onUpdateTotalResults?: (count: number) => void;
+  textSearchQuery: string;
+}
+
+export interface EnhancedSearchResult {
+  _id: string;
+  index_id?: string;
+  video_id: string;
+  score: number;
+  confidence?: string;
+  duration: number;
+  thumbnail_url?: string;
+  video_url?: string;
+  video_title?: string;
+  start?: number;
+  end?: number;
+  segments?: Array<{
+    start: number;
+    end: number;
+    score: number;
+    matched_words?: string[];
+  }>;
+  videoDetail?: VideoDetailResponse;
+}
+
+export interface VideoDetailResponse {
+  _id: string;
+  index_id?: string;
+  hls?: {
+    video_url?: string;
+    thumbnail_urls?: string[];
+    status?: string;
+    updated_at?: string;
+  };
+  system_metadata?: {
+    filename?: string;
+    video_title?: string;
+    duration?: number;
+    fps?: number;
+    height?: number;
+    width?: number;
+    size?: number;
+  };
+  user_metadata?: Record<string, string>;
+}
+
+export interface SearchResultModalProps {
+  selectedResult: {
+    _id: string;
+    video_id: string;
+    score: number;
+    confidence?: string;
+    duration: number;
+    thumbnail_url?: string;
+    video_url?: string;
+    video_title?: string;
+    start?: number;
+    end?: number;
+    transcription?: string;
+    segments?: Array<{
+      start: number;
+      end: number;
+      score: number;
+      matched_words?: string[];
+    }>;
+    videoDetail?: VideoDetailResponse;
+  };
+  closeModal: () => void;
+  modalOpened: boolean;
+}
+
+export interface SearchResultsProps {
+  textSearchQuery: string;
+  textSearchSubmitted: boolean;
+  indexId?: string;
+}
+
+export interface SimilarVideoResultsProps {
+  results: EmbeddingSearchResult[];
+  indexId: string;
+}
+
+export interface EmbeddingSearchResult {
+  score: number;
+  metadata?: {
+    tl_video_id: string;
+    tl_index_id: string;
+    video_file: string;
+    [key: string]: string | number | boolean | string[];
+  };
+  searchMethod?: string;
+  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
+  textScore?: number;
+  videoScore?: number;
+}
+
+export interface SelectedVideoData {
+  id: string;
+  url: string;
+  title: string;
+  score?: number;
+  textScore?: number;
+  videoScore?: number;
+  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
+  metadata: VideoData;
+}
+
+export interface VideoDetailWithEmbedding {
+  _id: string;
+  index_id?: string;
+  hls?: {
+    video_url?: string;
+    thumbnail_urls?: string[];
+    status?: string;
+    updated_at?: string;
+  };
+  system_metadata?: {
+    filename?: string;
+    video_title?: string;
+    duration?: number;
+    fps?: number;
+    height?: number;
+    width?: number;
+    size?: number;
+  };
+  user_metadata?: Record<string, string>;
+  embedding: {
+    video_embedding: {
+      segments: Array<{
+        start_offset_sec: number;
+        end_offset_sec: number;
+        embedding_scope: string;
+        float: number[];
+      }>;
+    };
+  };
+}
+
+export interface ProcessingStatusResponse {
+  processed: boolean;
+  source?: string;
+  category?: string;
+  videoId?: string;
+  indexId?: string;
+  error?: string;
+}
+
+export interface SearchPageInfo {
+  page: number;
+  total_page: number;
+  total_videos: number;
+  total_results?: number;
+  limit_per_page?: number;
+  next_page_token?: string;
+  prev_page_token?: string;
+  page_expires_at?: string;
+}
+
+export interface Chapter {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface ChaptersData {
+  chapters: Chapter[];
+}
+
+export interface ChapterWithMetadata extends Chapter {
+  chapter_title?: string;
+  chapter_summary?: string;
+  chapter_number?: number;
+}
+
+export interface VideoModalProps {
+  videoUrl: string;
+  videoId: string;
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  searchScore?: number;
+  textScore?: number;
+  videoScore?: number;
+  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
+  contentMetadata?: VideoData;
+}
+
+export interface VideoUploaderProps {
+  indexId: string;
+  onUploadComplete: () => void;
+  onClose: () => void;
+}
+
+export interface UploadingFile {
+  id: string;
+  file: File;
+  progress: number;
+  status: 'queued' | 'uploading' | 'indexing' | 'completed' | 'failed';
+  message: string;
+  taskId?: string;
+  videoId?: string;
+  thumbnail?: string;
+  duration?: number;
+  title?: string;
+}

@@ -6,8 +6,8 @@ import SearchResultList from "./SearchResultList";
 import LoadingSpinner from "./LoadingSpinner";
 import { ErrorBoundary } from "react-error-boundary";
 import { searchVideos } from "@/hooks/apiHooks";
+import { SearchResultsProps } from "@/types";
 
-// Get content index ID from environment - renamed to avoid confusion
 const defaultIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || '';
 
 const ErrorFallback = ({ error }: { error: Error }) => (
@@ -19,11 +19,7 @@ const ErrorFallback = ({ error }: { error: Error }) => (
   </div>
 );
 
-interface SearchResultsProps {
-  textSearchQuery: string;
-  textSearchSubmitted: boolean;
-  indexId?: string; // Optional parameter to specify which index to search in
-}
+
 
 /**
  * Component to display search results
@@ -36,11 +32,6 @@ const SearchResults = ({
   const queryClient = useQueryClient();
   // Use the provided indexId or fall back to the default content index
   const searchIndexId = indexId || defaultIndexId;
-
-  // Add debug log to track which index is being used
-  console.log("🔍 > SearchResults component > Using index ID:", searchIndexId,
-              "Is provided:", !!indexId,
-              "Default:", defaultIndexId);
 
   // State to track the total results count
   const [totalResultsCount, setTotalResultsCount] = useState<number>(0);
@@ -62,9 +53,6 @@ const SearchResults = ({
     if (textSearchResultData?.pageInfo?.total_results) {
       // Always use the most accurate count from the API
       setTotalResultsCount(textSearchResultData.pageInfo.total_results);
-
-      // Log for debugging
-      console.log("🚀 > Setting total count to:", textSearchResultData.pageInfo.total_results);
     }
   }, [textSearchResultData?.pageInfo?.total_results]);
 
@@ -84,7 +72,6 @@ const SearchResults = ({
   const updateTotalResults = (count: number) => {
     if (count > totalResultsCount) {
       setTotalResultsCount(count);
-      console.log("🚀 > Updating total count via callback to:", count);
     }
   };
 

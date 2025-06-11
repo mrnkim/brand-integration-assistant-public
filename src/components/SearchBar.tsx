@@ -38,7 +38,6 @@ const SearchBar: FC<SearchBarProps> = ({
     setInputValue(e.target.value);
   };
 
-  // 초기 defaultValue가 변경되면 입력값도 업데이트
   useEffect(() => {
     setInputValue(defaultValue);
   }, [defaultValue]);
@@ -47,15 +46,15 @@ const SearchBar: FC<SearchBarProps> = ({
     <form onSubmit={handleSubmit} className="w-full">
       <div className="self-stretch h-14 px-3 bg-gray-200 rounded-2xl inline-flex justify-start items-center gap-2.5 overflow-hidden w-full">
         <div className="flex-1 self-stretch px-3 flex justify-start items-center gap-5">
-          {/* 왼쪽 영역 - 검색 아이콘 */}
+          {/* left area - search icon */}
           <div className="flex justify-start items-center">
             <img src="/Union.svg" alt="Search" className="w-5 h-5 text-stone-900" />
           </div>
 
-          {/* 입력 필드 */}
+          {/* input field */}
           <div className="flex-1 flex items-center relative">
             <input
-              type="text" // search 대신 text 사용
+              type="text"
               ref={searchInputRef}
               value={inputValue}
               onChange={handleInputChange}
@@ -63,7 +62,7 @@ const SearchBar: FC<SearchBarProps> = ({
               placeholder={placeholder}
             />
 
-            {/* Custom X button - 검색어가 있을 때만 표시 */}
+            {/* Custom X button - show only when there is a search term */}
             {inputValue && (
               <button
                 type="button"
@@ -71,7 +70,7 @@ const SearchBar: FC<SearchBarProps> = ({
                 className="absolute right-0 flex items-center justify-center w-8 h-8 cursor-pointer"
               >
                 <svg
-                  className="w-5 h-5 text-stone-900" // 검정색으로 변경
+                  className="w-5 h-5 text-stone-900"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

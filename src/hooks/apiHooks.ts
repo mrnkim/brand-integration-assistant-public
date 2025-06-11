@@ -1,5 +1,4 @@
-import { EmbeddingResponse, IndexResponse, PaginatedResponse } from '@/types/index';
-import { VideoData } from '@/types';
+import { IndexResponse, PaginatedResponse, ProcessingStatusResponse, VideoDetailWithEmbedding, SearchPageInfo, SearchResult, EmbeddingResponse, EmbeddingSearchResult, VideoData, ChaptersData } from '@/types';
 
 export const fetchIndex = async (indexId: string): Promise<IndexResponse> => {
   const response = await fetch(`/api/indexes/${indexId}`);
@@ -72,58 +71,10 @@ export const fetchVideos = async (
 };
 
 // 비디오 상세 정보 타입 정의
-export interface VideoDetailResponse {
-  _id: string;
-  index_id?: string;
-  hls?: {
-    video_url?: string;
-    thumbnail_urls?: string[];
-    status?: string;
-    updated_at?: string;
-  };
-  system_metadata?: {
-    filename?: string;
-    video_title?: string;
-    duration?: number;
-    fps?: number;
-    height?: number;
-    width?: number;
-    size?: number;
-  };
-  user_metadata?: Record<string, string>;
-}
+
 
 // 비디오 상세 정보 타입 정의 - 임베딩 포함 버전
-interface VideoDetailWithEmbedding {
-  _id: string;
-  index_id?: string;
-  hls?: {
-    video_url?: string;
-    thumbnail_urls?: string[];
-    status?: string;
-    updated_at?: string;
-  };
-  system_metadata?: {
-    filename?: string;
-    video_title?: string;
-    duration?: number;
-    fps?: number;
-    height?: number;
-    width?: number;
-    size?: number;
-  };
-  user_metadata?: Record<string, string>;
-  embedding: {
-    video_embedding: {
-      segments: Array<{
-        start_offset_sec: number;
-        end_offset_sec: number;
-        embedding_scope: string;
-        float: number[];
-      }>;
-    };
-  };
-}
+
 
 // 비디오 상세 정보 가져오기
 export const fetchVideoDetails = async (videoId: string, indexId: string, embed: boolean = false) => {
@@ -143,14 +94,7 @@ export const fetchVideoDetails = async (videoId: string, indexId: string, embed:
 };
 
 // 비디오 처리 상태 확인 - 카테고리 정보 포함
-export interface ProcessingStatusResponse {
-  processed: boolean;
-  source?: string;
-  category?: string;
-  videoId?: string;
-  indexId?: string;
-  error?: string;
-}
+
 
 // 비디오 처리 상태 확인 함수
 export const checkProcessingStatus = async (
@@ -821,33 +765,7 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
 };
 
 // 텍스트 검색 결과 타입 정의
-interface SearchPageInfo {
-  page: number;
-  total_page: number;
-  total_videos: number;
-  total_results?: number;
-  limit_per_page?: number;
-  next_page_token?: string;
-  prev_page_token?: string;
-  page_expires_at?: string;
-}
 
-interface SearchResult {
-  _id: string;
-  index_id: string;
-  video_id: string;
-  score: number;
-  duration: number;
-  thumbnail_url?: string;
-  video_url?: string;
-  video_title?: string;
-  segments?: Array<{
-    start: number;
-    end: number;
-    score: number;
-    matched_words?: string[];
-  }>;
-}
 
 // 텍스트 검색 수행
 export const searchVideos = async (
@@ -973,19 +891,7 @@ export const resetPineconeVectors = async (
 };
 
 // Embedding 검색 결과 타입 정의
-export interface EmbeddingSearchResult {
-  score: number;
-  metadata?: {
-    tl_video_id: string;
-    tl_index_id: string;
-    video_file: string;
-    [key: string]: string | number | boolean | string[];
-  };
-  searchMethod?: string;
-  originalSource?: 'TEXT' | 'VIDEO' | 'BOTH';
-  textScore?: number;
-  videoScore?: number;
-}
+
 
 // 임베딩 검색 - 텍스트(태그)로 유사한 비디오 검색
 export const textToVideoEmbeddingSearch = async (
@@ -1136,15 +1042,7 @@ export const videoToVideoEmbeddingSearch = async (
 };
 
 // Chapter 타입 정의
-export interface Chapter {
-  start: number;
-  end: number;
-  text: string;
-}
 
-export interface ChaptersData {
-  chapters: Chapter[];
-}
 
 // 비디오의 챕터를 가져오는 함수
 export const generateChapters = async (videoId: string): Promise<ChaptersData> => {

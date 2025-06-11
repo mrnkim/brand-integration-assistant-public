@@ -1,31 +1,6 @@
 import ReactPlayer from "react-player";
 import { useState, useRef, useEffect } from "react";
-import { VideoDetailResponse } from "@/hooks/apiHooks";
-
-interface SearchResultModalProps {
-  selectedResult: {
-    _id: string;
-    video_id: string;
-    score: number;
-    confidence?: string;
-    duration: number;
-    thumbnail_url?: string;
-    video_url?: string;
-    video_title?: string;
-    start?: number;
-    end?: number;
-    transcription?: string;
-    segments?: Array<{
-      start: number;
-      end: number;
-      score: number;
-      matched_words?: string[];
-    }>;
-    videoDetail?: VideoDetailResponse;
-  };
-  closeModal: () => void;
-  modalOpened: boolean;
-}
+import { SearchResultModalProps } from "@/types";
 
 const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchResultModalProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -64,7 +39,6 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
 
     // Strict end detection: directly compare if we've reached or passed the end time
     if (state.playedSeconds >= endTime && !segmentEndReached) {
-      console.log(`Segment end reached: ${state.playedSeconds.toFixed(2)}s > ${endTime.toFixed(2)}s`);
       setSegmentEndReached(true);
 
       // Force immediate pause
@@ -82,12 +56,10 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
         // Seek back to start
         setTimeout(() => {
           if (playerRef.current) {
-            console.log(`Seeking to segment start: ${startTime.toFixed(2)}s`);
             playerRef.current.seekTo(startTime, 'seconds');
 
             // Resume playback after a short delay
             setTimeout(() => {
-              console.log('Resuming playback after segment loop');
               setIsPlaying(true);
               setSegmentEndReached(false);
             }, 250);
@@ -103,7 +75,6 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
   // Simple replay segment handler
   const handleReplaySegment = () => {
     const { startTime } = getSegmentTimes();
-    console.log("Replaying segment from:", startTime);
 
     // Ensure smooth replay sequence with proper timing
     if (playerRef.current) {
@@ -116,13 +87,11 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
       // Small delay before seeking
       setTimeout(() => {
         if (playerRef.current) {
-          console.log(`Seeking to segment start: ${startTime}`);
           playerRef.current.seekTo(startTime, 'seconds');
           setSegmentEndReached(false);
 
           // Resume playback after seeking completes
           setTimeout(() => {
-            console.log("Starting playback");
             setIsPlaying(true);
           }, 250);
         }
@@ -144,9 +113,6 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
 
   // Reset player state when modal opens
   useEffect(() => {
-    const { startTime } = getSegmentTimes();
-    console.log("Modal opened with video segment at:", startTime);
-
     // Reset all player state
     setSegmentEndReached(false);
     setLastSeekTime(null);
@@ -165,8 +131,6 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
   // Initialize player when it's ready
   useEffect(() => {
     if (modalOpened && playerInitialized) {
-      console.log("Player initialized - starting playback");
-
       const { startTime } = getSegmentTimes();
       if (playerRef.current) {
         // Set initial position
@@ -175,7 +139,6 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
 
         // Ensure playback starts after seeking is complete
         setTimeout(() => {
-          console.log("Starting initial playback");
           setIsPlaying(true);
         }, 250);
       }
@@ -270,14 +233,11 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
                     },
                   }}
                   onReady={() => {
-                    console.log("ReactPlayer ready");
-
                     if (!playerInitialized) {
                       const { startTime } = getSegmentTimes();
 
                       // Set initial position directly
                       if (playerRef.current) {
-                        console.log(`Setting initial position: ${startTime}s`);
                         setLastSeekTime(Date.now());
                         playerRef.current.seekTo(startTime, 'seconds');
                       }
@@ -287,7 +247,6 @@ const SearchResultModal = ({ selectedResult, closeModal, modalOpened }: SearchRe
 
                       // Start playback after a delay
                       setTimeout(() => {
-                        console.log("Starting initial playback");
                         setIsPlaying(true);
                       }, 250);
                     }
