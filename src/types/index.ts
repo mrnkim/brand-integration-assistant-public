@@ -20,13 +20,6 @@ export type IndexResponse = {
     total_duration: number;
   }
 
-
-// Tag type for content metadata
-export type Tag = {
-  category: string;
-  value: string;
-};
-
 // Content item type
 export type ContentItem = {
   id: string;
@@ -536,4 +529,31 @@ export interface UploadingFile {
   thumbnail?: string;
   duration?: number;
   title?: string;
+}
+
+
+export interface Tag {
+  category: string;
+  value: string;
+}
+
+export interface AdItemType {
+  id: string;
+  thumbnailUrl: string;
+  title: string;
+  videoUrl: string;
+  tags: Tag[];
+  metadata?: {
+    source?: string;
+    topic_category?: string;
+    emotions?: string;
+    brands?: string;
+    locations?: string;
+    demo_age?: string;
+    demo_gender?: string;
+  };
+  isIndexing?: boolean;
+  indexingStatus?: string;
+  taskId?: string;
+  status?: string;
 }
