@@ -43,8 +43,8 @@ const COLUMNS = [
   { id: 'topic_category', label: 'Topic Category', width: '110px' },
   { id: 'emotions', label: 'Emotions', width: '110px' },
   { id: 'brands', label: 'Brands', width: '110px' },
-  { id: 'demo_gender', label: 'Target Demo:\nGender', width: '110px' },
-  { id: 'demo_age', label: 'Target Demo:\nAge', width: '110px' },
+  { id: 'demo_gender', label: 'Target Demo\n- Gender', width: '110px' },
+  { id: 'demo_age', label: 'Target Demo\n- Age', width: '110px' },
   { id: 'location', label: 'Location', width: '110px' },
   { id: 'source', label: 'Source', width: '250px' },
 ];

@@ -174,15 +174,15 @@ const EditableTag: React.FC<EditableTagProps> = ({
       const isUrlTag = isSourceCategory && isUrl(tag);
 
       return (
-        <div key={index} className="relative group flex items-center max-w-full">
+        <div key={index} className="relative group inline-flex items-center mr-1">
           <span
             onClick={() => handleClick()}
             className={`
-              px-2 py-1 border bg-gray-100 rounded-full text-sm inline-block mr-1 mb-1
+              px-2 py-1 border bg-gray-100 rounded-full text-sm inline-block
               ${isUrlTag ? 'cursor-pointer' : 'cursor-pointer hover:bg-gray-200'}
               ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
-              max-w-full truncate overflow-hidden text-ellipsis whitespace-nowrap
-              ${isSourceCategory ? 'max-w-[200px]' : ''}
+              truncate overflow-hidden whitespace-nowrap
+              ${isSourceCategory ? 'max-w-[200px]' : 'max-w-[80px]'}
             `}
             title={
               isUrlTag
@@ -256,9 +256,11 @@ const EditableTag: React.FC<EditableTagProps> = ({
   }
 
   return (
-    <div className="flex flex-col flex-wrap items-center justify-center w-full overflow-hidden">
-      <div className="flex flex-wrap items-center justify-center w-full max-w-full">
+    <div className="flex flex-col items-center justify-center w-full min-h-[40px]">
+      <div className="flex flex-row items-center justify-start flex-nowrap w-full max-w-full overflow-x-auto py-1">
         {renderTags()}
+      </div>
+      <div className="w-full flex justify-center mt-1">
         {renderAddButton()}
       </div>
       {!value && (
