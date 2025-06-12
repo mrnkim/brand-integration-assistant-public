@@ -29,33 +29,8 @@ const EditableTag: React.FC<EditableTagProps> = ({
     }
   }, [isEditing, isAddingNew]);
 
-  // Check if value is a URL
-  const isUrl = (text: string): boolean => {
-    try {
-      new URL(text);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handleClick = (e?: React.MouseEvent) => {
-    if (category.toLowerCase() === 'source' && value && isUrl(value.trim())) {
-      // For source category, if it's a URL, open the link
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      window.open(value.trim(), '_blank', 'noopener,noreferrer');
-    } else if (!disabled) {
-      setIsEditing(true);
-      setEditValue(value);
-    }
-  };
-
-  const handleEditClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleClick = () => {
+    // 일반 태그 클릭 시 편집 모드로 전환
     if (!disabled) {
       setIsEditing(true);
       setEditValue(value);
@@ -158,54 +133,31 @@ const EditableTag: React.FC<EditableTagProps> = ({
       .map(tag => tag.trim())
       .filter(tag => tag !== '');
 
-    const tags = tagsBefore.map(tag => {
-      const lowerTag = tag.toLowerCase();
-      const capitalized = lowerTag.split(' ')
-        .map(word => {
-          const result = word.charAt(0).toUpperCase() + word.slice(1);
-          return result;
-        })
-        .join(' ');
-      return capitalized;
-    });
-
-    return tags.map((tag, index) => {
+    return tagsBefore.map((tag, index) => {
+      // source 태그도 일반 태그와 동일하게 처리
+      // 첫 글자 대문자 변환은 source에는 적용하지 않음(원본 그대로 표시)
       const isSourceCategory = category.toLowerCase() === 'source';
-      const isUrlTag = isSourceCategory && isUrl(tag);
+      const displayTag = isSourceCategory ? tag : tag.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
       return (
         <div key={index} className="relative group inline-flex items-center mr-1">
           <span
-            onClick={() => handleClick()}
+            onClick={handleClick}
             className={`
               px-2 py-1 border bg-gray-100 rounded-full text-sm inline-block
-              ${isUrlTag ? 'cursor-pointer' : 'cursor-pointer hover:bg-gray-200'}
+              cursor-pointer hover:bg-gray-200
               ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
               truncate overflow-hidden whitespace-nowrap
               ${isSourceCategory ? 'max-w-[200px]' : 'max-w-[80px]'}
+              transition-all duration-200 hover:bg-gray-200
             `}
-            title={
-              isUrlTag
-                ? `Click to visit: ${tag}`
-                : disabled
-                  ? "Can't edit while metadata is processing"
-                  : "Click to edit"
-            }
+            title={displayTag}
           >
-            {tag}
-            {isSaving && index === tags.length - 1 && <span className="ml-1">...</span>}
+            {displayTag}
+            {isSaving && index === tagsBefore.length - 1 && <span className="ml-1">...</span>}
           </span>
 
-          {/* Edit button for source URLs */}
-          {isSourceCategory && isUrlTag && !disabled && (
-            <button
-              onClick={handleEditClick}
-              className="cursor-pointer hidden group-hover:block absolute -right-1 -top-1 bg-white border border-gray-300 rounded-full w-5 h-5 flex items-center justify-center text-xs text-gray-700 hover:text-gray-500 hover:bg-gray-50 z-10"
-              title="Edit source URL"
-            >
-              ✎
-            </button>
-          )}
+        
         </div>
       );
     });
