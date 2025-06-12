@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useInfiniteQuery, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { useInView } from 'react-intersection-observer';
 import SearchBar from '@/components/SearchBar';
 import ActionButtons from '@/components/ActionButtons';
 import ContentItem from '@/components/ContentItem';
@@ -33,14 +34,14 @@ const queryClient = new QueryClient({
 const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || 'default-content-index';
 
 const COLUMNS = [
-  { id: 'video', label: 'Video', width: '300px' },
+  { id: 'video', label: 'Video', width: '220px' },
   { id: 'topic_category', label: 'Topic Category', width: '120px' },
   { id: 'emotions', label: 'Emotions', width: '120px' },
   { id: 'brands', label: 'Brands', width: '120px' },
   { id: 'demo_gender', label: 'Target Demo: Gender', width: '120px' },
   { id: 'demo_age', label: 'Target Demo: Age', width: '120px' },
   { id: 'location', label: 'Location', width: '120px' },
-  { id: 'source', label: 'Source', width: '200px' },
+  { id: 'source', label: 'Source', width: '140px' },
 ];
 
 // Limit for concurrent metadata processing
@@ -101,6 +102,13 @@ export default function ContentLibraryPage() {
     { id: 'location', label: 'Location' },
   ];
 
+  // Intersection Observer for infinite scroll
+  const { ref: observerRef, inView } = useInView({
+    threshold: 0.1,
+    triggerOnce: false,
+    rootMargin: '200px 0px', // Load earlier before the user sees the end
+  });
+
   const {
     data: videosData,
     fetchNextPage,
@@ -114,14 +122,29 @@ export default function ContentLibraryPage() {
     queryKey: ['videos', contentIndexId],
     queryFn: ({ pageParam }) => fetchVideos(pageParam, contentIndexId),
     initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
-      if (lastPage.page_info.page < lastPage.page_info.total_page) {
+    getNextPageParam: (lastPage, allPages) => {
+      console.log("getNextPageParam - current page:", lastPage.page_info.page, "total pages:", lastPage.page_info.total_page);
+
+      // Calculate loaded video count from all pages
+      const loadedCount = allPages.flatMap(page => page.data).length;
+      console.log("getNextPageParam - loaded videos:", loadedCount, "total videos:", lastPage.page_info.total_count);
+
+      // Load next page if we haven't loaded all videos and there's a next page
+      if (loadedCount < lastPage.page_info.total_count && lastPage.page_info.page < lastPage.page_info.total_page) {
         return lastPage.page_info.page + 1;
       }
       return undefined;
     },
     enabled: !!contentIndexId,
   });
+
+  // Load next page when observer is in view
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage && !isFiltering) {
+      setSkipMetadataProcessing(false);
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, isFiltering, fetchNextPage]);
 
   // Convert API response to AdItemType
   const convertToAdItem = (video: VideoData): AdItemType => {
@@ -765,13 +788,6 @@ export default function ContentLibraryPage() {
     setSelectedFilterCategory(null);
   };
 
-  const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      setSkipMetadataProcessing(false);
-      fetchNextPage();
-    }
-  };
-
   const combinedItems = useMemo(() => {
     const itemsMap = new Map(
       adItems.map(item => [item.id, item])
@@ -1080,16 +1096,22 @@ export default function ContentLibraryPage() {
                     )
                   ))}
 
-                  {/* Load more button */}
-                  {!isFiltering && hasNextPage && (
-                    <div className="flex justify-center py-4 mb-8">
-                      <button
-                        onClick={handleLoadMore}
-                        disabled={isFetchingNextPage}
-                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-                      >
-                        {isFetchingNextPage ? 'Loading...' : 'Load More'}
-                      </button>
+                  {/* Infinite scroll loading indicator */}
+                  {!isFiltering && (
+                    <div
+                      className="flex justify-center py-4 mb-8"
+                      ref={observerRef}
+                    >
+                      {isFetchingNextPage ? (
+                        <div className="flex items-center space-x-2">
+                          <LoadingSpinner />
+                          <span className="text-gray-500">Loading more videos...</span>
+                        </div>
+                      ) : hasNextPage ? (
+                        <div className="h-10 w-full" />
+                      ) : (
+                        <div className="text-sm text-gray-500">All videos loaded</div>
+                      )}
                     </div>
                   )}
                 </div>
