@@ -81,7 +81,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
             ))}
           </div>
         ) : (
-          <div className="p-4 w-54 bg-white rounded-[45.60px]">
+          <div className="p-4 w-64 bg-white rounded-[45.60px]">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-medium text-md">
                 {capitalizeText((filterCategories.find(c => c.id === selectedFilterCategory)?.label || '').replace(/_/g, ' '))}
@@ -111,17 +111,17 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
               {filterOptions[selectedFilterCategory]?.length > 0 ? (
                 <div className="space-y-2">
                   {filterOptions[selectedFilterCategory].map((option, index) => (
-                    <div key={index} className="flex items-center cursor-pointer hover:bg-gray-200 px-2 py-1 rounded">
+                    <div key={index} className="flex items-start cursor-pointer hover:bg-gray-200 px-2 py-2 rounded min-h-[32px]">
                       <input
                         id={`filter-${selectedFilterCategory}-${index}`}
                         type="checkbox"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                        className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                         checked={isFilterActive(selectedFilterCategory, option)}
                         onChange={() => onToggleFilter(selectedFilterCategory, option)}
                       />
                       <label
                         htmlFor={`filter-${selectedFilterCategory}-${index}`}
-                        className="ml-2 block text-md cursor-pointer"
+                        className="ml-3 flex-1 text-md cursor-pointer leading-tight break-words"
                       >
                         {capitalizeText(option)}
                       </label>
@@ -281,7 +281,7 @@ export const useFilterState = (adItems: AdItemType[]) => {
               if (topic) {
                 const lowercaseTopic = topic.toLowerCase();
                 if (!options.topic_category.has(lowercaseTopic)) {
-                  options.topic_category.set(lowercaseTopic, capitalizeText(topic));
+                  options.topic_category.set(lowercaseTopic, topic);
                 }
               }
             });
@@ -294,7 +294,7 @@ export const useFilterState = (adItems: AdItemType[]) => {
               if (emotion) {
                 const lowercaseEmotion = emotion.toLowerCase();
                 if (!options.emotions.has(lowercaseEmotion)) {
-                  options.emotions.set(lowercaseEmotion, capitalizeText(emotion));
+                  options.emotions.set(lowercaseEmotion, emotion);
                 }
               }
             });
@@ -307,7 +307,7 @@ export const useFilterState = (adItems: AdItemType[]) => {
               if (brand) {
                 const lowercaseBrand = brand.toLowerCase();
                 if (!options.brands.has(lowercaseBrand)) {
-                  options.brands.set(lowercaseBrand, capitalizeText(brand));
+                  options.brands.set(lowercaseBrand, brand);
                 }
               }
             });
@@ -320,7 +320,7 @@ export const useFilterState = (adItems: AdItemType[]) => {
               if (age) {
                 const lowercaseAge = age.toLowerCase();
                 if (!options.demo_age.has(lowercaseAge)) {
-                  options.demo_age.set(lowercaseAge, capitalizeText(age));
+                  options.demo_age.set(lowercaseAge, age);
                 }
               }
             });
@@ -333,7 +333,7 @@ export const useFilterState = (adItems: AdItemType[]) => {
               if (gender) {
                 const lowercaseGender = gender.toLowerCase();
                 if (!options.demo_gender.has(lowercaseGender)) {
-                  options.demo_gender.set(lowercaseGender, capitalizeText(gender));
+                  options.demo_gender.set(lowercaseGender, gender);
                 }
               }
             });
@@ -346,7 +346,7 @@ export const useFilterState = (adItems: AdItemType[]) => {
               if (location) {
                 const lowercaseLocation = location.toLowerCase();
                 if (!options.location.has(lowercaseLocation)) {
-                  options.location.set(lowercaseLocation, capitalizeText(location));
+                  options.location.set(lowercaseLocation, location);
                 }
               }
             });
