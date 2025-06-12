@@ -140,7 +140,7 @@ const EditableTag: React.FC<EditableTagProps> = ({
       const displayTag = isSourceCategory ? tag : tag.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
       return (
-        <div key={index} className="relative group inline-flex items-center mr-1">
+        <div key={index} className="relative group inline-flex items-center mb-1">
           <span
             onClick={handleClick}
             className={`
@@ -156,8 +156,6 @@ const EditableTag: React.FC<EditableTagProps> = ({
             {displayTag}
             {isSaving && index === tagsBefore.length - 1 && <span className="ml-1">...</span>}
           </span>
-
-        
         </div>
       );
     });
@@ -208,11 +206,11 @@ const EditableTag: React.FC<EditableTagProps> = ({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center w-full min-h-[40px]">
-      <div className="flex flex-row items-center justify-start flex-nowrap w-full max-w-full overflow-x-auto py-1">
+    <div className="flex flex-col items-start justify-start w-full min-h-[40px]">
+      <div className="flex flex-wrap items-start justify-start w-full max-w-full py-1 gap-1">
         {renderTags()}
       </div>
-      <div className="w-full flex justify-center mt-1">
+      <div className="w-full flex justify-start mt-1">
         {renderAddButton()}
       </div>
       {!value && (
