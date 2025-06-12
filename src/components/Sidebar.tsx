@@ -41,7 +41,7 @@ const menuConfig = [
 
 const Sidebar: FC<SidebarProps> = ({ activeMenu }) => {
   return (
-    <div className="w-54 bg-zinc-100 h-screen fixed left-0 top-0 p-4 flex flex-col">
+    <div className="w-54 bg-zinc-100 h-screen fixed left-0 top-0 p-4 flex flex-col z-[100]">
       <div className="text-xl font-bold mb-6 pl-2">Brand Integration Assistant and Ad Break Finder</div>
 
       <nav className="flex-1">

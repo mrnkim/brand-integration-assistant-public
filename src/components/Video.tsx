@@ -57,7 +57,7 @@ const Video: React.FC<EnhancedVideoProps> = ({
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <Suspense fallback={<LoadingSpinner />}>
         <div
-          className="w-72 h-40 relative rounded-[45.60px] inline-flex flex-col justify-between items-start overflow-hidden"
+          className="w-64 h-36 relative rounded-[45.60px] inline-flex flex-col justify-between items-start overflow-hidden"
           onClick={!disablePlayback ? onPlay : undefined}
           style={{ cursor: !disablePlayback ? 'pointer' : 'default' }}
         >

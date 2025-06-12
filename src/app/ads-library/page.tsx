@@ -39,14 +39,14 @@ const adsIndexId = process.env.NEXT_PUBLIC_ADS_INDEX_ID || 'default-ads-index';
 
 // Column definitions
 const COLUMNS = [
-  { id: 'video', label: 'Video', width: '320px' },
-  { id: 'topic_category', label: 'Topic Category', width: '130px' },
-  { id: 'emotions', label: 'Emotions', width: '130px' },
-  { id: 'brands', label: 'Brands', width: '130px' },
-  { id: 'demo_gender', label: 'Target Demo:\nGender', width: '130px' },
-  { id: 'demo_age', label: 'Target Demo:\nAge', width: '130px' },
-  { id: 'location', label: 'Location', width: '130px' },
-  { id: 'source', label: 'Source', width: '300px' },
+  { id: 'video', label: 'Video', width: '280px' },
+  { id: 'topic_category', label: 'Topic Category', width: '110px' },
+  { id: 'emotions', label: 'Emotions', width: '110px' },
+  { id: 'brands', label: 'Brands', width: '110px' },
+  { id: 'demo_gender', label: 'Target Demo:\nGender', width: '110px' },
+  { id: 'demo_age', label: 'Target Demo:\nAge', width: '110px' },
+  { id: 'location', label: 'Location', width: '110px' },
+  { id: 'source', label: 'Source', width: '250px' },
 ];
 
 // Limit for concurrent metadata processing
@@ -633,17 +633,17 @@ export default function AdsLibrary() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen bg-zinc-100">
+      <div className="flex min-h-screen bg-zinc-100 overflow-x-hidden">
         {/* Sidebar */}
         <Sidebar activeMenu="ads-library" />
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col ml-20 bg-zinc-100">
-          <div className="mx-auto w-4/5">
-            {/* Fixed header area - combined all sticky elements */}
-            <div className="fixed top-0 ml-5 z-50 bg-zinc-100 w-[calc(80%-5rem)]">
+        <div className="flex-1 flex flex-col bg-zinc-100 min-w-0 ml-54">
+          {/* Fixed header area - positioned relative to main content area */}
+          <div className="fixed top-0 left-54 right-0 z-40 bg-zinc-100">
+            <div className="w-full px-8">
               {/* Search area with solid background */}
-              <div className="bg-zinc-100 -mx-4 w-full">
+              <div className="bg-zinc-100 w-full">
                 <div className="p-4 mt-2">
                   <SearchBar
                     onSearch={handleSearch}
@@ -708,7 +708,7 @@ export default function AdsLibrary() {
               {/* Table header with solid background - hide when search results are shown */}
               {!searchSubmitted && (
                 <div className="bg-zinc-100 w-full">
-                  <div className="flex border-b pb-3 w-full">
+                  <div className="flex border-b pb-3 w-full overflow-x-auto px-4">
                     {COLUMNS.map(column => (
                       <div
                         key={column.id}
@@ -727,114 +727,118 @@ export default function AdsLibrary() {
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Content area with padding to account for fixed header */}
-            <div className={`${searchSubmitted ? 'pt-[90px]' : 'pt-[185px]'} w-full`}>
-              {searchSubmitted ? (
-                <div className="px-4 w-full">
-                  <SearchResults
-                    textSearchQuery={searchQuery}
-                    textSearchSubmitted={searchSubmitted}
-                    indexId={adsIndexId}
-                  />
-                </div>
-              ) : (
-                <div className="px-4">
-                  {/* Video content grid */}
-                  {isLoading ? (
-                    <div className="flex flex-col justify-center items-center h-40">
-                      <LoadingSpinner />
-                      <p className="mt-4 text-gray-500">Loading videos...</p>
-                    </div>
-                  ) : isError ? (
-                    <div className="flex justify-center items-center h-40 text-red-500">
-                      Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
-                    </div>
-                  ) : displayItems.length === 0 ? (
-                    <div className="flex justify-center items-center h-40 text-gray-500">
-                      {isFiltering ? 'No videos match the current filters' : 'No videos available'}
-                    </div>
-                  ) : (
-                    <div className="mt-3 ml-2">
-                      {displayItems.map((item, index) => (
-                        item.isIndexing ? (
-                          // Special rendering for indexing videos
-                          <div key={`indexing-${item.id}-${index}`} className="flex w-full mb-4">
-                            <div className="w-[320px] flex-shrink-0 mr-4">
-                              <div className="relative aspect-video bg-black rounded-[45.60px] overflow-hidden">
-                                {/* Black background for indexing videos */}
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                                  <div className="w-10 h-10 mb-2 rounded-full bg-black bg-opacity-40 flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                                  </div>
-                                  <div className="text-white text-sm font-medium text-center bg-black bg-opacity-40 px-2 py-1 rounded">
-                                    {item.status && item.status !== 'unknown'
-                                      ? `${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`
-                                      : 'Processing'}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="mt-2">
-                                <p className="text-sm font-medium truncate">{item.title}</p>
-                              </div>
-                            </div>
-                            {/* Empty columns for consistency with ContentItem layout */}
-                            {COLUMNS.slice(1).map((column, colIndex) => (
-                              <div
-                                key={`${item.id}-${column.id}-${colIndex}`}
-                                className="flex-shrink-0 text-center flex items-center justify-center"
-                                style={{ width: column.width }}
-                              >
-                                {column.id === 'video' ? null : (
-                                  <div className="flex items-center justify-center">
-                                    <div className="w-5 h-5">
-                                      <LoadingSpinner />
+          {/* Content area with proper spacing and overflow handling */}
+          <div className="w-full">
+            <div className="w-full px-8">
+              <div className={`${searchSubmitted ? 'pt-[90px]' : 'pt-[185px]'} w-full`}>
+                {searchSubmitted ? (
+                  <div className="px-4 w-full">
+                    <SearchResults
+                      textSearchQuery={searchQuery}
+                      textSearchSubmitted={searchSubmitted}
+                      indexId={adsIndexId}
+                    />
+                  </div>
+                ) : (
+                  <div className="px-4">
+                    {/* Video content grid */}
+                    {isLoading ? (
+                      <div className="flex flex-col justify-center items-center h-40">
+                        <LoadingSpinner />
+                        <p className="mt-4 text-gray-500">Loading videos...</p>
+                      </div>
+                    ) : isError ? (
+                      <div className="flex justify-center items-center h-40 text-red-500">
+                        Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
+                      </div>
+                    ) : displayItems.length === 0 ? (
+                      <div className="flex justify-center items-center h-40 text-gray-500">
+                        {isFiltering ? 'No videos match the current filters' : 'No videos available'}
+                      </div>
+                    ) : (
+                      <div className="mt-3 ml-2 overflow-x-auto">
+                        {displayItems.map((item, index) => (
+                          item.isIndexing ? (
+                            // Special rendering for indexing videos
+                            <div key={`indexing-${item.id}-${index}`} className="flex w-full mb-4 min-w-max">
+                              <div className="w-64 flex-shrink-0 mr-4">
+                                <div className="relative aspect-video bg-black rounded-[45.60px] overflow-hidden">
+                                  {/* Black background for indexing videos */}
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                                    <div className="w-10 h-10 mb-2 rounded-full bg-black bg-opacity-40 flex items-center justify-center">
+                                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                    </div>
+                                    <div className="text-white text-sm font-medium text-center bg-black bg-opacity-40 px-2 py-1 rounded">
+                                      {item.status && item.status !== 'unknown'
+                                        ? `${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`
+                                        : 'Processing'}
                                     </div>
                                   </div>
-                                )}
+                                </div>
+                                <div className="mt-2">
+                                  <p className="text-sm font-medium truncate">{item.title}</p>
+                                </div>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          // Regular ContentItem for indexed videos
-                          <ContentItem
-                            key={`content-${item.id}-${index}`}
-                            videoId={item.id}
-                            indexId={adsIndexId}
-                            thumbnailUrl={item.thumbnailUrl}
-                            title={item.title}
-                            videoUrl={item.videoUrl}
-                            tags={item.tags}
-                            metadata={item.metadata}
-                            isLoadingMetadata={videosInProcessing.includes(item.id)}
-                            onMetadataUpdated={() => {
-                              // Refresh the content after user updates metadata
-                              refreshVideoMetadata(item.id);
-                            }}
-                          />
-                        )
-                      ))}
+                              {/* Empty columns for consistency with ContentItem layout */}
+                              {COLUMNS.slice(1).map((column, colIndex) => (
+                                <div
+                                  key={`${item.id}-${column.id}-${colIndex}`}
+                                  className="flex-shrink-0 text-center flex items-center justify-center"
+                                  style={{ width: column.width }}
+                                >
+                                  {column.id === 'video' ? null : (
+                                    <div className="flex items-center justify-center">
+                                      <div className="w-5 h-5">
+                                        <LoadingSpinner />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            // Regular ContentItem for indexed videos
+                            <ContentItem
+                              key={`content-${item.id}-${index}`}
+                              videoId={item.id}
+                              indexId={adsIndexId}
+                              thumbnailUrl={item.thumbnailUrl}
+                              title={item.title}
+                              videoUrl={item.videoUrl}
+                              tags={item.tags}
+                              metadata={item.metadata}
+                              isLoadingMetadata={videosInProcessing.includes(item.id)}
+                              onMetadataUpdated={() => {
+                                // Refresh the content after user updates metadata
+                                refreshVideoMetadata(item.id);
+                              }}
+                            />
+                          )
+                        ))}
 
-                      {/* Load more indicator - show regardless of hasNextPage to ensure it's visible */}
-                      <div
-                        className="flex justify-center py-4 mb-8"
-                        ref={observerRef}
-                      >
-                        {isFetchingNextPage ? (
-                          <div className="flex items-center space-x-2">
-                            <LoadingSpinner />
-                            <span className="text-gray-500">Loading more videos...</span>
-                          </div>
-                        ) : hasNextPage ? (
-                          <div className="h-10 w-full" />
-                        ) : (
-                          <div className="text-sm text-gray-500">All videos loaded</div>
-                        )}
+                        {/* Load more indicator - show regardless of hasNextPage to ensure it's visible */}
+                        <div
+                          className="flex justify-center py-4 mb-8"
+                          ref={observerRef}
+                        >
+                          {isFetchingNextPage ? (
+                            <div className="flex items-center space-x-2">
+                              <LoadingSpinner />
+                              <span className="text-gray-500">Loading more videos...</span>
+                            </div>
+                          ) : hasNextPage ? (
+                            <div className="h-10 w-full" />
+                          ) : (
+                            <div className="text-sm text-gray-500">All videos loaded</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -21,6 +21,7 @@ import {
 } from '@/hooks/apiHooks';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { AdItemType, VideoData, Tag } from '@/types';
+import FilterMenu, { ActiveFilters, useFilterState } from '@/components/FilterMenu';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,14 +35,14 @@ const queryClient = new QueryClient({
 const contentIndexId = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID || 'default-content-index';
 
 const COLUMNS = [
-  { id: 'video', label: 'Video', width: '220px' },
-  { id: 'topic_category', label: 'Topic Category', width: '120px' },
-  { id: 'emotions', label: 'Emotions', width: '120px' },
-  { id: 'brands', label: 'Brands', width: '120px' },
-  { id: 'demo_gender', label: 'Target Demo: Gender', width: '120px' },
-  { id: 'demo_age', label: 'Target Demo: Age', width: '120px' },
-  { id: 'location', label: 'Location', width: '120px' },
-  { id: 'source', label: 'Source', width: '140px' },
+  { id: 'video', label: 'Video', width: '280px' },
+  { id: 'topic_category', label: 'Topic Category', width: '110px' },
+  { id: 'emotions', label: 'Emotions', width: '110px' },
+  { id: 'brands', label: 'Brands', width: '110px' },
+  { id: 'demo_gender', label: 'Target Demo: Gender', width: '110px' },
+  { id: 'demo_age', label: 'Target Demo: Age', width: '110px' },
+  { id: 'location', label: 'Location', width: '110px' },
+  { id: 'source', label: 'Source', width: '250px' },
 ];
 
 // Limit for concurrent metadata processing
@@ -55,8 +56,6 @@ export default function ContentLibraryPage() {
   const [adItems, setAdItems] = useState<AdItemType[]>([]);
   const [skipMetadataProcessing, setSkipMetadataProcessing] = useState(false);
   const [processedVideoIds, setProcessedVideoIds] = useState<Set<string>>(new Set());
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [selectedFilterCategory, setSelectedFilterCategory] = useState<string | null>(null);
   const [showUploader, setShowUploader] = useState(false);
   const [recentUploads, setRecentUploads] = useState<{
     id: string;
@@ -74,33 +73,26 @@ export default function ContentLibraryPage() {
     refetchInterval: 5000,
   });
 
-  const [filterOptions, setFilterOptions] = useState<{[key: string]: string[]}>({
-    topic_category: [],
-    emotions: [],
-    brands: [],
-    demo_age: [],
-    demo_gender: [],
-    location: []
-  });
-  const [activeFilters, setActiveFilters] = useState<{[key: string]: string[]}>({
-    topic_category: [],
-    emotions: [],
-    brands: [],
-    demo_age: [],
-    demo_gender: [],
-    location: []
-  });
-  const [filteredItems, setFilteredItems] = useState<AdItemType[]>([]);
-  const [isFiltering, setIsFiltering] = useState(false);
-
-  const filterCategories = [
-    { id: 'topic_category', label: 'Topic Category' },
-    { id: 'emotions', label: 'Emotions' },
-    { id: 'brands', label: 'Brands' },
-    { id: 'demo_age', label: 'Target Demo: Age' },
-    { id: 'demo_gender', label: 'Target Demo: Gender' },
-    { id: 'location', label: 'Location' },
-  ];
+  // Replace the filter state with the useFilterState hook
+  const {
+    filterOptions,
+    activeFilters,
+    filteredItems,
+    isFiltering,
+    showFilterMenu: filterMenuShow,
+    selectedFilterCategory: filterSelectedCategory,
+    filterCategories,
+    capitalizeText,
+    isFilterActive,
+    getActiveCategoryFilterCount,
+    getTotalActiveFilterCount,
+    toggleFilter,
+    resetCategoryFilters,
+    resetAllFilters,
+    handleFilter,
+    handleFilterCategorySelect,
+    closeFilterMenu,
+  } = useFilterState(adItems);
 
   // Intersection Observer for infinite scroll
   const { ref: observerRef, inView } = useInView({
@@ -467,177 +459,6 @@ export default function ContentLibraryPage() {
     }
   }, [videosData, processingMetadata, processVideoMetadata, skipMetadataProcessing, processedVideoIds, videosInProcessing]);
 
-  // Extract unique filter options from content items
-  useEffect(() => {
-    if (adItems.length > 0) {
-      const options: {[key: string]: Set<string>} = {
-        topic_category: new Set<string>(),
-        emotions: new Set<string>(),
-        brands: new Set<string>(),
-        demo_age: new Set<string>(),
-        demo_gender: new Set<string>(),
-        location: new Set<string>()
-      };
-
-      adItems.forEach(item => {
-        if (item.metadata) {
-          // Extract topic_category
-          if (item.metadata.topic_category) {
-            const topics = item.metadata.topic_category.split(',').map(s => s.trim());
-            topics.forEach(topic => {
-              if (topic) options.topic_category.add(topic);
-            });
-          }
-
-          if (item.metadata.emotions) {
-            const emotions = item.metadata.emotions.split(',').map(e => e.trim());
-            emotions.forEach(emotion => {
-              if (emotion) options.emotions.add(emotion);
-            });
-          }
-
-          if (item.metadata.brands) {
-            const brands = item.metadata.brands.split(',').map(b => b.trim());
-            brands.forEach(brand => {
-              if (brand) options.brands.add(brand);
-            });
-          }
-
-          if (item.metadata.demo_age) {
-            const ages = item.metadata.demo_age.split(',').map(a => a.trim());
-            ages.forEach(age => {
-              if (age) options.demo_age.add(age);
-            });
-          }
-
-          if (item.metadata.demo_gender) {
-            const genders = item.metadata.demo_gender.split(',').map(g => g.trim());
-            genders.forEach(gender => {
-              if (gender) options.demo_gender.add(gender);
-            });
-          }
-
-          if (item.metadata.locations) {
-            const locations = item.metadata.locations.split(',').map(l => l.trim());
-            locations.forEach(location => {
-              if (location) options.location.add(location);
-            });
-          }
-        }
-      });
-
-      setFilterOptions({
-        topic_category: Array.from(options.topic_category),
-        emotions: Array.from(options.emotions),
-        brands: Array.from(options.brands),
-        demo_age: Array.from(options.demo_age),
-        demo_gender: Array.from(options.demo_gender),
-        location: Array.from(options.location)
-      });
-    }
-  }, [adItems]);
-
-  // Apply filters to content items
-  useEffect(() => {
-    const hasActiveFilters = Object.values(activeFilters).some(filters => filters.length > 0);
-    setIsFiltering(hasActiveFilters);
-
-    if (!hasActiveFilters) {
-      setFilteredItems(adItems);
-      return;
-    }
-
-    const filtered = adItems.filter(item => {
-      return Object.entries(activeFilters).every(([category, filters]) => {
-        if (filters.length === 0) return true;
-
-        let metadataValue = '';
-        switch (category) {
-          case 'topic_category':
-            metadataValue = item.metadata?.topic_category || '';
-            break;
-          case 'emotions':
-            metadataValue = item.metadata?.emotions || '';
-            break;
-          case 'brands':
-            metadataValue = item.metadata?.brands || '';
-            break;
-          case 'demo_age':
-            metadataValue = item.metadata?.demo_age || '';
-            break;
-          case 'demo_gender':
-            metadataValue = item.metadata?.demo_gender || '';
-            break;
-          case 'location':
-            metadataValue = item.metadata?.locations || '';
-            break;
-        }
-
-        const values = metadataValue.split(',').map(v => v.trim());
-
-        return filters.some(filter => values.includes(filter));
-      });
-    });
-
-    setFilteredItems(filtered);
-  }, [activeFilters, adItems]);
-
-  // Toggle filter selection
-  const toggleFilter = (category: string, value: string) => {
-    setActiveFilters(prev => {
-      const current = [...prev[category]];
-
-      if (current.includes(value)) {
-        return {
-          ...prev,
-          [category]: current.filter(v => v !== value)
-        };
-      } else {
-        return {
-          ...prev,
-          [category]: [...current, value]
-        };
-      }
-    });
-  };
-
-  // Reset filters for a specific category
-  const resetCategoryFilters = (category: string) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [category]: []
-    }));
-  };
-
-  // Reset all filters
-  const resetAllFilters = () => {
-    setActiveFilters({
-      topic_category: [],
-      emotions: [],
-      brands: [],
-      demo_age: [],
-      demo_gender: [],
-      location: []
-    });
-    setShowFilterMenu(false);
-    setSelectedFilterCategory(null);
-  };
-
-  // Check if a filter is active
-  const isFilterActive = (category: string, value: string) => {
-    return activeFilters[category].includes(value);
-  };
-
-  // Get active filter count for a category
-  const getActiveCategoryFilterCount = (category: string) => {
-    return activeFilters[category].length;
-  };
-
-  // Get total active filter count
-  const getTotalActiveFilterCount = () => {
-    return Object.values(activeFilters).reduce((total, filters) => total + filters.length, 0);
-  };
-
   // Search handler
   const handleSearch = (query: string) => {
     if (query.trim() !== '') {
@@ -773,21 +594,6 @@ export default function ContentLibraryPage() {
     return () => clearInterval(intervalId);
   }, [fetchRecentTasks, refetchIndex]);
 
-  const handleFilter = () => {
-    console.log('Filter clicked');
-    setShowFilterMenu(!showFilterMenu);
-    setSelectedFilterCategory(null);
-  };
-
-  const handleFilterCategorySelect = (categoryId: string) => {
-    setSelectedFilterCategory(categoryId);
-  };
-
-  const closeFilterMenu = () => {
-    setShowFilterMenu(false);
-    setSelectedFilterCategory(null);
-  };
-
   const combinedItems = useMemo(() => {
     const itemsMap = new Map(
       adItems.map(item => [item.id, item])
@@ -835,289 +641,208 @@ export default function ContentLibraryPage() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-zinc-100 overflow-x-hidden">
         {/* Main content */}
-        <div className="flex-1 flex flex-col ml-54">
-
-          {/* Search area */}
-          <div className="p-4 border-b border-gray-200 sticky top-0 z-30 bg-white">
-            <SearchBar
-              onSearch={handleSearch}
-              placeholder="Search videos..."
-              defaultValue={searchQuery}
-            />
-          </div>
-
-          {/* Content area */}
-          {searchSubmitted ? (
-            <div className="flex-1 overflow-auto px-4">
-              <SearchResults
-                textSearchQuery={searchQuery}
-                textSearchSubmitted={searchSubmitted}
-                indexId={contentIndexId}
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col">
-
-              {/* Action buttons and filter tabs */}
-              <div className="p-3 border-b border-gray-200 bg-white sticky top-[45px] z-20">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                    <ActionButtons
-                      onUpload={handleUpload}
-                      onFilter={handleFilter}
-                    />
-
-                    {/* Active filter indicators */}
-                    {getTotalActiveFilterCount() > 0 && (
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-600 ml-3">
-                          Filters: {getTotalActiveFilterCount()}
-                        </span>
-
-                        {/* Active filters display */}
-                        <div className="ml-3 flex flex-wrap items-center gap-2">
-                          {Object.entries(activeFilters).map(([category, values]) =>
-                            values.length > 0 && (
-                              <div key={category} className="flex items-center bg-blue-50 px-2 py-1 rounded-md">
-                                <span className="text-xs font-medium text-blue-800 mr-1">
-                                  {category.charAt(0).toUpperCase() + category.slice(1)}:
-                                </span>
-                                <span className="text-xs text-blue-700">
-                                  {values.join(', ')}
-                                </span>
-                                <button
-                                  onClick={() => resetCategoryFilters(category)}
-                                  className="ml-1 text-blue-500 hover:text-blue-700"
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
-                            )
-                          )}
-                        </div>
-                        <button
-                          onClick={resetAllFilters}
-                          className="ml-2 text-xs text-blue-600 hover:text-blue-800"
-                        >
-                          Clear all
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-sm">
-                    {isFiltering ? filteredItems.length : totalVideoCount} videos
-                    {processingMetadata && videosInProcessing.length > 0 && (
-                      <span className="ml-2 text-blue-500 flex items-center">
-                        <div className="w-4 h-4">
-                          <LoadingSpinner />
-                        </div>
-                      </span>
-                    )}
-                  </div>
+        <div className="flex-1 flex flex-col bg-zinc-100 min-w-0">
+          {/* Fixed header area - positioned relative to main content area */}
+          <div className="fixed top-0 left-0 right-0 z-40 bg-zinc-100">
+            <div className="w-full px-8">
+              {/* Search area with solid background */}
+              <div className="bg-zinc-100 w-full">
+                <div className="p-4 mt-2">
+                  <SearchBar
+                    onSearch={handleSearch}
+                    placeholder="Search videos..."
+                    defaultValue={searchQuery}
+                  />
                 </div>
 
-                {/* Filter Menu */}
-                {showFilterMenu && (
-                  <div className="relative">
-                    <div className="absolute z-40 mt-1 bg-white rounded-md shadow-lg border border-gray-200">
-                      {selectedFilterCategory === null ? (
-                        <div className="py-1">
-                          {filterCategories.map((category) => (
-                            <button
-                              key={category.id}
-                              className="flex items-center justify-between w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              onClick={() => handleFilterCategorySelect(category.id)}
-                            >
-                              <span>{category.label}</span>
-                              {getActiveCategoryFilterCount(category.id) > 0 && (
-                                <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                                  {getActiveCategoryFilterCount(category.id)}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-4 w-54">
-                          <div className="flex justify-between items-center mb-3">
-                            <h3 className="font-medium text-gray-800">
-                              {filterCategories.find(c => c.id === selectedFilterCategory)?.label}
-                            </h3>
-                            <div className="flex items-center">
-                              {getActiveCategoryFilterCount(selectedFilterCategory) > 0 && (
-                                <button
-                                  className="text-xs text-blue-600 hover:text-blue-800 mr-3"
-                                  onClick={() => resetCategoryFilters(selectedFilterCategory)}
-                                >
-                                  Clear
-                                </button>
-                              )}
-                              <button
-                                className="text-gray-400 hover:text-gray-500"
-                                onClick={() => setSelectedFilterCategory(null)}
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
+                {/* Action buttons and filter tabs - hide when search results are shown */}
+                {!searchSubmitted && (
+                  <div className="px-4 pb-3">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-2">
+                        <ActionButtons
+                          onUpload={handleUpload}
+                          onFilter={handleFilter}
+                        />
 
-                          {/* Filter options */}
-                          <div className="max-h-60 overflow-y-auto">
-                            {filterOptions[selectedFilterCategory]?.length > 0 ? (
-                              <div className="space-y-2">
-                                {filterOptions[selectedFilterCategory].map((option, index) => (
-                                  <div key={index} className="flex items-center">
-                                    <input
-                                      id={`filter-${selectedFilterCategory}-${index}`}
-                                      type="checkbox"
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                      checked={isFilterActive(selectedFilterCategory, option)}
-                                      onChange={() => toggleFilter(selectedFilterCategory, option)}
-                                    />
-                                    <label
-                                      htmlFor={`filter-${selectedFilterCategory}-${index}`}
-                                      className="ml-2 block text-sm text-gray-700"
-                                    >
-                                      {option}
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500">No options available</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                        {/* Active filter indicators */}
+                        {getTotalActiveFilterCount() > 0 && (
+                          <ActiveFilters
+                            activeFilters={activeFilters}
+                            onResetCategoryFilters={resetCategoryFilters}
+                            onResetAllFilters={resetAllFilters}
+                            getTotalActiveFilterCount={getTotalActiveFilterCount}
+                            capitalizeText={capitalizeText}
+                          />
+                        )}
+                      </div>
+                      <div className="text-sm">
+                        {isFiltering ? filteredItems.length : totalVideoCount} videos
+                        {processingMetadata && videosInProcessing.length > 0 && (
+                          <span className="ml-2 text-blue-500 flex items-center">
+                            <div className="w-4 h-4">
+                              <LoadingSpinner />
+                            </div>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Backdrop to close menu when clicking outside */}
-                    <div
-                      className="fixed inset-0 z-30"
-                      onClick={closeFilterMenu}
-                    ></div>
+                    {/* Filter Menu */}
+                    {filterMenuShow && (
+                      <FilterMenu
+                        showFilterMenu={filterMenuShow}
+                        selectedFilterCategory={filterSelectedCategory}
+                        filterCategories={filterCategories}
+                        filterOptions={filterOptions}
+                        onFilterCategorySelect={handleFilterCategorySelect}
+                        onToggleFilter={toggleFilter}
+                        onResetCategoryFilters={resetCategoryFilters}
+                        onCloseFilterMenu={closeFilterMenu}
+                        getActiveCategoryFilterCount={getActiveCategoryFilterCount}
+                        isFilterActive={isFilterActive}
+                        capitalizeText={capitalizeText}
+                      />
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Table header */}
-              <div className="sticky top-[106px] z-10 bg-gray-100 border-b border-gray-200 shadow-sm">
-                <div className="flex py-2 px-4">
-                  {COLUMNS.map(column => (
-                    <div
-                      key={column.id}
-                      className="font-medium text-center text-sm text-gray-600 flex-shrink-0 pr-4"
-                      style={{ width: column.width }}
-                    >
-                      {column.label.includes('\n')
-                        ? column.label.split('\n').map((part, i) => (
-                            <div key={i}>{part.charAt(0).toUpperCase() + part.slice(1)}</div>
-                          ))
-                        : column.label.charAt(0).toUpperCase() + column.label.slice(1)
-                      }
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Content area */}
-              {isLoading ? (
-                <div className="flex flex-col justify-center items-center h-40">
-                  <LoadingSpinner />
-                  <p className="mt-4 text-gray-500">Loading videos...</p>
-                </div>
-              ) : isError ? (
-                <div className="flex justify-center items-center h-40 text-red-500">
-                  Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
-                </div>
-              ) : (isFiltering ? filteredItems : displayItems).length === 0 ? (
-                <div className="flex justify-center items-center h-40 text-gray-500">
-                  {isFiltering ? 'No videos match the current filters' : 'No videos available'}
-                </div>
-              ) : (
-                <div>
-                  {(isFiltering ? filteredItems : displayItems).map(item => (
-                    item.isIndexing ? (
-                      <div key={item.id} className="flex w-full mb-4">
-                        <div className="w-[300px] flex-shrink-0 mr-4">
-                          <div className="relative aspect-video bg-black rounded-[45.60px] overflow-hidden">
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                              <div className="w-10 h-10 mb-2 rounded-full bg-black bg-opacity-40 flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                              </div>
-                              <div className="text-white text-sm font-medium text-center bg-black bg-opacity-40 px-2 py-1 rounded">
-                                {item.status && item.status !== 'unknown'
-                                  ? `${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`
-                                  : 'Processing'}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="mt-2">
-                            <p className="text-sm font-medium truncate">{item.title}</p>
-                          </div>
-                        </div>
-                        {COLUMNS.slice(1).map(column => (
-                          <div
-                            key={`${item.id}-${column.id}`}
-                            className="flex-shrink-0 text-center flex items-center justify-center"
-                            style={{ width: column.width }}
-                          >
-                            {column.id === 'video' ? null : (
-                              <div className="flex items-center justify-center">
-                                <div className="w-5 h-5">
-                                  <LoadingSpinner />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+              {/* Table header with solid background - hide when search results are shown */}
+              {!searchSubmitted && (
+                <div className="bg-zinc-100 w-full">
+                  <div className="flex border-b pb-3 w-full overflow-x-auto px-4">
+                    {COLUMNS.map(column => (
+                      <div
+                        key={column.id}
+                        className="font-medium text-center text-md flex-shrink-0"
+                        style={{ width: column.width }}
+                      >
+                        {column.label.includes('\n')
+                          ? column.label.split('\n').map((part, i) => (
+                              <div key={i}>{capitalizeText(part)}</div>
+                            ))
+                          : capitalizeText(column.label)
+                        }
                       </div>
-                    ) : (
-                      <ContentItem
-                        key={item.id}
-                        videoId={item.id}
-                        indexId={contentIndexId}
-                        thumbnailUrl={item.thumbnailUrl}
-                        title={item.title}
-                        videoUrl={item.videoUrl}
-                        tags={item.tags}
-                        metadata={item.metadata}
-                        isLoadingMetadata={videosInProcessing.includes(item.id)}
-                        onMetadataUpdated={() => {
-                          refreshVideoMetadata(item.id);
-                        }}
-                      />
-                    )
-                  ))}
-
-                  {/* Infinite scroll loading indicator */}
-                  {!isFiltering && (
-                    <div
-                      className="flex justify-center py-4 mb-8"
-                      ref={observerRef}
-                    >
-                      {isFetchingNextPage ? (
-                        <div className="flex items-center space-x-2">
-                          <LoadingSpinner />
-                          <span className="text-gray-500">Loading more videos...</span>
-                        </div>
-                      ) : hasNextPage ? (
-                        <div className="h-10 w-full" />
-                      ) : (
-                        <div className="text-sm text-gray-500">All videos loaded</div>
-                      )}
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-          )}
+          </div>
+
+          {/* Content area with proper spacing and overflow handling */}
+          <div className="w-full">
+            <div className="w-full px-8">
+              <div className={`${searchSubmitted ? 'pt-[90px]' : 'pt-[185px]'} w-full`}>
+                {searchSubmitted ? (
+                  <div className="px-4 w-full">
+                    <SearchResults
+                      textSearchQuery={searchQuery}
+                      textSearchSubmitted={searchSubmitted}
+                      indexId={contentIndexId}
+                    />
+                  </div>
+                ) : (
+                  <div className="px-4">
+                    {/* Video content grid */}
+                    {isLoading ? (
+                      <div className="flex flex-col justify-center items-center h-40">
+                        <LoadingSpinner />
+                        <p className="mt-4 text-gray-500">Loading videos...</p>
+                      </div>
+                    ) : isError ? (
+                      <div className="flex justify-center items-center h-40 text-red-500">
+                        Error loading data: {error instanceof Error ? error.message : 'Unknown error'}
+                      </div>
+                    ) : (isFiltering ? filteredItems : displayItems).length === 0 ? (
+                      <div className="flex justify-center items-center h-40 text-gray-500">
+                        {isFiltering ? 'No videos match the current filters' : 'No videos available'}
+                      </div>
+                    ) : (
+                      <div className="mt-3 ml-2 overflow-x-auto">
+                        {(isFiltering ? filteredItems : displayItems).map(item => (
+                          item.isIndexing ? (
+                            <div key={item.id} className="flex w-full mb-4 min-w-max">
+                              <div className="w-64 flex-shrink-0 mr-4">
+                                <div className="relative aspect-video bg-black rounded-[45.60px] overflow-hidden">
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <div className="w-10 h-10 mb-2 rounded-full bg-black bg-opacity-40 flex items-center justify-center">
+                                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                    </div>
+                                    <div className="text-white text-sm font-medium text-center bg-black bg-opacity-40 px-2 py-1 rounded">
+                                      {item.status && item.status !== 'unknown'
+                                        ? `${item.status.charAt(0).toUpperCase() + item.status.slice(1)}`
+                                        : 'Processing'}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mt-2">
+                                  <p className="text-sm font-medium truncate">{item.title}</p>
+                                </div>
+                              </div>
+                              {COLUMNS.slice(1).map(column => (
+                                <div
+                                  key={`${item.id}-${column.id}`}
+                                  className="flex-shrink-0 text-center flex items-center justify-center"
+                                  style={{ width: column.width }}
+                                >
+                                  {column.id === 'video' ? null : (
+                                    <div className="flex items-center justify-center">
+                                      <div className="w-5 h-5">
+                                        <LoadingSpinner />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <ContentItem
+                              key={item.id}
+                              videoId={item.id}
+                              indexId={contentIndexId}
+                              thumbnailUrl={item.thumbnailUrl}
+                              title={item.title}
+                              videoUrl={item.videoUrl}
+                              tags={item.tags}
+                              metadata={item.metadata}
+                              isLoadingMetadata={videosInProcessing.includes(item.id)}
+                              onMetadataUpdated={() => {
+                                refreshVideoMetadata(item.id);
+                              }}
+                            />
+                          )
+                        ))}
+
+                        {/* Infinite scroll loading indicator */}
+                        {!isFiltering && (
+                          <div
+                            className="flex justify-center py-4 mb-8"
+                            ref={observerRef}
+                          >
+                            {isFetchingNextPage ? (
+                              <div className="flex items-center space-x-2">
+                                <LoadingSpinner />
+                                <span className="text-gray-500">Loading more videos...</span>
+                              </div>
+                            ) : hasNextPage ? (
+                              <div className="h-10 w-full" />
+                            ) : (
+                              <div className="text-sm text-gray-500">All videos loaded</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

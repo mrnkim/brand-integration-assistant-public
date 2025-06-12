@@ -29,7 +29,33 @@ const EditableTag: React.FC<EditableTagProps> = ({
     }
   }, [isEditing, isAddingNew]);
 
-  const handleClick = () => {
+  // Check if value is a URL
+  const isUrl = (text: string): boolean => {
+    try {
+      new URL(text);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleClick = (e?: React.MouseEvent) => {
+    if (category.toLowerCase() === 'source' && value && isUrl(value.trim())) {
+      // For source category, if it's a URL, open the link
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      window.open(value.trim(), '_blank', 'noopener,noreferrer');
+    } else if (!disabled) {
+      setIsEditing(true);
+      setEditValue(value);
+    }
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!disabled) {
       setIsEditing(true);
       setEditValue(value);
@@ -132,33 +158,57 @@ const EditableTag: React.FC<EditableTagProps> = ({
       .map(tag => tag.trim())
       .filter(tag => tag !== '');
 
-
     const tags = tagsBefore.map(tag => {
-
       const lowerTag = tag.toLowerCase();
-
       const capitalized = lowerTag.split(' ')
         .map(word => {
           const result = word.charAt(0).toUpperCase() + word.slice(1);
           return result;
         })
         .join(' ');
-
       return capitalized;
     });
 
+    return tags.map((tag, index) => {
+      const isSourceCategory = category.toLowerCase() === 'source';
+      const isUrlTag = isSourceCategory && isUrl(tag);
 
-    return tags.map((tag, index) => (
-      <span
-        key={index}
-        onClick={handleClick}
-        className={`px-2 py-1 border bg-gray-100 rounded-full text-sm inline-block mr-1 mb-1 cursor-pointer hover:bg-gray-200 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-        title={disabled ? "Can't edit while metadata is processing" : "Click to edit"}
-      >
-        {tag}
-        {isSaving && index === tags.length - 1 && <span className="ml-1">...</span>}
-      </span>
-    ));
+      return (
+        <div key={index} className="relative group flex items-center max-w-full">
+          <span
+            onClick={() => handleClick()}
+            className={`
+              px-2 py-1 border bg-gray-100 rounded-full text-sm inline-block mr-1 mb-1
+              ${isUrlTag ? 'cursor-pointer' : 'cursor-pointer hover:bg-gray-200'}
+              ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
+              max-w-full truncate overflow-hidden text-ellipsis whitespace-nowrap
+              ${isSourceCategory ? 'max-w-[200px]' : ''}
+            `}
+            title={
+              isUrlTag
+                ? `Click to visit: ${tag}`
+                : disabled
+                  ? "Can't edit while metadata is processing"
+                  : "Click to edit"
+            }
+          >
+            {tag}
+            {isSaving && index === tags.length - 1 && <span className="ml-1">...</span>}
+          </span>
+
+          {/* Edit button for source URLs */}
+          {isSourceCategory && isUrlTag && !disabled && (
+            <button
+              onClick={handleEditClick}
+              className="cursor-pointer hidden group-hover:block absolute -right-1 -top-1 bg-white border border-gray-300 rounded-full w-5 h-5 flex items-center justify-center text-xs text-gray-700 hover:text-gray-500 hover:bg-gray-50 z-10"
+              title="Edit source URL"
+            >
+              ✎
+            </button>
+          )}
+        </div>
+      );
+    });
   };
 
   const renderAddButton = () => (
@@ -180,7 +230,7 @@ const EditableTag: React.FC<EditableTagProps> = ({
         onChange={(e) => setEditValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
-        className="px-2 py-1 text-xs border border-blue-400 rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="px-2 py-1 text-xs border border-green rounded-full focus:outline-none focus:ring-1"
         disabled={isSaving}
         size={Math.max(10, editValue.length + 2)}
         placeholder="Enter comma-separated tags"
@@ -206,9 +256,11 @@ const EditableTag: React.FC<EditableTagProps> = ({
   }
 
   return (
-    <div className="flex flex-col flex-wrap items-center justify-center w-full">
-      {renderTags()}
-      {renderAddButton()}
+    <div className="flex flex-col flex-wrap items-center justify-center w-full overflow-hidden">
+      <div className="flex flex-wrap items-center justify-center w-full max-w-full">
+        {renderTags()}
+        {renderAddButton()}
+      </div>
       {!value && (
         <span className="sr-only">No {category} tags yet</span>
       )}
