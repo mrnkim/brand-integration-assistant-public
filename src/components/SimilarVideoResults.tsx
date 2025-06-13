@@ -4,28 +4,49 @@ import VideoModal from './VideoModal';
 import { fetchVideoDetails } from '@/hooks/apiHooks';
 import { VideoData, SimilarVideoResultsProps, SelectedVideoData } from '@/types';
 import LoadingSpinner from './LoadingSpinner';
+import { useInView } from 'react-intersection-observer';
 
+const ITEMS_PER_PAGE = 9;
 
 const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, indexId }) => {
   const [videoDetails, setVideoDetails] = useState<Record<string, VideoData>>({});
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
   const [selectedVideo, setSelectedVideo] = useState<SelectedVideoData | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    triggerOnce: false,
+    rootMargin: '100px 0px',
+  });
+
+  const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE);
+
+  const currentResults = results.slice(0, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (inView && !loadingMore && currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  }, [inView, loadingMore, currentPage, totalPages]);
 
   // Fetch video details for each result
   useEffect(() => {
     const fetchAllVideoDetails = async () => {
       if (results.length === 0) return;
 
-      setLoadingDetails(true);
-      const detailsMap: Record<string, VideoData> = {};
-      // 유효하지 않은 비디오 ID 추적을 위한 Set
+      const loadedVideoIds = new Set(Object.keys(videoDetails));
+      const videosToFetch = currentResults
+        .filter(result => result.metadata?.tl_video_id && !loadedVideoIds.has(result.metadata.tl_video_id));
+
+      if (videosToFetch.length === 0) return;
+
+      setLoadingMore(true);
+      const detailsMap: Record<string, VideoData> = { ...videoDetails };
       const invalidVideoIds = new Set<string>();
 
-      // Fetch details for the first 9 results to avoid too many requests
-      const videosToFetch = results.slice(0, 9).filter(result => result.metadata?.tl_video_id);
-
       try {
-        // Use Promise.all to fetch all video details in parallel
         await Promise.all(
           videosToFetch.map(async (result) => {
             const videoId = result.metadata?.tl_video_id;
@@ -36,16 +57,12 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
               if (details) {
                 detailsMap[videoId] = details;
               } else {
-                // 응답은 왔지만 데이터가 없는 경우
                 console.warn(`No details returned for video ${videoId}`);
                 invalidVideoIds.add(videoId);
               }
             } catch (error) {
-              // 오류가 발생한 경우 (예: 404 Not Found)
               console.error(`Error fetching details for video ${videoId}:`, error);
 
-              // 오류 메시지에서 "resource_not_exists" 또는 "does not exist" 문자열이 포함된 경우
-              // 해당 비디오는 존재하지 않는 것으로 표시
               const errorMessage = error instanceof Error ? error.message : String(error);
               if (
                 errorMessage.includes('resource_not_exists') ||
@@ -61,7 +78,6 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
 
         setVideoDetails(detailsMap);
 
-        // 로그 출력
         if (invalidVideoIds.size > 0) {
           console.info(`Excluded ${invalidVideoIds.size} invalid videos from results:`,
             Array.from(invalidVideoIds));
@@ -69,12 +85,19 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
       } catch (error) {
         console.error('Error fetching video details:', error);
       } finally {
+        setLoadingMore(false);
         setLoadingDetails(false);
       }
     };
 
     fetchAllVideoDetails();
-  }, [results, indexId]);
+  }, [results, indexId, currentPage, videoDetails]);
+
+  useEffect(() => {
+    if (results.length > 0) {
+      setLoadingDetails(true);
+    }
+  }, [results]);
 
   // Skip if no results
   if (!results || results.length === 0) {
@@ -98,7 +121,6 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
   const renderTags = (videoData: VideoData | undefined) => {
     if (!videoData || !videoData.user_metadata) return null;
 
-    // 모든 태그를 수집
     const allTags = Object.entries(videoData.user_metadata)
       .filter(([key, value]) => key !== 'source' && value != null && value.toString().length > 0)
       .flatMap(([, value]) => {
@@ -106,7 +128,6 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
         const tagValues = (value as unknown as string).toString().split(',');
 
 
-        // 각 태그 생성 - 제대로 된 대문자 처리
         return tagValues
           .map((tag: string) => {
             // First trim the tag to remove any leading/trailing spaces
@@ -151,7 +172,6 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
     );
   };
 
-  // 비디오 클릭 핸들러
   const handleVideoClick = (videoId: string) => {
     const videoData = videoDetails[videoId];
     const resultData = results.find(result => result.metadata?.tl_video_id === videoId);
@@ -182,14 +202,13 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
   return (
     <div className="mt-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {results.slice(0, 9).map((result, index) => {
+        {currentResults.map((result, index) => {
           const { label, color } = getSimilarityLabel(result.score, result.originalSource as string);
           const videoId = result.metadata?.tl_video_id;
 
           // Only render videos with valid IDs
           if (!videoId) return null;
 
-          // 존재하지 않는 비디오(오류가 발생한 비디오)는 렌더링하지 않음
           if (!videoDetails[videoId]) return null;
 
           // Get the full video details from our fetched data
@@ -227,7 +246,23 @@ const SimilarVideoResults: React.FC<SimilarVideoResultsProps> = ({ results, inde
         })}
       </div>
 
-      {/* 비디오 재생 모달 */}
+      {/* loading indicator for infinite scroll */}
+      {currentPage < totalPages && (
+        <div
+          ref={loadMoreRef}
+          className="w-full py-8 flex justify-center"
+        >
+          {loadingMore ? (
+            <div className="flex items-center space-x-2">
+              <LoadingSpinner size="sm" color="default" />
+            </div>
+          ) : (
+            <div className="h-10" />
+          )}
+        </div>
+      )}
+
+      {/* video modal */}
       {selectedVideo && (
         <VideoModal
           videoUrl={selectedVideo.url}
