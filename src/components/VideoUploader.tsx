@@ -211,7 +211,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
   // Upload a single file to Twelve Labs
   const uploadFile = async (file: UploadingFile) => {
     try {
-      console.log('Starting upload for file:', file.file.name);
 
       // Update file status
       setFiles(prev => prev.map(f =>
@@ -237,7 +236,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
       formData.append('enable_video_stream', 'true');
 
       // Step 3: Upload directly to Twelve Labs API
-      console.log('Sending direct upload to Twelve Labs API with index_id:', indexId);
       const response = await fetch('https://api.twelvelabs.io/v1.3/tasks', {
         method: 'POST',
         headers: {
@@ -247,7 +245,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
         body: formData,
       });
 
-      console.log('Twelve Labs API response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -258,7 +255,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
         try {
           // Try to parse as JSON
           const errorJson = JSON.parse(errorText);
-          console.log('Parsed error JSON:', errorJson);
 
           // Check different possible error formats
           if (errorJson.details && typeof errorJson.details === 'object' && errorJson.details.message) {
@@ -290,7 +286,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
       }
 
       const data = await response.json();
-      console.log('Upload success response:', data);
 
       // Update file with task and video IDs
       setFiles(prev => prev.map(f =>
@@ -344,7 +339,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
       let data;
       try {
         data = await response.json();
-        console.log('Indexing status:', data);
       } catch (jsonError) {
         console.error('Error parsing status response:', jsonError);
         return;
@@ -433,7 +427,6 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
   // Process a completed video (generate metadata and store embeddings)
   const processCompletedVideo = async (videoId: string) => {
     try {
-      console.log(`Processing completed video ${videoId} for metadata and embeddings`);
 
       // 1. Generate metadata
       let metadataResult;
@@ -457,13 +450,11 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
         };
       }
 
-      console.log('Generated metadata:', metadataResult);
 
       // 2. Parse hashtags and update video metadata
       if (metadataResult.data) {
         const metadata = parseHashtags(metadataResult.data);
         const metadataUpdated = await updateVideoMetadata(videoId, indexId, metadata);
-        console.log(`Metadata update status: ${metadataUpdated ? 'Success' : 'Failed'}`);
 
         // Make sure we don't proceed to embeddings storage if metadata update fails
         if (!metadataUpdated) {
@@ -481,17 +472,13 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ indexId, onUploadComplete
 
       while (attempts < maxAttempts && !embeddingResult?.success) {
         attempts++;
-        console.log(`Attempt ${attempts}/${maxAttempts} to get and store embeddings for video ${videoId}`);
 
         try {
           embeddingResult = await getAndStoreEmbeddings(indexId, videoId);
-          console.log('Embedding storage result:', embeddingResult);
 
           if (embeddingResult?.success) {
-            console.log(`Successfully stored embeddings for video ${videoId} in Pinecone on attempt ${attempts}`);
             break;
           } else {
-            console.log(`Failed to store embeddings on attempt ${attempts}: ${embeddingResult?.message || 'Unknown error'}`);
 
             if (attempts < maxAttempts) {
               // Wait longer between each attempt

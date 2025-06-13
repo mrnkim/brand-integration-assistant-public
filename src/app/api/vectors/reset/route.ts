@@ -25,16 +25,13 @@ export async function POST(req: Request) {
 
     // If reset specific video
     if (!resetAll && videoId && indexId) {
-      console.log(`Resetting vectors for video ${videoId} in index ${indexId}`);
 
       try {
         // Create a filter for the delete operation
         const filter = { tl_video_id: videoId };
 
         // Actually delete vectors matching this filter
-        console.log(`Deleting vectors with filter:`, filter);
         const deleteResult = await pineconeIndex.deleteMany({ filter });
-        console.log(`Delete result:`, deleteResult);
 
         return NextResponse.json({
           success: true,

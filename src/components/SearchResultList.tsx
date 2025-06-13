@@ -75,7 +75,6 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
         const initialPage = searchResultData.pageInfo?.page || 1;
 
         if (searchResultData.pageInfo?.next_page_token) {
-          console.log('[DEBUG] Pagination: Found initial next_page_token:', searchResultData.pageInfo.next_page_token);
           setNextPageToken(searchResultData.pageInfo.next_page_token);
           setHasMorePages(true);
         } else {
@@ -124,9 +123,7 @@ const SearchResultList = ({ searchResultData, onUpdateTotalResults, textSearchQu
 
     if (searchResultData?.textSearchResults?.length > 0) {
       if (textSearchQuery) {
-        enhanceSearchResults().then(() => {
-          console.log('[DEBUG] Pagination: Finished initial load');
-        });
+        enhanceSearchResults();
       } else {
         console.error("[DEBUG] Pagination: No search query provided");
         setError("Cannot load results: Search query is missing");

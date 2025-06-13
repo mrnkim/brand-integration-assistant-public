@@ -24,7 +24,6 @@ export async function GET(
     }
 
     if (!token) {
-      console.log('🔍 > Search Retrieve API > Missing page token');
       return NextResponse.json(
         { error: "Page token is required" },
         { status: 400 }

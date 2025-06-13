@@ -74,8 +74,6 @@ export async function GET(
     );
   }
 
-  console.log(`🔍 Fetching video details for videoId: ${videoId}, indexId: ${indexId}, embed: ${requestEmbeddings}`);
-
   // Base URL
   let url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
 
@@ -83,7 +81,6 @@ export async function GET(
   if (requestEmbeddings) {
     // Include only supported embedding options
     url += `?embedding_option=visual-text&embedding_option=audio`;
-    console.log(`📢 Requesting supported embedding options: visual-text, audio`);
   }
 
   const options = {
@@ -95,7 +92,6 @@ export async function GET(
   };
 
   try {
-    console.log(`🌐 Making API request to: ${url}`);
     const response = await fetch(url, options);
 
     if (!response.ok) {
@@ -117,20 +113,10 @@ export async function GET(
     // Use unknown type and a type guard for safer handling
     const videoData: unknown = await response.json();
 
-    // Debug the raw response structure
-    console.log(`✅ Received video data with keys:`, videoData ? Object.keys(videoData as object) : 'null');
-
     if (requestEmbeddings) {
-      console.log(`📊 Embedding data present:`, 'embedding' in (videoData as TwelveLabsVideoData));
 
       const typedVideoData = videoData as TwelveLabsVideoData;
       if (typedVideoData.embedding) {
-        const embedding = typedVideoData.embedding;
-        console.log(`📊 Embedding structure:`, {
-          hasVideoEmbedding: !!embedding.video_embedding,
-          hasSegments: !!embedding.video_embedding?.segments,
-          segmentsCount: embedding.video_embedding?.segments?.length || 0
-        });
       } else {
         console.warn(`⚠️ No embedding data found in response for video ${videoId}`);
       }
@@ -170,9 +156,6 @@ export async function GET(
     // Check if the 'embedding' field exists in the response from TwelveLabs
     if (typedVideoData.embedding) {
       responseData.embedding = typedVideoData.embedding;
-      console.log(`✅ Successfully included embedding data in response with ${
-        typedVideoData.embedding.video_embedding?.segments?.length || 0
-      } segments`);
     } else if (requestEmbeddings) {
       console.warn(`⚠️ Embedding was requested but not found in API response!`);
     }

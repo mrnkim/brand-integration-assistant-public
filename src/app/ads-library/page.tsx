@@ -113,11 +113,9 @@ export default function AdsLibrary() {
     queryFn: ({ pageParam }) => fetchVideos(pageParam, adsIndexId, 50),
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
-      console.log("getNextPageParam - current page:", lastPage.page_info.page, "total pages:", lastPage.page_info.total_page);
 
       // 모든 페이지에서 로드된 비디오 수 계산
       const loadedCount = allPages.flatMap(page => page.data).length;
-      console.log("getNextPageParam - loaded videos:", loadedCount, "total videos:", lastPage.page_info.total_count);
 
       // 아직 모든 비디오를 로드하지 않았고 다음 페이지가 있으면 다음 페이지 로드
       if (loadedCount < lastPage.page_info.total_count && lastPage.page_info.page < lastPage.page_info.total_page) {
@@ -127,7 +125,6 @@ export default function AdsLibrary() {
     },
     enabled: !!adsIndexId,
   });
-    console.log("🚀 > AdsLibrary > videosData=", videosData)
 
   // Intersection Observer for infinite scroll
   const { ref: observerRef, inView } = useInView({

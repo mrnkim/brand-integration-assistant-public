@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
 
     const videosData = await videosResponse.json();
     const videos = videosData.data || [];
-    console.log(`Found ${videos.length} videos to process`);
 
     // 2. Process each video and fix titles if needed
     const results = {

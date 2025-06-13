@@ -20,28 +20,10 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-// 사용법 안내
-function printUsage() {
-  console.log(
-    "Usage: node deleteVideoVector.js --videoId <videoId> --indexId <indexId>"
-  );
-  console.log("");
-  console.log("Options:");
-  console.log("  --videoId   Twelve Labs 비디오 ID");
-  console.log(
-    "  --indexId   Twelve Labs 인덱스 ID (광고: ADS_INDEX_ID, 콘텐츠: CONTENT_INDEX_ID)"
-  );
-  console.log("");
-  console.log("Example:");
-  console.log(
-    "  node src/scripts/deleteVideoVector.js --videoId 1234abcd --indexId 5678efgh"
-  );
-}
 
 // 값 확인
 if (!videoId || !indexId) {
   console.error("❌ Error: videoId와 indexId가 필요합니다.");
-  printUsage();
   process.exit(1);
 }
 
@@ -59,13 +41,9 @@ if (!PINECONE_API_KEY) {
 }
 
 async function deleteVideoVector() {
-  console.log(`🚀 특정 비디오 벡터 삭제 시작...`);
-  console.log(`📋 대상 비디오 ID: ${videoId}`);
-  console.log(`📋 인덱스 ID: ${indexId}`);
-
   try {
     // 1. API 서버를 통해 삭제 시도 (더 안전한 방법)
-    console.log(`💻 API 서버를 통해 삭제 시도...`);
+    console.log(`💻 trying to delete video vector from API server...`);
 
     try {
       const response = await fetch(`${API_SERVER_URL}/api/vectors/reset`, {
@@ -85,37 +63,36 @@ async function deleteVideoVector() {
 
         if (result.success) {
           console.log(
-            `✅ API 서버를 통해 비디오 벡터 삭제 요청 성공: ${result.message}`
+            `✅ Successfully deleted video vector from API server: ${result.message}`
           );
           return;
         } else {
           console.warn(
-            `⚠️ API 서버 응답은 성공했지만 벡터 삭제 실패: ${
+            `⚠️ API server response is successful but video vector deletion failed: ${
               result.error || "Unknown error"
             }`
           );
-          console.log(`🔄 직접 Pinecone에 연결하여 삭제를 시도합니다...`);
+          console.log(`🔄 trying to delete video vector from Pinecone directly...`);
         }
       } else {
         console.warn(
           `⚠️ API 서버 응답 실패: ${response.status} ${response.statusText}`
         );
-        console.log(`🔄 직접 Pinecone에 연결하여 삭제를 시도합니다...`);
+        console.log(`🔄 trying to delete video vector from Pinecone directly...`);
       }
     } catch (error) {
-      console.warn(`⚠️ API 서버 연결 실패: ${error.message}`);
-      console.log(`🔄 직접 Pinecone에 연결하여 삭제를 시도합니다...`);
+      console.warn(`⚠️ Failed to connect to API server: ${error.message}`);
+      console.log(`🔄 trying to delete video vector from Pinecone directly...`);
     }
 
     // 2. 직접 Pinecone에 연결하여 삭제 (백업 방법)
-    console.log(`🔌 Pinecone 클라이언트 초기화 중...`);
+    console.log(`🔌 initializing Pinecone client...`);
 
     // Pinecone 클라이언트 초기화
     const pinecone = new Pinecone({
       apiKey: PINECONE_API_KEY,
     });
 
-    console.log(`🔍 인덱스 연결 중: ${PINECONE_INDEX}`);
     const index = pinecone.Index(PINECONE_INDEX);
 
     // 필터 생성
@@ -123,21 +100,21 @@ async function deleteVideoVector() {
       tl_video_id: videoId,
     };
 
-    console.log(`🗑️ 필터를 사용하여 벡터 삭제 중:`, filter);
+    console.log(`🗑️ deleting video vector from Pinecone using filter:`, filter);
 
     // deleteMany는 필터와 일치하는 모든 벡터를 삭제
     const deleteResult = await index.deleteMany({ filter });
 
-    console.log(`✅ 성공적으로 벡터 삭제 완료!`);
-    console.log(`📊 삭제 결과:`, deleteResult);
+    console.log(`✅ Successfully deleted video vector from Pinecone`);
+    console.log(`📊 Deletion result:`, deleteResult);
   } catch (error) {
-    console.error(`❌ 벡터 삭제 중 오류 발생:`, error);
+    console.error(`❌ Error occurred while deleting video vector:`, error);
     process.exit(1);
   }
 }
 
 // 스크립트 실행
 deleteVideoVector().catch((error) => {
-  console.error(`❌ 예기치 않은 오류 발생:`, error);
+  console.error(`❌ Unexpected error occurred:`, error);
   process.exit(1);
 });

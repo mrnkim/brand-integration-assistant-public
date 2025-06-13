@@ -86,7 +86,6 @@ const ContentItem: FC<ContentItemProps> = ({
       let normalizedValue = value.trim();
 
       if (normalizedValue) {
-        console.log(`[ContentItem] Before normalization - field: ${field}, value: "${normalizedValue}"`);
 
         if (normalizedValue.includes(',')) {
           normalizedValue = normalizedValue
@@ -110,8 +109,6 @@ const ContentItem: FC<ContentItemProps> = ({
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
         }
-
-        console.log(`[ContentItem] After normalization - field: ${field}, value: "${normalizedValue}"`);
       }
 
       const updatedMetadata = {
@@ -121,12 +118,9 @@ const ContentItem: FC<ContentItemProps> = ({
 
       setLocalMetadata(updatedMetadata);
 
-      console.log('Updating metadata:', { videoId, indexId, metadata: updatedMetadata, field, value });
-
       const success = await updateVideoMetadata(videoId, indexId, updatedMetadata);
 
       if (success) {
-        console.log(`Metadata updated successfully for field: ${field}`);
       } else {
         console.error(`Failed to update metadata for field: ${field}`);
         setLocalMetadata(metadata || {});

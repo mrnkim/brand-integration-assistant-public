@@ -163,9 +163,7 @@ export async function POST(request: Request) {
         try {
           // Test Pinecone connection before upserting
           try {
-            const describeIndexStats = await index.describeIndexStats();
-            console.log(`✅ Pinecone connection test successful. Index stats:`,
-              JSON.stringify(describeIndexStats).slice(0, 200) + '...');
+            await index.describeIndexStats();
           } catch (statsError) {
             console.error(`❌ Pinecone connection test failed:`, statsError);
             throw new Error(`Failed to connect to Pinecone: ${statsError instanceof Error ? statsError.message : 'Unknown error'}`);

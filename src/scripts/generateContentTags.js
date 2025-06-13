@@ -1,14 +1,11 @@
-// Content 비디오 태그 생성 스크립트
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 dotenv.config();
 
-// API 엔드포인트와 키 설정
 const API_KEY = process.env.TWELVELABS_API_KEY;
 const API_BASE_URL = process.env.TWELVELABS_API_BASE_URL;
 const CONTENT_INDEX_ID = process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
 
-// API 키와 인덱스 ID 확인
 if (!API_KEY || !API_BASE_URL) {
   console.error(
     "❌ API_KEY 또는 API_BASE_URL이 설정되지 않았습니다. .env 파일을 확인하세요."
@@ -23,27 +20,13 @@ if (!CONTENT_INDEX_ID) {
   process.exit(1);
 }
 
-console.log("🚀 Content 비디오 태그 생성 스크립트 시작...");
-console.log(`👉 CONTENT_INDEX_ID: ${CONTENT_INDEX_ID}`);
-console.log(`👉 API_BASE_URL: ${API_BASE_URL}`);
-console.log(
-  `👉 API_KEY: ${API_KEY.substring(0, 5)}...${API_KEY.substring(
-    API_KEY.length - 5
-  )}`
-);
-
-// 비디오 목록 가져오기 (페이지네이션 처리)
 async function fetchAllVideos() {
   const allVideos = [];
   let currentPage = 1;
   let totalPages = 1;
 
-  console.log("📑 모든 content 비디오를 가져오는 중...");
-
   do {
     try {
-      console.log(`🔄 페이지 ${currentPage} 가져오는 중...`);
-
       const response = await fetch(
         `${API_BASE_URL}/indexes/${CONTENT_INDEX_ID}/videos?page=${currentPage}&page_limit=10`,
         {
@@ -67,39 +50,36 @@ async function fetchAllVideos() {
 
       if (data && data.data && Array.isArray(data.data)) {
         allVideos.push(...data.data);
-        console.log(
-          `✅ 페이지 ${currentPage}에서 ${data.data.length}개의 비디오를 가져왔습니다.`
-        );
 
         // 페이지 정보 업데이트
         if (data.page_info) {
           currentPage++;
           totalPages = data.page_info.total_page || 1;
           console.log(
-            `📊 총 ${totalPages} 페이지 중 ${currentPage - 1} 페이지 완료`
+            `📊 got ${currentPage - 1} pages out of ${totalPages} total pages`
           );
         } else {
           break;
         }
       } else {
-        console.log("⚠️ 비디오 데이터가 없거나 형식이 올바르지 않습니다.");
-        console.log("응답 데이터:", JSON.stringify(data, null, 2));
+        console.log("⚠️ video data is empty or invalid");
+        console.log("response data:", JSON.stringify(data, null, 2));
         break;
       }
     } catch (error) {
-      console.error(`❌ 페이지 ${currentPage} 가져오기 오류:`, error);
+      console.error(`❌ error getting page ${currentPage}:`, error);
       break;
     }
   } while (currentPage <= totalPages);
 
-  console.log(`📋 총 ${allVideos.length}개의 content 비디오를 가져왔습니다.`);
+  console.log(`📋 got ${allVideos.length} content videos`);
   return allVideos;
 }
 
 // 해시태그 생성
 async function generateMetadata(videoId) {
   try {
-    console.log(`🔍 비디오 ${videoId}의 메타데이터 생성 중...`);
+    console.log(`🔍 generating metadata for video ${videoId}...`);
 
     const url = `${API_BASE_URL}/generate`;
     const prompt = `You are a marketing assistant specialized in generating hashtags for video content.
@@ -170,10 +150,10 @@ Mentioned Brands: any mentioned brands in the input`;
     }
 
     const data = await response.json();
-    console.log(`✅ 비디오 ${videoId}의 메타데이터 생성 완료`);
+    console.log(`✅ completed generating metadata for video ${videoId}`);
     return data.data || "";
   } catch (error) {
-    console.error(`❌ 비디오 ${videoId}의 메타데이터 생성 오류:`, error);
+    console.error(`❌ error generating metadata for video ${videoId}:`, error);
     return "";
   }
 }
@@ -352,7 +332,7 @@ function parseHashtags(hashtagText) {
 // 메타데이터 업데이트
 async function updateVideoMetadata(videoId, indexId, metadata) {
   try {
-    console.log(`📝 비디오 ${videoId}의 메타데이터 업데이트 중...`);
+    console.log(`📝 updating metadata for video ${videoId}...`);
 
     const url = `${API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
 
@@ -367,7 +347,7 @@ async function updateVideoMetadata(videoId, indexId, metadata) {
       },
     };
 
-    console.log("업데이트할 메타데이터:", JSON.stringify(requestBody, null, 2));
+    console.log("metadata to update:", JSON.stringify(requestBody, null, 2));
 
     const response = await fetch(url, {
       method: "PUT",
@@ -383,10 +363,10 @@ async function updateVideoMetadata(videoId, indexId, metadata) {
       throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
-    console.log(`✅ 비디오 ${videoId}의 메타데이터 업데이트 완료`);
+    console.log(`✅ completed updating metadata for video ${videoId}`);
     return true;
   } catch (error) {
-    console.error(`❌ 비디오 ${videoId}의 메타데이터 업데이트 오류:`, error);
+    console.error(`❌ error updating metadata for video ${videoId}:`, error);
     return false;
   }
 }
@@ -394,7 +374,7 @@ async function updateVideoMetadata(videoId, indexId, metadata) {
 // 비디오 상세 정보 가져오기
 async function fetchVideoDetails(videoId, indexId) {
   try {
-    console.log(`🔍 비디오 ${videoId}의 상세 정보 가져오는 중...`);
+    console.log(`🔍 getting details for video ${videoId}...`);
 
     const response = await fetch(
       `${API_BASE_URL}/indexes/${indexId}/videos/${videoId}`,
@@ -413,10 +393,10 @@ async function fetchVideoDetails(videoId, indexId) {
     }
 
     const data = await response.json();
-    console.log(`✅ 비디오 ${videoId}의 상세 정보 가져오기 완료`);
+    console.log(`✅ completed getting details for video ${videoId}`);
     return data;
   } catch (error) {
-    console.error(`❌ 비디오 ${videoId}의 상세 정보 가져오기 오류:`, error);
+    console.error(`❌ error getting details for video ${videoId}:`, error);
     throw error;
   }
 }
@@ -428,7 +408,7 @@ async function main() {
     const videos = await fetchAllVideos();
 
     console.log(
-      `🎬 총 ${videos.length}개의 비디오에 대해 태그 생성을 시작합니다...`
+      `🎬 starting to generate tags for ${videos.length} videos`
     );
 
     let processedCount = 0;
@@ -440,7 +420,7 @@ async function main() {
       try {
         processedCount++;
         console.log(
-          `\n🎥 [${processedCount}/${videos.length}] 비디오 ${video._id} 처리 중...`
+          `\n🎥 [${processedCount}/${videos.length}] processing video ${video._id}...`
         );
 
         // 이미 태그가 있는지 확인
@@ -456,10 +436,10 @@ async function main() {
             videoDetails.user_metadata.emotions)
         ) {
           console.log(
-            `⏭️ 비디오 ${video._id}는 이미 태그가 있습니다. 건너뜁니다.`
+            `⏭️ video ${video._id} already has tags. skipping...`
           );
           console.log(
-            `   기존 태그:`,
+            `    existing tags:`,
             JSON.stringify(videoDetails.user_metadata, null, 2)
           );
           skipCount++;
@@ -471,14 +451,14 @@ async function main() {
 
         if (!hashtagText) {
           console.log(
-            `⚠️ 비디오 ${video._id}에 대한 태그 생성에 실패했습니다. 건너뜁니다.`
+            `⚠️ failed to generate tags for video ${video._id}. skipping...`
           );
           continue;
         }
 
         // 태그 파싱
         const metadata = parseHashtags(hashtagText);
-        console.log(`📋 생성된 메타데이터:`, metadata);
+        console.log(`📋 generated metadata:`, metadata);
 
         // 태그 저장
         const success = await updateVideoMetadata(
@@ -489,18 +469,18 @@ async function main() {
 
         if (success) {
           successCount++;
-          console.log(`🎉 비디오 ${video._id}의 태그 생성 및 저장 완료!`);
+          console.log(`🎉 completed generating and saving tags for video ${video._id}`);
         }
       } catch (error) {
-        console.error(`❌ 비디오 ${video._id} 처리 중 오류:`, error);
+        console.error(`❌ error processing video ${video._id}:`, error);
       }
 
       // 처리 상태 출력
       console.log(
-        `\n📊 진행 상황: ${processedCount}/${videos.length} 처리 완료`
+        `\n📊 progress: ${processedCount}/${videos.length} completed`
       );
       console.log(
-        `✅ 성공: ${successCount} | ⏭️ 건너뜀: ${skipCount} | ❌ 실패: ${
+        `✅ success: ${successCount} | ⏭️ skipped: ${skipCount} | ❌ failed: ${
           processedCount - successCount - skipCount
         }`
       );
@@ -509,21 +489,19 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    console.log(`\n🎉 태그 생성 작업이 완료되었습니다!`);
+    console.log(`\n🎉 completed generating tags for ${videos.length} videos`);
     console.log(
-      `📊 총 ${
-        videos.length
-      }개 비디오 중 ${successCount}개 성공, ${skipCount}개 건너뜀, ${
+      `📊 total: ${videos.length} | success: ${successCount} | skipped: ${skipCount} | failed: ${
         videos.length - successCount - skipCount
-      }개 실패`
+      }`
     );
   } catch (error) {
-    console.error("❌ 스크립트 실행 중 오류 발생:", error);
+    console.error("❌ error running script:", error);
   }
 }
 
 // 스크립트 실행
 main().catch((error) => {
-  console.error("❌ 스크립트 실행 중 예기치 않은 오류:", error);
+  console.error("❌ error running script:", error);
   process.exit(1);
 });

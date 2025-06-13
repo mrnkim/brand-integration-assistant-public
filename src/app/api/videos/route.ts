@@ -63,8 +63,6 @@ export async function GET(request: NextRequest) {
 
     const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos?page=${page}&page_limit=${limit}`;
 
-    console.log(`Fetching videos from API: ${url}`);
-
     const options = {
       method: 'GET',
       headers: {

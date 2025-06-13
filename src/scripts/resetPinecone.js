@@ -13,8 +13,6 @@ async function resetPineconeIndex() {
     process.exit(1);
   }
 
-  console.log(`Initializing Pinecone client...`);
-
   try {
     // Pinecone 클라이언트 초기화
     const pinecone = new Pinecone({

@@ -33,9 +33,6 @@ export async function GET() {
     // Try to get index stats
     const stats = await index.describeIndexStats();
 
-    console.log('✅ Pinecone connection test successful');
-    console.log('📊 Index stats:', JSON.stringify(stats).slice(0, 200) + '...');
-
     return NextResponse.json({
       success: true,
       message: 'Pinecone connection test successful',

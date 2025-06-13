@@ -39,7 +39,6 @@ export async function PUT(request: NextRequest) {
     // Prepare API request
     const url = `${TWELVELABS_API_BASE_URL}/indexes/${indexId}/videos/${videoId}`;
 
-    console.log(`Updating system metadata for video ${videoId} in index ${indexId}:`, systemMetadata);
 
     const requestBody = {
       system_metadata: {

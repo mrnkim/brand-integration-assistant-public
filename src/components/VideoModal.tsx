@@ -168,7 +168,6 @@ const VideoModal: React.FC<VideoModalProps> = ({
     // Tag extraction function - unified extraction logic considering field name differences
     const extractTagsFromMetadata = (metadata: Record<string, unknown> | undefined) => {
       if (!metadata) {
-        console.log("No metadata provided for tag extraction");
         return [];
       }
 
@@ -185,12 +184,10 @@ const VideoModal: React.FC<VideoModalProps> = ({
 
       // demographics unified field processing (when gender and age are together)
       if (metadata.demographics && typeof metadata.demographics === 'string') {
-        console.log(`  Found demographics: "${metadata.demographics}"`);
         const demographicsValue = metadata.demographics as string;
 
         // Process comma-separated values
         const demoParts = demographicsValue.split(',').map(part => part.trim());
-        console.log(`  Demographics parts:`, demoParts);
 
         // Gender keywords
         const genderKeywords = ['male', 'female', 'men', 'women'];

@@ -17,13 +17,10 @@ const API_SERVER_URL =
   process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000";
 
 async function deleteVideoVector() {
-  console.log(`🚀 비디오 벡터 삭제 시작...`);
-  console.log(`📋 대상 비디오 ID: ${videoId}`);
-  console.log(`📋 인덱스 ID: ${indexId}`);
 
   try {
     // API 서버를 통해 삭제 시도
-    console.log(`💻 API 서버를 통해 삭제 시도...`);
+    console.log(`💻 trying to delete video vector from API server...`);
 
     const response = await fetch(`${API_SERVER_URL}/api/vectors/reset`, {
       method: "POST",
@@ -42,10 +39,10 @@ async function deleteVideoVector() {
 
       if (result.success) {
         console.log(
-          `✅ API 서버를 통해 비디오 벡터 삭제 요청 성공: ${result.message}`
+          `✅ Successfully deleted video vector from API server: ${result.message}`
         );
         if (result.result) {
-          console.log(`📊 삭제 결과:`, JSON.stringify(result.result, null, 2));
+          console.log(`📊 Deletion result:`, JSON.stringify(result.result, null, 2));
         }
         return;
       } else {

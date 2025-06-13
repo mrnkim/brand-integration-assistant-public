@@ -115,11 +115,9 @@ export default function ContentLibraryPage() {
     queryFn: ({ pageParam }) => fetchVideos(pageParam, contentIndexId),
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
-      console.log("getNextPageParam - current page:", lastPage.page_info.page, "total pages:", lastPage.page_info.total_page);
 
       // Calculate loaded video count from all pages
       const loadedCount = allPages.flatMap(page => page.data).length;
-      console.log("getNextPageParam - loaded videos:", loadedCount, "total videos:", lastPage.page_info.total_count);
 
       // Load next page if we haven't loaded all videos and there's a next page
       if (loadedCount < lastPage.page_info.total_count && lastPage.page_info.page < lastPage.page_info.total_page) {
@@ -148,19 +146,16 @@ export default function ContentLibraryPage() {
     const isStillIndexing = !!indexingVideo;
 
     if (isStillIndexing) {
-      console.log(`Video ${video._id} is still indexing, skipping tag generation`);
       tags = [];
     }
     else if (video.metadata?.tags) {
       tags = video.metadata.tags;
     }
     else if (video.user_metadata) {
-      console.log(`Converting metadata for video ${video._id}:`, video.user_metadata);
       tags = convertMetadataToTags(video.user_metadata);
     }
     else {
       tags = [];
-      console.log(`No metadata or tags available for video ${video._id}`);
     }
 
     const metadata = (!isStillIndexing && video.user_metadata) ? {
@@ -181,12 +176,7 @@ export default function ContentLibraryPage() {
                               d.toLowerCase().includes('men')).join(', ') : '',
     } : undefined;
 
-    if (metadata) {
-      console.log(`Video ${video._id} metadata converted:`, metadata);
-    }
-
     const thumbnailUrl = video.hls?.thumbnail_urls?.[0] || 'https://placehold.co/600x400?text=No+Thumbnail';
-    console.log(`Video ${video._id} thumbnail URL: ${thumbnailUrl}`);
 
     return {
       id: video._id,
@@ -208,7 +198,6 @@ export default function ContentLibraryPage() {
       const updatedVideo = await fetchVideoDetails(videoId, contentIndexId);
 
       if (updatedVideo) {
-        console.log(`Received updated video data for ${videoId}:`, updatedVideo);
 
         setAdItems(prevItems => {
           return prevItems.map(item => {
@@ -240,7 +229,6 @@ export default function ContentLibraryPage() {
                 status: item.status === 'indexing' ? 'indexing' : undefined
               };
 
-              console.log(`Updated content item for ${videoId}:`, updatedItem);
               return updatedItem;
             }
             return item;
@@ -250,7 +238,6 @@ export default function ContentLibraryPage() {
     } catch (error) {
       console.error(`Error refreshing metadata for video ${videoId}:`, error);
       if (refetch) {
-        console.log("Direct metadata refresh failed, falling back to full refetch");
         refetch();
       }
     }
@@ -263,7 +250,6 @@ export default function ContentLibraryPage() {
     const videoId = video._id;
 
     if (processedVideoIds.has(videoId) || videosInProcessing.includes(videoId)) {
-      console.log(`Video ${videoId} already processed or processing, skipping...`);
       return false;
     }
 
@@ -274,24 +260,19 @@ export default function ContentLibraryPage() {
            !video.user_metadata.emotions && !video.user_metadata.brands &&
            !video.user_metadata.locations)) {
 
-        console.log(`Generating metadata for video ${videoId}`);
         setVideosInProcessing(prev => [...prev, videoId]);
 
         const hashtagText = await generateMetadata(videoId);
-        console.log(`Generated hashtags for video ${videoId}: ${hashtagText}`);
 
         if (hashtagText) {
           const metadata = parseHashtags(hashtagText);
-          console.log(`Parsed metadata for video ${videoId}:`, metadata);
 
-          console.log(`Updating metadata for video ${videoId}`, metadata);
           await updateVideoMetadata(videoId, contentIndexId, metadata);
 
           setAdItems(prevItems => {
             return prevItems.map(item => {
               if (item.id === videoId) {
                 const updatedTags = convertMetadataToTags(metadata);
-                console.log(`Generated ${updatedTags.length} tags for video ${videoId}`);
 
                 return {
                   ...item,
@@ -311,7 +292,6 @@ export default function ContentLibraryPage() {
 
         setVideosInProcessing(prev => prev.filter(id => id !== videoId));
       } else {
-        console.log(`Video ${videoId} already has metadata, skipping...`);
         setProcessedVideoIds(prev => new Set(prev).add(videoId));
       }
       return false;
@@ -350,7 +330,6 @@ export default function ContentLibraryPage() {
         uploadingVideo.id === video._id && uploadingVideo.status !== 'ready'
       );
       if (isStillIndexing) {
-        console.log(`Video ${video._id} is still indexing, skipping metadata generation`);
         return false;
       }
 
@@ -364,11 +343,9 @@ export default function ContentLibraryPage() {
     });
 
     if (videosNeedingMetadata.length === 0) {
-      console.log('No videos need metadata processing');
       return;
     }
 
-    console.log(`Processing metadata for ${videosNeedingMetadata.length} videos`);
     setProcessingMetadata(true);
     setSkipMetadataProcessing(true);
 
@@ -389,7 +366,6 @@ export default function ContentLibraryPage() {
         await processBatch(batch);
       }
 
-      console.log('All metadata processing completed');
     } catch (error) {
       console.error("Error processing video metadata:", error);
     } finally {
@@ -403,7 +379,6 @@ export default function ContentLibraryPage() {
   // Update ContentItems array whenever video data changes
   useEffect(() => {
     if (videosData) {
-      console.log('Processing video data update:', videosData.pages.length, 'pages');
 
       setAdItems(prevItems => {
         const existingItemsMap = new Map(
@@ -419,7 +394,6 @@ export default function ContentLibraryPage() {
               (existingItem.metadata && Object.keys(existingItem.metadata).length > 0) ||
               (existingItem.tags && existingItem.tags.length > 0)
             )) {
-              console.log(`Preserving existing metadata for video ${videoId}`);
 
               return {
                 ...existingItem,
@@ -430,18 +404,10 @@ export default function ContentLibraryPage() {
             }
 
             const newItem = convertToAdItem(video);
-            console.log(`Video ${video._id} converted:`, {
-              hasMetadata: !!video.user_metadata,
-              metadataKeys: video.user_metadata ? Object.keys(video.user_metadata) : [],
-              tagsCount: newItem.tags.length,
-              hasThumbnail: !!newItem.thumbnailUrl,
-              thumbnailUrl: newItem.thumbnailUrl
-            });
             return newItem;
           })
         );
 
-        console.log(`Updated content items: ${updatedItems.length} items, ${prevItems.length} were existing`);
         return updatedItems;
       });
 
@@ -451,7 +417,6 @@ export default function ContentLibraryPage() {
           const newlyLoadedVideos = filterVideosNeedingMetadata(allVideos, processedVideoIds, videosInProcessing);
 
           if (newlyLoadedVideos.length > 0) {
-            console.log(`Processing metadata for ${newlyLoadedVideos.length} newly loaded videos`);
             processVideoMetadata(newlyLoadedVideos);
           }
         }, 100);
@@ -470,7 +435,6 @@ export default function ContentLibraryPage() {
   };
 
   const handleUpload = () => {
-    console.log('Upload clicked');
     setShowUploader(true);
   };
 
@@ -486,17 +450,14 @@ export default function ContentLibraryPage() {
   // Fetch recent indexing tasks
   const fetchRecentTasks = useCallback(async () => {
     try {
-      console.log(`Fetching recent indexing tasks for content index: ${contentIndexId}`);
       const tasks = await fetchIndexingTasks(contentIndexId);
 
       if (tasks && tasks.length > 0) {
-        console.log(`Received ${tasks.length} indexing tasks`);
 
         const statusCounts: Record<string, number> = {};
         tasks.forEach((task: IndexingTask) => {
           statusCounts[task.status || 'unknown'] = (statusCounts[task.status || 'unknown'] || 0) + 1;
         });
-        console.log('Task status distribution:', statusCounts);
 
         const taskMap = new Map<string, IndexingTask>();
         tasks.forEach((task: IndexingTask) => {
@@ -509,13 +470,6 @@ export default function ContentLibraryPage() {
 
         const newIndexingItems = indexingTasks
           .map((task: IndexingTask) => {
-            console.log(`Indexing task details for ${task.video_id || 'unknown video'}:`, {
-              id: task._id,
-              status: task.status,
-              videoId: task.video_id,
-              hasSystemMetadata: !!task.system_metadata
-            });
-
             return {
               id: task.video_id || '',
               taskId: task._id,
@@ -525,7 +479,6 @@ export default function ContentLibraryPage() {
             };
           });
 
-        console.log(`Created ${newIndexingItems.length} indexing item entries for display`);
         setRecentUploads(newIndexingItems);
 
         setAdItems(prev => {
@@ -533,7 +486,6 @@ export default function ContentLibraryPage() {
             const task = taskMap.get(item.id);
 
             if (task && task.status !== 'ready') {
-              console.log(`Marking video ${item.id} as still indexing with status: ${task.status}`);
               return {
                 ...item,
                 isIndexing: true,
@@ -543,7 +495,6 @@ export default function ContentLibraryPage() {
               };
             }
             else if (task && task.status === 'ready') {
-              console.log(`Marking video ${item.id} as indexing complete`);
               return {
                 ...item,
                 isIndexing: false,

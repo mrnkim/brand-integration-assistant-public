@@ -22,8 +22,6 @@ export const fetchVideos = async (
       console.warn(`Requested page limit ${limit} exceeds maximum allowed (50). Using limit=50 instead.`);
     }
 
-    console.log(`Fetching videos from index: ${indexId}, page: ${page}, limit: ${validatedLimit}`);
-
     // Check if the index ID seems valid (basic check)
     if (indexId === '6836a0b9dad860d6bd2f61e7') {
       console.warn(`⚠️ Using potentially problematic index ID: ${indexId}`);
@@ -324,7 +322,6 @@ export const generateMetadata = async (videoId: string): Promise<string> => {
     }
 
     const data = await response.json();
-    console.log("🚀 > generateMetadata > data=", data)
     // Now data has the structure { id, data, usage } where data.data contains the hashtags
     return data.data || '';
   } catch (error) {
@@ -359,8 +356,6 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
       hashtagText.includes('Age:') ||
       hashtagText.includes('Topic:')) {
 
-    console.log("Parsing formatted metadata with labels");
-
     // 각 줄을 분리
     const lines = hashtagText.split('\n');
 
@@ -370,39 +365,30 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
       // 각 레이블에 맞게 데이터 추출 (새로운 레이블과 이전 레이블 모두 지원)
       if (trimmedLine.startsWith('Demographics Gender:')) {
         metadata.demographics_gender = trimmedLine.substring('Demographics Gender:'.length).trim();
-        console.log(`Found demographics_gender: ${metadata.demographics_gender}`);
       }
       else if (trimmedLine.startsWith('Gender:')) {
         metadata.demographics_gender = trimmedLine.substring('Gender:'.length).trim();
-        console.log(`Found gender (mapped to demographics_gender): ${metadata.demographics_gender}`);
       }
       else if (trimmedLine.startsWith('Demographics Age:')) {
         metadata.demographics_age = trimmedLine.substring('Demographics Age:'.length).trim();
-        console.log(`Found demographics_age: ${metadata.demographics_age}`);
       }
       else if (trimmedLine.startsWith('Age:')) {
         metadata.demographics_age = trimmedLine.substring('Age:'.length).trim();
-        console.log(`Found age (mapped to demographics_age): ${metadata.demographics_age}`);
       }
       else if (trimmedLine.startsWith('Topic Category:')) {
         metadata.sector = trimmedLine.substring('Topic Category:'.length).trim();
-        console.log(`Found sector (Topic Category): ${metadata.sector}`);
       }
       else if (trimmedLine.startsWith('Topic:')) {
         metadata.sector = trimmedLine.substring('Topic:'.length).trim();
-        console.log(`Found topic (mapped to sector): ${metadata.sector}`);
       }
       else if (trimmedLine.startsWith('Emotions:')) {
         metadata.emotions = trimmedLine.substring('Emotions:'.length).trim();
-        console.log(`Found emotions: ${metadata.emotions}`);
       }
       else if (trimmedLine.startsWith('Location:')) {
         metadata.locations = trimmedLine.substring('Location:'.length).trim();
-        console.log(`Found locations: ${metadata.locations}`);
       }
       else if (trimmedLine.startsWith('Brands:')) {
         metadata.brands = trimmedLine.substring('Brands:'.length).trim();
-        console.log(`Found brands: ${metadata.brands}`);
       }
     }
 
@@ -464,56 +450,45 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
   ];
 
   // 생성된 해시태그가 어떤 카테고리에 속하는지 분석
-  console.log(`Analyzing ${hashtags.length} hashtags from: ${hashtagText}`);
 
   for (const tag of hashtags) {
     const cleanTag = tag.slice(1).toLowerCase(); // # 제거 및 소문자 변환
-    console.log(`Processing hashtag: ${cleanTag}`);
 
     // 인구통계 성별 확인
     if (demographicsGenderKeywords.includes(cleanTag)) {
-      console.log(`Found demographic gender tag: ${cleanTag}`);
       categoryTags.demographics_gender.push(cleanTag);
       continue;
     }
 
     // 인구통계 연령 확인
     if (demographicsAgeKeywords.includes(cleanTag)) {
-      console.log(`Found demographic age tag: ${cleanTag}`);
       categoryTags.demographics_age.push(cleanTag);
       continue;
     }
 
     // 섹터 확인
     if (sectorKeywords.includes(cleanTag)) {
-      console.log(`Found sector tag: ${cleanTag}`);
       categoryTags.sector.push(cleanTag);
       continue;
     }
 
     // 감정 확인
     if (emotionKeywords.includes(cleanTag)) {
-      console.log(`Found emotion tag: ${cleanTag}`);
       categoryTags.emotions.push(cleanTag);
       continue;
     }
 
     // 위치 키워드 확인
     if (locationKeywords.includes(cleanTag)) {
-      console.log(`Found location tag: ${cleanTag}`);
       categoryTags.locations.push(cleanTag);
       continue;
     }
 
     // 브랜드 키워드 확인
     if (brandKeywords.includes(cleanTag)) {
-      console.log(`Found brand tag: ${cleanTag}`);
       categoryTags.brands.push(cleanTag);
       continue;
     }
-
-    // 어떤 기존 목록에도 없으면 브랜드나 위치로 처리
-    console.log(`Unclassified tag: ${cleanTag}`);
   }
 
   // 아직 분류되지 않은 태그들 처리
@@ -530,7 +505,6 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
   // 아직 분류되지 않은 태그가 있고, locations가 비어있으면 첫 번째 태그를 locations로 간주
   if (unclassifiedTags.length > 0 && categoryTags.locations.length === 0) {
     const locationTag = unclassifiedTags[0].slice(1).toLowerCase();
-    console.log(`Assigning unclassified tag as location: ${locationTag}`);
     categoryTags.locations.push(locationTag);
     unclassifiedTags.shift();
   }
@@ -538,7 +512,6 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
   // 아직 분류되지 않은 태그가 있고, brands가 비어있으면 다음 태그를 brands로 간주
   if (unclassifiedTags.length > 0 && categoryTags.brands.length === 0) {
     const brandTag = unclassifiedTags[0].slice(1).toLowerCase();
-    console.log(`Assigning unclassified tag as brand: ${brandTag}`);
     categoryTags.brands.push(brandTag);
   }
 
@@ -556,8 +529,6 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     if (metadata.demographics_age) demographics.push(metadata.demographics_age);
     metadata.demographics = demographics.join(', ');
   }
-
-  console.log('Parsed hashtags into metadata:', metadata);
   return metadata;
 };
 
@@ -568,8 +539,6 @@ export const updateVideoMetadata = async (
   metadata: Record<string, string>
 ): Promise<boolean> => {
   try {
-    console.log('Called updateVideoMetadata with metadata:', metadata);
-
     // UI에서 사용하는 필드명을 API에서 사용하는 필드명으로 매핑
     const apiMetadata: Record<string, string> = {};
 
@@ -606,9 +575,6 @@ export const updateVideoMetadata = async (
     } else {
       apiMetadata.demographics = demoValues.join(', ');
     }
-
-    // 로깅
-    console.log('Transformed API metadata:', apiMetadata);
 
     const payload = {
       videoId,
@@ -773,8 +739,6 @@ export const searchVideos = async (
   indexId?: string
 ): Promise<{ pageInfo: SearchPageInfo; textSearchResults: SearchResult[] }> => {
   try {
-    console.log('🔍 > searchVideos > Searching for:', searchQuery);
-
     if (!searchQuery || searchQuery.trim() === '') {
       return {
         pageInfo: { page: 1, total_page: 1, total_videos: 0, total_results: 0 },
@@ -784,9 +748,6 @@ export const searchVideos = async (
 
     // Use provided indexId or get from environment - renamed variable to avoid confusion
     const searchIndexId = indexId || process.env.NEXT_PUBLIC_CONTENT_INDEX_ID;
-    console.log('🔍 > searchVideos > Using index ID:', searchIndexId,
-                'Is ads index?', searchIndexId === process.env.NEXT_PUBLIC_ADS_INDEX_ID,
-                'Is content index?', searchIndexId === process.env.NEXT_PUBLIC_CONTENT_INDEX_ID);
 
     // Make an initial search request to get the correct total count
     // Use a larger page_size to increase chance of getting full count in first request
@@ -807,10 +768,6 @@ export const searchVideos = async (
     }
 
     const data = await response.json();
-    console.log('🔍 > searchVideos > Raw API response:', JSON.stringify(data));
-    console.log('🔍 > searchVideos > API response pageInfo:', data.pageInfo);
-    console.log('🔍 > searchVideos > ResultCount from API:', data.textSearchResults?.length || 0);
-    console.log('🔍 > searchVideos > total_results from API:', data.pageInfo?.total_results);
 
     // If we need to limit the results to display, only pass back first 10
     const limitedResults = data.textSearchResults?.slice(0, 10) || [];
@@ -862,8 +819,6 @@ export const resetPineconeVectors = async (
   resetAll: boolean = false
 ): Promise<boolean> => {
   try {
-    console.log(`Resetting vectors: videoId=${videoId || 'none'}, indexId=${indexId || 'none'}, resetAll=${resetAll}`);
-
     const response = await fetch('/api/vectors/reset', {
       method: 'POST',
       headers: {
@@ -882,7 +837,6 @@ export const resetPineconeVectors = async (
     }
 
     const data = await response.json();
-    console.log('Reset response:', data);
     return data.success === true;
   } catch (error) {
     console.error('Error resetting vectors:', error);
@@ -900,7 +854,6 @@ export const textToVideoEmbeddingSearch = async (
   contentIndexId: string
 ): Promise<EmbeddingSearchResult[]> => {
   try {
-    console.log(`Searching similar content for video ${videoId}`);
 
     // 선택된 광고 비디오의 태그 정보(sector, emotions)를 검색어로 사용
     const videoDetails = await fetchVideoDetails(videoId, adsIndexId);
@@ -916,7 +869,6 @@ export const textToVideoEmbeddingSearch = async (
     // 1. 태그 기반 검색 (sector + emotions)
     const tagSearchTerm = `${sector} ${emotions}`.trim();
     if (tagSearchTerm) {
-      console.log(`Using tag search term: "${tagSearchTerm}" for contextual analysis`);
 
       try {
         const tagResponse = await fetch('/api/embeddingSearch/textToVideo', {
@@ -932,7 +884,6 @@ export const textToVideoEmbeddingSearch = async (
 
         if (tagResponse.ok) {
           const tagResults: EmbeddingSearchResult[] = await tagResponse.json();
-          console.log(`Found ${tagResults.length} tag-based search results`);
 
           // 태그 기반 결과를 Map에 저장
           tagResults.forEach(result => {
@@ -949,9 +900,6 @@ export const textToVideoEmbeddingSearch = async (
       }
     }
 
-    // 2. 제목 기반 검색
-    console.log(`Using title search term: "${videoTitle}" for contextual analysis`);
-
     try {
       const titleResponse = await fetch('/api/embeddingSearch/textToVideo', {
         method: 'POST',
@@ -966,7 +914,6 @@ export const textToVideoEmbeddingSearch = async (
 
       if (titleResponse.ok) {
         const titleResults: EmbeddingSearchResult[] = await titleResponse.json();
-        console.log(`Found ${titleResults.length} title-based search results`);
 
         // 제목 기반 결과를 Map에 추가 (이미 존재하는 경우 점수 비교)
         titleResults.forEach(result => {
@@ -998,7 +945,6 @@ export const textToVideoEmbeddingSearch = async (
     // 점수 기준으로 정렬
     finalResults.sort((a, b) => b.score - a.score);
 
-    console.log(`Final text-based search results: ${finalResults.length} unique videos`);
 
     return finalResults;
   } catch (error) {
@@ -1014,8 +960,6 @@ export const videoToVideoEmbeddingSearch = async (
   contentIndexId: string
 ): Promise<EmbeddingSearchResult[]> => {
   try {
-    console.log(`Searching video-to-video similar content for ad ${videoId}`);
-
     const response = await fetch('/api/embeddingSearch/videoToVideo', {
       method: 'POST',
       headers: {
@@ -1032,7 +976,6 @@ export const videoToVideoEmbeddingSearch = async (
     }
 
     const results: EmbeddingSearchResult[] = await response.json();
-    console.log(`Found ${results.length} similar videos by video embedding`);
 
     return results;
   } catch (error) {
@@ -1104,7 +1047,6 @@ export const fetchIndexingTasks = async (indexId: string): Promise<IndexingTask[
     // Pre-load thumbnails for completed videos to speed up display
     const completedTasks = (data.tasks || []).filter((task: IndexingTask) => task.status === 'ready');
     if (completedTasks.length > 0) {
-      console.log(`Preloading thumbnails for ${completedTasks.length} completed videos`);
       preloadThumbnails(completedTasks);
     }
 
@@ -1146,8 +1088,6 @@ export const checkAndEnsureEmbeddings = async (
   processContentVideos: boolean = true
 ): Promise<EmbeddingCheckResult> => {
   try {
-    console.log(`🔄 Checking embeddings for ad video ${adVideoId}${processContentVideos ? ' and content videos' : ''}`);
-
     // Start with initial result state
     const result: EmbeddingCheckResult = {
       success: false,
@@ -1159,13 +1099,11 @@ export const checkAndEnsureEmbeddings = async (
     };
 
     // Step 1: Check if ad video embedding exists
-    console.log(`🔍 Checking if ad video ${adVideoId} embedding exists...`);
     const adEmbeddingExists = await checkVectorExists(adVideoId, adIndexId);
     result.adEmbeddingExists = adEmbeddingExists;
 
     // Step 2: If ad embedding doesn't exist, generate and store it
     if (!adEmbeddingExists) {
-      console.log(`⚠️ Ad video ${adVideoId} embedding does not exist, generating...`);
       const adEmbeddingResult = await getAndStoreEmbeddings(adIndexId, adVideoId);
 
       if (!adEmbeddingResult.success) {
@@ -1177,17 +1115,13 @@ export const checkAndEnsureEmbeddings = async (
         };
       }
 
-      console.log(`✅ Successfully generated ad video embedding`);
       result.adEmbeddingExists = true;
-    } else {
-      console.log(`✅ Ad video ${adVideoId} embedding already exists`);
     }
 
     result.processedCount += 1;
 
     // Step 3: If content videos are provided AND we should process them, check and generate their embeddings if needed
     if (processContentVideos && contentVideos && contentVideos.length > 0) {
-      console.log(`🔍 Checking ${contentVideos.length} content videos for embeddings...`);
 
       // Track content videos with missing embeddings
       const missingEmbeddings: string[] = [];
@@ -1205,17 +1139,12 @@ export const checkAndEnsureEmbeddings = async (
         }
       }
 
-      console.log(`✅ Found ${existingEmbeddings.length} content videos with existing embeddings`);
-      console.log(`⚠️ Found ${missingEmbeddings.length} content videos missing embeddings`);
-
       // Generate embeddings for videos that need them
       if (missingEmbeddings.length > 0) {
         for (const videoId of missingEmbeddings) {
-          console.log(`🔄 Generating embedding for content video ${videoId}...`);
           const embedResult = await getAndStoreEmbeddings(contentIndexId, videoId);
 
           if (embedResult.success) {
-            console.log(`✅ Successfully generated embedding for content video ${videoId}`);
           } else {
             console.error(`❌ Failed to generate embedding for content video ${videoId}: ${embedResult.message}`);
           }
