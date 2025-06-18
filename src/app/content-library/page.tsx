@@ -17,10 +17,9 @@ import {
   convertMetadataToTags,
   fetchVideoDetails,
   fetchIndexingTasks,
-  IndexingTask,
 } from '@/hooks/apiHooks';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { AdItemType, VideoData, Tag } from '@/types';
+import { AdItemType, VideoData, Tag,  IndexingTask } from '@/types';
 import FilterMenu, { ActiveFilters, useFilterState } from '@/components/FilterMenu';
 
 const queryClient = new QueryClient({
