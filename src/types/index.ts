@@ -557,3 +557,33 @@ export interface AdItemType {
   taskId?: string;
   status?: string;
 }
+
+export interface IndexingTask {
+  _id: string;
+  created_at?: string;
+  updated_at?: string;
+  index_id?: string;
+  status?: string;
+  video_id?: string;
+  hls?: {
+    thumbnail_urls?: string[];
+    video_url?: string;
+    status?: string;
+  };
+  system_metadata?: {
+    filename?: string;
+    video_title?: string;
+    duration?: number;
+    width?: number;
+    height?: number;
+  };
+}
+
+export interface EmbeddingCheckResult {
+  success: boolean;
+  message: string;
+  adEmbeddingExists: boolean;
+  contentEmbeddingsExist: boolean;
+  processedCount: number;
+  totalCount: number;
+}

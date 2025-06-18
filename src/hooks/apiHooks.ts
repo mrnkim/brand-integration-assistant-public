@@ -1,4 +1,4 @@
-import { IndexResponse, PaginatedResponse, ProcessingStatusResponse, VideoDetailWithEmbedding, SearchPageInfo, SearchResult, EmbeddingResponse, EmbeddingSearchResult, VideoData, ChaptersData } from '@/types';
+import { IndexResponse, PaginatedResponse, ProcessingStatusResponse, VideoDetailWithEmbedding, SearchPageInfo, SearchResult, EmbeddingResponse, EmbeddingSearchResult, VideoData, ChaptersData, IndexingTask, EmbeddingCheckResult } from '@/types';
 
 export const fetchIndex = async (indexId: string): Promise<IndexResponse> => {
   const response = await fetch(`/api/indexes/${indexId}`);
@@ -312,7 +312,7 @@ const processAndStoreEmbedding = async (videoDetails: VideoDetailWithEmbedding, 
   }
 };
 
-// 사용자 지정 메타데이터 생성
+// custom metadata generation
 export const generateMetadata = async (videoId: string): Promise<string> => {
   try {
     const response = await fetch(`/api/generate?videoId=${videoId}`);
@@ -330,10 +330,10 @@ export const generateMetadata = async (videoId: string): Promise<string> => {
   }
 };
 
-// 파싱된 해시태그에서 메타데이터 객체 생성
+// parse hashtags and create metadata object
 export const parseHashtags = (hashtagText: string): Record<string, string> => {
 
-  // 해시태그 문자열에서 메타데이터 추출
+  // extract metadata from hashtag string
   const metadata: Record<string, string> = {
     source: '',
     sector: '',
@@ -344,8 +344,8 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     demographics_age: ''
   };
 
-  // 새로운 형식 (레이블이 있는 형식) 처리
-  // 레이블을 확인하여 직접 메타데이터를 추출합니다.
+  // handle new format (labeled format)
+  // check the label and extract the metadata directly
   if (hashtagText.includes('Demographics Gender:') ||
       hashtagText.includes('Demographics Age:') ||
       hashtagText.includes('Topic Category:') ||
@@ -356,13 +356,13 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
       hashtagText.includes('Age:') ||
       hashtagText.includes('Topic:')) {
 
-    // 각 줄을 분리
+    // split each line
     const lines = hashtagText.split('\n');
 
     for (const line of lines) {
       const trimmedLine = line.trim();
 
-      // 각 레이블에 맞게 데이터 추출 (새로운 레이블과 이전 레이블 모두 지원)
+      // extract data according to each label (support both new and old labels)
       if (trimmedLine.startsWith('Demographics Gender:')) {
         metadata.demographics_gender = trimmedLine.substring('Demographics Gender:'.length).trim();
       }
@@ -392,7 +392,7 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
       }
     }
 
-    // 역방향 호환성을 위해 demographics 필드 설정
+    // for backward compatibility, set demographics field
     if (metadata.demographics_gender || metadata.demographics_age) {
       const demographics = [];
       if (metadata.demographics_gender) demographics.push(metadata.demographics_gender);
@@ -403,13 +403,13 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     return metadata;
   }
 
-  // 기존 해시태그 방식 처리 (이전 코드 유지 - 역호환성)
-  // 각 해시태그에서 카테고리 추출 시도
-  // 개행문자(\n)를 공백으로 대체하여 일관된 분할 처리
+  // handle old hashtag format (backward compatibility)
+  // try to extract category from each hashtag
+  // replace newline characters with spaces for consistent splitting
   const cleanText = hashtagText.replace(/\n/g, ' ');
   const hashtags = cleanText.split(/\s+/).filter(tag => tag.startsWith('#'));
 
-  // 각 카테고리별 태그를 수집하기 위한 객체
+  // object to collect tags for each category
   const categoryTags: Record<string, string[]> = {
     demographics_gender: [],
     demographics_age: [],
@@ -419,7 +419,7 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     brands: []
   };
 
-  // 카테고리별 키워드 - route.ts에 정의된 값들과 일치시킴
+  // keywords for each category - match the values defined in route.ts
   // Demographics Gender: Male, Female
   const demographicsGenderKeywords = ['male', 'female', 'men', 'women'];
 
@@ -435,63 +435,63 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
     'exciting', 'relaxing', 'inspiring', 'serious', 'festive', 'calm', 'determined'
   ];
 
-  // 특정 위치 키워드 - API에서는 "any real-world location"으로 정의
+  // specific location keywords - defined in route.ts as "any real-world location"
   const locationKeywords = [
     'seoul', 'dubai', 'doha', 'newyork', 'new york', 'paris', 'tokyo', 'london', 'berlin',
     'lasvegas', 'las vegas', 'france', 'korea', 'qatar', 'uae', 'usa', 'bocachica',
     'bocachicabeach', 'marathon'
   ];
 
-  // 특정 브랜드 키워드 - API에서는 "any mentioned brands in the input"으로 정의
+  // specific brand keywords - defined in route.ts as "any mentioned brands in the input"
   const brandKeywords = [
     'fentybeauty', 'adidas', 'nike', 'spacex', 'apple', 'microsoft', 'google', 'amazon',
     'ferrari', 'heineken', 'redbullracing', 'redbull', 'sailgp', 'fifaworldcup', 'fifa',
     'tourdefrance', 'nttdata', 'oracle', 'maybelline'
   ];
 
-  // 생성된 해시태그가 어떤 카테고리에 속하는지 분석
+  // analyze which category the generated hashtags belong to
 
   for (const tag of hashtags) {
-    const cleanTag = tag.slice(1).toLowerCase(); // # 제거 및 소문자 변환
+    const cleanTag = tag.slice(1).toLowerCase(); // remove # and convert to lowercase
 
-    // 인구통계 성별 확인
+    // check demographics gender
     if (demographicsGenderKeywords.includes(cleanTag)) {
       categoryTags.demographics_gender.push(cleanTag);
       continue;
     }
 
-    // 인구통계 연령 확인
+    // check demographics age
     if (demographicsAgeKeywords.includes(cleanTag)) {
       categoryTags.demographics_age.push(cleanTag);
       continue;
     }
 
-    // 섹터 확인
+    // check sector
     if (sectorKeywords.includes(cleanTag)) {
       categoryTags.sector.push(cleanTag);
       continue;
     }
 
-    // 감정 확인
+    // check emotion
     if (emotionKeywords.includes(cleanTag)) {
       categoryTags.emotions.push(cleanTag);
       continue;
     }
 
-    // 위치 키워드 확인
+    // check location
     if (locationKeywords.includes(cleanTag)) {
       categoryTags.locations.push(cleanTag);
       continue;
     }
 
-    // 브랜드 키워드 확인
+    // check brand
     if (brandKeywords.includes(cleanTag)) {
       categoryTags.brands.push(cleanTag);
       continue;
     }
   }
 
-  // 아직 분류되지 않은 태그들 처리
+  // handle unclassified tags
   const unclassifiedTags = hashtags.filter(tag => {
     const cleanTag = tag.slice(1).toLowerCase();
     return !demographicsGenderKeywords.includes(cleanTag) &&
@@ -502,27 +502,27 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
            !brandKeywords.includes(cleanTag);
   });
 
-  // 아직 분류되지 않은 태그가 있고, locations가 비어있으면 첫 번째 태그를 locations로 간주
+  // if there are unclassified tags and locations is empty, consider the first tag as locations
   if (unclassifiedTags.length > 0 && categoryTags.locations.length === 0) {
     const locationTag = unclassifiedTags[0].slice(1).toLowerCase();
     categoryTags.locations.push(locationTag);
     unclassifiedTags.shift();
   }
 
-  // 아직 분류되지 않은 태그가 있고, brands가 비어있으면 다음 태그를 brands로 간주
+  // if there are unclassified tags and brands is empty, consider the first tag as brands
   if (unclassifiedTags.length > 0 && categoryTags.brands.length === 0) {
     const brandTag = unclassifiedTags[0].slice(1).toLowerCase();
     categoryTags.brands.push(brandTag);
   }
 
-  // 각 카테고리 태그를 쉼표로 구분된 문자열로 변환
+  // convert each category tag to a comma-separated string
   for (const category in categoryTags) {
     if (categoryTags[category as keyof typeof categoryTags].length > 0) {
       metadata[category] = categoryTags[category as keyof typeof categoryTags].join(', ');
     }
   }
 
-  // 역방향 호환성을 위해 demographics 필드 설정
+  // for backward compatibility, set demographics field
   if (metadata.demographics_gender || metadata.demographics_age) {
     const demographics = [];
     if (metadata.demographics_gender) demographics.push(metadata.demographics_gender);
@@ -532,28 +532,28 @@ export const parseHashtags = (hashtagText: string): Record<string, string> => {
   return metadata;
 };
 
-// 메타데이터 업데이트
+// update video metadata
 export const updateVideoMetadata = async (
   videoId: string,
   indexId: string,
   metadata: Record<string, string>
 ): Promise<boolean> => {
   try {
-    // UI에서 사용하는 필드명을 API에서 사용하는 필드명으로 매핑
+    // map the field names used in the UI to the field names used in the API
     const apiMetadata: Record<string, string> = {};
 
-    // 직접 매핑되는 필드
+    // fields that are directly mapped
     if ('source' in metadata) apiMetadata.source = metadata.source;
     if ('emotions' in metadata) apiMetadata.emotions = metadata.emotions;
     if ('brands' in metadata) apiMetadata.brands = metadata.brands;
     if ('locations' in metadata) apiMetadata.locations = metadata.locations;
 
-    // 특별히 매핑이 필요한 필드
-    // topic_category는 실제로는 sector 필드로 저장
+    // fields that need special mapping
+    // topic_category is actually stored in the sector field
     if ('topic_category' in metadata) apiMetadata.sector = metadata.topic_category;
     if ('sector' in metadata) apiMetadata.sector = metadata.sector;
 
-    // demographics 관련 필드
+    // demographics related fields
     const demoValues = [];
     if ('demographics_gender' in metadata && metadata.demographics_gender) {
       demoValues.push(metadata.demographics_gender);
@@ -562,7 +562,7 @@ export const updateVideoMetadata = async (
       demoValues.push(metadata.demographics_age);
     }
 
-    // 기존 방식과의 호환성 유지
+    // for backward compatibility, set demographics field
     if (demoValues.length === 0) {
       if ('demographics' in metadata && metadata.demographics) {
         apiMetadata.demographics = metadata.demographics;
@@ -593,19 +593,19 @@ export const updateVideoMetadata = async (
     const responseText = await response.text();
 
     if (!response.ok) {
-      // 오류가 발생한 경우, 응답 텍스트를 그대로 사용
+      // if an error occurs, use the response text as is
       console.error('Error updating metadata:', responseText);
       throw new Error(`HTTP error! status: ${response.status}, message: ${responseText}`);
     }
 
-    // 성공 응답이면 JSON으로 파싱 시도, 실패하면 true만 반환
+    // if the response is successful, try to parse it as JSON, otherwise return true
     let success = true;
     if (responseText && responseText.trim() !== '') {
       try {
         const result = JSON.parse(responseText);
-        success = result.success !== false; // 명시적으로 false가 아니면 true로 간주
+        success = result.success !== false; // if the result is not explicitly false, consider it as true
       } catch {
-        // 파싱 실패 시 기본값 사용
+        // if parsing fails, use the default value
       }
     }
 
@@ -616,7 +616,7 @@ export const updateVideoMetadata = async (
   }
 };
 
-// 비디오 메타데이터를 태그로 변환
+// convert video metadata to tags
 export const convertMetadataToTags = (metadata: Record<string, unknown>): { category: string; value: string }[] => {
   if (!metadata) return [];
 
@@ -656,27 +656,27 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
       });
   }
 
-  // 기존 Demographics 필드 - 역호환성
+  // old demographics field - backward compatibility
   if (!metadata.demographics_gender && !metadata.demographics_age &&
       metadata.demographics && typeof metadata.demographics === 'string') {
-    // 쉼표로 구분된 값을 개별 태그로 추가
+    // add each value as a separate tag
     metadata.demographics.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
       .forEach(tag => {
-        // 성별 관련 태그인지 확인
+        // check if the tag is related to gender
         if (tag.toLowerCase().includes('male') ||
             tag.toLowerCase().includes('women') ||
             tag.toLowerCase().includes('men')) {
           tags.push({ category: 'Target Demo: Gender', value: normalizeTagValue(tag) });
         }
-        // 연령 관련 태그인지 확인
+        // check if the tag is related to age
         else if (tag.toLowerCase().includes('age') ||
                 tag.toLowerCase().includes('old') ||
                 /\d+-\d+/.test(tag)) {
           tags.push({ category: 'Target Demo: Age', value: normalizeTagValue(tag) });
         }
-        // 그 외의 경우 일반 Demographics로 간주
+        // otherwise, consider it as general demographics
         else {
           tags.push({ category: 'Demographics', value: normalizeTagValue(tag) });
         }
@@ -685,7 +685,7 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
 
   // Sector -> Topic Category
   if (metadata.sector && typeof metadata.sector === 'string') {
-    // 쉼표로 구분된 값을 개별 태그로 추가
+    // add each value as a separate tag
     metadata.sector.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
@@ -696,7 +696,7 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
 
   // Emotions
   if (metadata.emotions && typeof metadata.emotions === 'string') {
-    // 쉼표로 구분된 값을 개별 태그로 추가
+    // add each value as a separate tag
     metadata.emotions.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
@@ -707,7 +707,7 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
 
   // Brands
   if (metadata.brands && typeof metadata.brands === 'string') {
-    // 쉼표로 구분된 값을 개별 태그로 추가
+    // add each value as a separate tag
     metadata.brands.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
@@ -718,7 +718,7 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
 
   // Locations
   if (metadata.locations && typeof metadata.locations === 'string') {
-    // 쉼표로 구분된 값을 개별 태그로 추가
+    // add each value as a separate tag
     metadata.locations.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag !== '')
@@ -730,10 +730,7 @@ export const convertMetadataToTags = (metadata: Record<string, unknown>): { cate
   return tags;
 };
 
-// 텍스트 검색 결과 타입 정의
-
-
-// 텍스트 검색 수행
+// perform text search
 export const searchVideos = async (
   searchQuery: string,
   indexId?: string
@@ -844,10 +841,7 @@ export const resetPineconeVectors = async (
   }
 };
 
-// Embedding 검색 결과 타입 정의
-
-
-// 임베딩 검색 - 텍스트(태그)로 유사한 비디오 검색
+// embedding search - search for similar videos using text (tags)
 export const textToVideoEmbeddingSearch = async (
   videoId: string,
   adsIndexId: string,
@@ -855,7 +849,7 @@ export const textToVideoEmbeddingSearch = async (
 ): Promise<EmbeddingSearchResult[]> => {
   try {
 
-    // 선택된 광고 비디오의 태그 정보(sector, emotions)를 검색어로 사용
+    // use the tag information (sector, emotions) of the selected ad video as the search term
     const videoDetails = await fetchVideoDetails(videoId, adsIndexId);
     const sector = videoDetails.user_metadata?.sector || '';
     const emotions = videoDetails.user_metadata?.emotions || '';
@@ -863,10 +857,10 @@ export const textToVideoEmbeddingSearch = async (
                      videoDetails.system_metadata?.filename ||
                      `Video ${videoId}`;
 
-    // 결과를 저장할 Map (videoId를 키로 사용)
+    // map to store the results (use videoId as the key)
     const resultMap = new Map();
 
-    // 1. 태그 기반 검색 (sector + emotions)
+    // 1. tag-based search (sector + emotions)
     const tagSearchTerm = `${sector} ${emotions}`.trim();
     if (tagSearchTerm) {
 
@@ -885,11 +879,11 @@ export const textToVideoEmbeddingSearch = async (
         if (tagResponse.ok) {
           const tagResults: EmbeddingSearchResult[] = await tagResponse.json();
 
-          // 태그 기반 결과를 Map에 저장
+          // store the tag-based results in the Map
           tagResults.forEach(result => {
             const resultVideoId = result.metadata?.tl_video_id;
             if (resultVideoId) {
-              // 각 결과에 searchMethod 속성 추가
+              // add searchMethod property to each result
               result.searchMethod = 'tag';
               resultMap.set(resultVideoId, result);
             }
@@ -915,21 +909,21 @@ export const textToVideoEmbeddingSearch = async (
       if (titleResponse.ok) {
         const titleResults: EmbeddingSearchResult[] = await titleResponse.json();
 
-        // 제목 기반 결과를 Map에 추가 (이미 존재하는 경우 점수 비교)
+        // add title-based results to the Map (compare scores if already exists)
         titleResults.forEach(result => {
           const resultVideoId = result.metadata?.tl_video_id;
           if (resultVideoId) {
             result.searchMethod = 'title';
 
-            // 이미 태그 검색에서 발견된 결과인 경우 점수 비교
+            // if the result is already found in the tag-based search, compare scores
             if (resultMap.has(resultVideoId)) {
               const existingResult = resultMap.get(resultVideoId);
-              // 점수가 더 높은 결과만 유지
+              // keep the result with the higher score
               if (result.score > existingResult.score) {
                 resultMap.set(resultVideoId, result);
               }
             } else {
-              // 새로운 결과 추가
+              // add new result
               resultMap.set(resultVideoId, result);
             }
           }
@@ -939,10 +933,10 @@ export const textToVideoEmbeddingSearch = async (
       console.error("Error in title-based search:", error);
     }
 
-    // Map의 모든 값을 배열로 변환
+    // convert all values in the Map to an array
     const finalResults = Array.from(resultMap.values());
 
-    // 점수 기준으로 정렬
+    // sort by score
     finalResults.sort((a, b) => b.score - a.score);
 
 
@@ -953,7 +947,7 @@ export const textToVideoEmbeddingSearch = async (
   }
 };
 
-// 비디오 기반 임베딩 검색 - 선택한 광고와 유사한 콘텐츠 찾기
+// video-based embedding search - find similar content to the selected ad
 export const videoToVideoEmbeddingSearch = async (
   videoId: string,
   adsIndexId: string,
@@ -984,10 +978,7 @@ export const videoToVideoEmbeddingSearch = async (
   }
 };
 
-// Chapter 타입 정의
-
-
-// 비디오의 챕터를 가져오는 함수
+// get chapters of a video
 export const generateChapters = async (videoId: string): Promise<ChaptersData> => {
   try {
     const response = await fetch(`/api/generateChapters?videoId=${videoId}`);
@@ -998,7 +989,7 @@ export const generateChapters = async (videoId: string): Promise<ChaptersData> =
 
     const data = await response.json();
 
-    // 챕터 데이터의 유효성 검사
+    // validate the chapters data
     if (!data || !data.chapters || !Array.isArray(data.chapters)) {
       throw new Error('Invalid chapters data received');
     }
@@ -1010,27 +1001,6 @@ export const generateChapters = async (videoId: string): Promise<ChaptersData> =
   }
 };
 
-// Fetch recent indexing tasks
-export interface IndexingTask {
-  _id: string;
-  created_at?: string;
-  updated_at?: string;
-  index_id?: string;
-  status?: string;
-  video_id?: string;
-  hls?: {
-    thumbnail_urls?: string[];
-    video_url?: string;
-    status?: string;
-  };
-  system_metadata?: {
-    filename?: string;
-    video_title?: string;
-    duration?: number;
-    width?: number;
-    height?: number;
-  };
-}
 
 export const fetchIndexingTasks = async (indexId: string): Promise<IndexingTask[]> => {
   try {
@@ -1068,16 +1038,6 @@ const preloadThumbnails = (tasks: IndexingTask[]) => {
     }
   });
 };
-
-// Function to check and ensure embeddings exist for videos
-export interface EmbeddingCheckResult {
-  success: boolean;
-  message: string;
-  adEmbeddingExists: boolean;
-  contentEmbeddingsExist: boolean;
-  processedCount: number;
-  totalCount: number;
-}
 
 // Check and ensure embeddings for both ad and content videos
 export const checkAndEnsureEmbeddings = async (

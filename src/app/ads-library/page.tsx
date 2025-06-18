@@ -10,7 +10,7 @@ import ContentItem from '@/components/ContentItem';
 import SearchResults from '@/components/SearchResults';
 import VideoUploader from '@/components/VideoUploader';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { AdItemType, VideoData, Tag } from '@/types';
+import { AdItemType, VideoData, Tag, IndexingTask } from '@/types';
 import {
   fetchVideos,
   fetchIndex,
@@ -20,7 +20,6 @@ import {
   convertMetadataToTags,
   fetchVideoDetails,
   fetchIndexingTasks,
-  IndexingTask
 } from '@/hooks/apiHooks';
 import FilterMenu, { ActiveFilters, useFilterState } from '@/components/FilterMenu';
 
@@ -114,10 +113,10 @@ export default function AdsLibrary() {
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
 
-      // 모든 페이지에서 로드된 비디오 수 계산
+      // get the total number of videos loaded from all pages
       const loadedCount = allPages.flatMap(page => page.data).length;
 
-      // 아직 모든 비디오를 로드하지 않았고 다음 페이지가 있으면 다음 페이지 로드
+      // if not all videos are loaded and there is a next page, load the next page
       if (loadedCount < lastPage.page_info.total_count && lastPage.page_info.page < lastPage.page_info.total_page) {
         return lastPage.page_info.page + 1;
       }
