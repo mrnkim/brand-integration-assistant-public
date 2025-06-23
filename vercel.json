@@ -1,7 +1,4 @@
 {
   "functions": {
-    "app/api/videos/upload/route": {
-      "maxDuration": 60
-    }
   }
 }

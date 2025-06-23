@@ -512,24 +512,7 @@ export interface VideoModalProps {
   contentMetadata?: VideoData;
 }
 
-export interface VideoUploaderProps {
-  indexId: string;
-  onUploadComplete: () => void;
-  onClose: () => void;
-}
 
-export interface UploadingFile {
-  id: string;
-  file: File;
-  progress: number;
-  status: 'queued' | 'uploading' | 'indexing' | 'completed' | 'failed';
-  message: string;
-  taskId?: string;
-  videoId?: string;
-  thumbnail?: string;
-  duration?: number;
-  title?: string;
-}
 
 
 export interface Tag {

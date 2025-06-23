@@ -8,9 +8,9 @@ import SearchBar from '@/components/SearchBar';
 import ActionButtons from '@/components/ActionButtons';
 import ContentItem from '@/components/ContentItem';
 import SearchResults from '@/components/SearchResults';
-import VideoUploader from '@/components/VideoUploader';
+
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { AdItemType, VideoData, Tag, IndexingTask } from '@/types';
+import { AdItemType, VideoData, Tag } from '@/types';
 import {
   fetchVideos,
   fetchIndex,
@@ -19,7 +19,7 @@ import {
   updateVideoMetadata,
   convertMetadataToTags,
   fetchVideoDetails,
-  fetchIndexingTasks,
+
 } from '@/hooks/apiHooks';
 import FilterMenu, { ActiveFilters, useFilterState } from '@/components/FilterMenu';
 
@@ -59,18 +59,10 @@ export default function AdsLibrary() {
   const [adItems, setAdItems] = useState<AdItemType[]>([]);
   const [skipMetadataProcessing, setSkipMetadataProcessing] = useState(false);
   const [processedVideoIds, setProcessedVideoIds] = useState<Set<string>>(new Set());
-  const [showUploader, setShowUploader] = useState(false);
-  const [recentUploads, setRecentUploads] = useState<{
-    id: string;
-    taskId: string;
-    title: string;
-    status: string;
-    thumbnailUrl?: string;
-    duration?: string;
-  }[]>([]);
+
 
   // Fetch index data
-  const { data: indexData, refetch: refetchIndex } = useQuery({
+  const { data: indexData } = useQuery({
     queryKey: ['index', adsIndexId],
     queryFn: () => fetchIndex(adsIndexId),
     staleTime: 0, // Always get fresh data
@@ -144,10 +136,7 @@ export default function AdsLibrary() {
   const convertToAdItem = (video: VideoData): AdItemType => {
     let tags: Tag[] = [];
 
-    const indexingVideo = recentUploads.find(uploadingVideo =>
-      uploadingVideo.id === video._id && uploadingVideo.status !== 'ready'
-    );
-    const isStillIndexing = !!indexingVideo;
+    const isStillIndexing = false;
 
     if (isStillIndexing) {
       tags = [];
@@ -203,7 +192,7 @@ export default function AdsLibrary() {
       tags: tags,
       metadata: metadata,
       isIndexing: isStillIndexing,
-      status: isStillIndexing ? (indexingVideo?.status || 'processing') : undefined
+      status: undefined
     };
   };
 
@@ -358,9 +347,7 @@ export default function AdsLibrary() {
         return false;
       }
 
-      const isStillIndexing = recentUploads.some(uploadingVideo =>
-        uploadingVideo.id === video._id && uploadingVideo.status !== 'ready'
-      );
+              const isStillIndexing = false;
       if (isStillIndexing) {
         return false;
       }
@@ -410,7 +397,7 @@ export default function AdsLibrary() {
       // Re-enable metadata processing after completion
       setTimeout(() => setSkipMetadataProcessing(false), 2000);
     }
-  }, [processVideoMetadataSingle, skipMetadataProcessing, processedVideoIds, videosInProcessing, recentUploads]);
+        }, [processVideoMetadataSingle, skipMetadataProcessing, processedVideoIds, videosInProcessing]);
 
   // Update ContentItems array whenever video data changes
   useEffect(() => {
@@ -470,139 +457,11 @@ export default function AdsLibrary() {
     setSearchSubmitted(false);
   };
 
-  const handleUpload = () => {
-    setShowUploader(true);
-  };
 
-  const handleUploadComplete = () => {
-    fetchRecentTasks();
-
-    if (refetch) {
-      refetch();
-    }
-    // Close the uploader
-    setShowUploader(false);
-  };
-
-  // Fetch recent indexing tasks
-  const fetchRecentTasks = useCallback(async () => {
-    try {
-      const tasks = await fetchIndexingTasks(adsIndexId);
-
-      if (tasks && tasks.length > 0) {
-
-        const statusCounts: Record<string, number> = {};
-        tasks.forEach((task: IndexingTask) => {
-          statusCounts[task.status || 'unknown'] = (statusCounts[task.status || 'unknown'] || 0) + 1;
-        });
-
-        const taskMap = new Map<string, IndexingTask>();
-        tasks.forEach((task: IndexingTask) => {
-          if (task.video_id) {
-            taskMap.set(task.video_id, task);
-          }
-        });
-
-        const indexingTasks = tasks.filter((task: IndexingTask) => task.status !== 'ready');
-
-        const newIndexingItems = indexingTasks
-          .map((task: IndexingTask) => {
-            return {
-              id: task.video_id || '',
-              taskId: task._id,
-              title: task.system_metadata?.filename || task.video_id || 'Untitled Video',
-              status: task.status || 'processing',
-              duration: task.system_metadata?.duration ? formatDuration(task.system_metadata.duration) : undefined
-            };
-          });
-
-        setRecentUploads(newIndexingItems);
-
-        // Update existing items to mark as indexing or not indexing
-        setAdItems(prev => {
-          return prev.map(item => {
-            const task = taskMap.get(item.id);
-
-            if (task && task.status !== 'ready') {
-              return {
-                ...item,
-                isIndexing: true,
-                indexingStatus: task.status,
-                // 인덱싱 중일 땐 태그를 비움
-                tags: [],
-                status: task.status
-              };
-            }
-            else if (task && task.status === 'ready') {
-              return {
-                ...item,
-                isIndexing: false,
-                indexingStatus: undefined,
-                status: undefined
-              };
-            }
-            return item;
-          });
-        });
-
-        const justCompleted = tasks.filter((task: IndexingTask) => task.status === 'ready');
-        if (justCompleted.length > 0) {
-
-          const completedVideoIds = justCompleted
-            .map(task => task.video_id)
-            .filter(Boolean) as string[];
-
-
-          if (completedVideoIds.length > 0 && refetch) {
-            refetch();
-          }
-        }
-      } else {
-        setRecentUploads([]);
-      }
-    } catch (error) {
-      console.error('Error fetching indexing tasks:', error);
-    }
-  }, [refetch]);
-
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  useEffect(() => {
-    fetchRecentTasks();
-
-    const intervalId = setInterval(() => {
-      fetchRecentTasks();
-      refetchIndex();
-    }, 10000);
-
-    return () => clearInterval(intervalId);
-  }, [fetchRecentTasks, refetchIndex]);
 
   const combinedItems = useMemo(() => {
-    const itemsMap = new Map(
-      adItems.map(item => [item.id, item])
-    );
-
-    recentUploads.forEach(video => {
-      if (!itemsMap.has(video.id) && video.id) {
-        itemsMap.set(video.id, {
-          id: video.id,
-          title: video.title,
-          thumbnailUrl: '',
-          videoUrl: '',
-          tags: [],
-          isIndexing: true,
-          status: video.status || 'processing'
-        });
-      }
-    });
-
-    return Array.from(itemsMap.values());
-  }, [adItems, recentUploads]);
+    return adItems;
+  }, [adItems]);
 
   const displayItems = useMemo(() => {
     if (isFiltering) {
@@ -655,7 +514,6 @@ export default function AdsLibrary() {
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-2">
                         <ActionButtons
-                          onUpload={handleUpload}
                           onFilter={handleFilter}
                         />
                         {getTotalActiveFilterCount() > 0 && (
@@ -840,14 +698,8 @@ export default function AdsLibrary() {
         </div>
       </div>
 
-      {/* Video Uploader Modal */}
-      {showUploader && (
-        <VideoUploader
-          indexId={adsIndexId}
-          onUploadComplete={handleUploadComplete}
-          onClose={() => setShowUploader(false)}
-        />
-      )}
+
+
     </QueryClientProvider>
   );
 }
