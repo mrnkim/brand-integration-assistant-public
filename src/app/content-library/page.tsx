@@ -243,7 +243,7 @@ export default function ContentLibraryPage() {
     try {
       if (!video.user_metadata ||
           Object.keys(video.user_metadata).length === 0 ||
-          (!video.user_metadata.source && !video.user_metadata.topic_category &&
+          (!video.user_metadata.topic_category &&
            !video.user_metadata.emotions && !video.user_metadata.brands &&
            !video.user_metadata.locations)) {
 
@@ -296,7 +296,7 @@ export default function ContentLibraryPage() {
       !inProcessingIds.includes(video._id) &&
       (!video.user_metadata ||
       Object.keys(video.user_metadata).length === 0 ||
-      (!video.user_metadata.source &&
+      (
        !video.user_metadata.topic_category &&
        !video.user_metadata.emotions &&
        !video.user_metadata.brands &&
@@ -320,7 +320,7 @@ export default function ContentLibraryPage() {
 
       return (!video.user_metadata ||
         Object.keys(video.user_metadata).length === 0 ||
-        (!video.user_metadata.source &&
+        (
          !video.user_metadata.topic_category &&
          !video.user_metadata.emotions &&
          !video.user_metadata.brands &&
