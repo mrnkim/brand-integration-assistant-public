@@ -2,8 +2,7 @@
 
 [Brand Integration Assistant and Ad Break Finder](https://brand-integration-assistant-public.vercel.app/ads-library) is a tool that helps you instantly understand and filter ad videos through auto-generated tags, and discover the most contextually aligned content based on a selected ad. You can even simulate ad breaks using AI-suggested insertion points and preview how your ad would appear within the content.
 
-https://www.loom.com/embed/233cc8cb66ae44218e3cff69afb772d7
-
+https://www.loom.com/share/233cc8cb66ae44218e3cff69afb772d7?sid=3646d4d4-8a31-4058-9d12-6944960bae15
 ## 🧱 How It Works
 
 ![alt text](/public/howItWorks.png)
