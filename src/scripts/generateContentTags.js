@@ -81,7 +81,7 @@ async function generateMetadata(videoId) {
   try {
     console.log(`🔍 generating metadata for video ${videoId}...`);
 
-    const url = `${API_BASE_URL}/generate`;
+    const url = `${API_BASE_URL}/analyze`;
     const prompt = `You are a marketing assistant specialized in generating hashtags for video content.
 
 Based on the input video metadata, generate a list of 5 to 10 relevant hashtags.
@@ -407,9 +407,7 @@ async function main() {
     // 모든 비디오 가져오기
     const videos = await fetchAllVideos();
 
-    console.log(
-      `🎬 starting to generate tags for ${videos.length} videos`
-    );
+    console.log(`🎬 starting to generate tags for ${videos.length} videos`);
 
     let processedCount = 0;
     let successCount = 0;
@@ -435,9 +433,7 @@ async function main() {
           (videoDetails.user_metadata.sector ||
             videoDetails.user_metadata.emotions)
         ) {
-          console.log(
-            `⏭️ video ${video._id} already has tags. skipping...`
-          );
+          console.log(`⏭️ video ${video._id} already has tags. skipping...`);
           console.log(
             `    existing tags:`,
             JSON.stringify(videoDetails.user_metadata, null, 2)
@@ -469,7 +465,9 @@ async function main() {
 
         if (success) {
           successCount++;
-          console.log(`🎉 completed generating and saving tags for video ${video._id}`);
+          console.log(
+            `🎉 completed generating and saving tags for video ${video._id}`
+          );
         }
       } catch (error) {
         console.error(`❌ error processing video ${video._id}:`, error);
@@ -491,7 +489,9 @@ async function main() {
 
     console.log(`\n🎉 completed generating tags for ${videos.length} videos`);
     console.log(
-      `📊 total: ${videos.length} | success: ${successCount} | skipped: ${skipCount} | failed: ${
+      `📊 total: ${
+        videos.length
+      } | success: ${successCount} | skipped: ${skipCount} | failed: ${
         videos.length - successCount - skipCount
       }`
     );

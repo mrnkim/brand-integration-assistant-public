@@ -315,7 +315,7 @@ const processAndStoreEmbedding = async (videoDetails: VideoDetailWithEmbedding, 
 // custom metadata generation
 export const generateMetadata = async (videoId: string): Promise<string> => {
   try {
-    const response = await fetch(`/api/generate?videoId=${videoId}`);
+    const response = await fetch(`/api/analyze?videoId=${videoId}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
